@@ -1,4 +1,4 @@
-## The English version if SLAM in autonomous driving and robotics.
+## The English version of SLAM in autonomous driving and robotics.
 
 Code: https://github.com/gaoxiang12/slam_in_autonomous_driving
 
