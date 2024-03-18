@@ -1,0 +1,63 @@
+% !Mode:: "TeX:UTF-8"
+\documentclass[fontsize=11pt,a4paper,openleft,pagesize=auto]{book}
+%\documentclass[fontsize=11pt,paper=a5,pagesize=auto]{scrbook}
+\input{latex/package}
+\input{latex/option}
+\input{latex/hack}
+
+% suggested format in Springer
+%i.Title page
+%ii.Author details and  Springer copyright page
+%iii.Dedication page
+%iv.Acknowledgments
+%v.Preface
+%vi.Table of contents
+%vii.Introduction
+
+\begin{document}
+% Title page
+\title{SLAM in Robotics and Autonumous Driving}
+\author{Xiang Gao}
+\date{Last update: \today}
+
+\frontmatter
+\maketitle
+
+% Author info & copy right
+
+% dedication page
+\clearpage
+\begin{center}
+	\thispagestyle{empty}
+	\vspace*{\fill}
+	\usefont{T1}{LobsterTwo-LF}{bx}{it}
+	\Large \emph{To my beloved Lilian and Shenghan}
+	\vspace*{\fill}
+\end{center}
+
+
+\thispagestyle{empty}
+\include{chapters/front-matter}
+\thispagestyle{empty}
+
+%\include{chapters/background}
+
+\tableofcontents
+
+\mainmatter 
+\addtocontents{toc}{\protect\setcounter{tocdepth}{2}}
+\hypersetup{bookmarksdepth=2}
+
+\appendix
+\addtocontents{toc}{\protect\setcounter{tocdepth}{0}}
+\hypersetup{bookmarksdepth=2}
+
+%\input{chapters/gaussian-distribution}
+%\input{chapters/matrix-derivatives}
+
+\backmatter
+\small
+\bibliographystyle{ieeetr}
+\bibliography{ref}
+\newpage
+\end{document}
