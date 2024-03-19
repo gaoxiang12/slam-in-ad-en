@@ -1,6 +1,5 @@
 % !Mode:: "TeX:UTF-8"
 \documentclass[fontsize=11pt,a4paper,openleft,pagesize=auto]{book}
-%\documentclass[fontsize=11pt,paper=a5,pagesize=auto]{scrbook}
 \input{latex/package}
 \input{latex/option}
 \input{latex/hack}
@@ -23,6 +22,11 @@
 \frontmatter
 \maketitle
 
+% section starts from 1
+\makeatletter
+\@addtoreset{equation}{section}
+\makeatother
+
 % Author info & copy right
 
 % dedication page
@@ -35,14 +39,13 @@
 	\vspace*{\fill}
 \end{center}
 
+\tableofcontents
 
 \thispagestyle{empty}
 \include{chapters/front-matter}
 \thispagestyle{empty}
 
-%\include{chapters/background}
-
-\tableofcontents
+\include{chapters/background}
 
 \mainmatter 
 \addtocontents{toc}{\protect\setcounter{tocdepth}{2}}
