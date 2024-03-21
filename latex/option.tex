@@ -47,12 +47,16 @@
 \renewcommand\thetable{\ifnum \c@chapter>\z@ \thechapter -\fi \@arabic\c@table}
 \makeatother
 
-%\setlength{\parskip}{2em}
+% 以下设置正文字体为 Palatino 的克隆体
+\setmainfont{TeX Gyre Termes}
+% 以下设置等宽字体为 Courier 的克隆体
+\setmonofont{Monaco}
 
 % 代码风格
 \lstset{ %
 	language=C++,                % the language of the code
 	basicstyle=\scriptsize \fontspec{Monaco},           % the size of the fonts that are used for the code
+%	basicstyle=\scriptsize \ttfamily
 	numbers=left,                   % where to put the line-numbers
 	numberstyle=\tiny\color{gray},  % the style that is used for the line-numbers
 %	% will be numbered
@@ -60,7 +64,7 @@
 	showspaces=false,               % show spaces adding particular underscores
 	showstringspaces=false,         % underline spaces within strings
 %	showtabs=false,                 % show tabs within strings adding particular underscores
-	frame=single,                   % adds a frame around the code
+	frame=shadowbox,                   % adds a frame around the code
 %	%	rulecolor=\color{black},        % if not set, the frame-color may be changed on line-breaks within not-black text (e.g. commens (green here))
 	tabsize=2,                      % sets default tabsize to 2 spaces
 	%	captionpos=b,                   % sets the caption-position to bottom
@@ -68,7 +72,9 @@
 %	breakatwhitespace=false,        % sets if automatic breaks should only happen at whitespace
 %	title=\lstname,                   % show the filename of files included with \lstinputlisting;
 	% also try caption instead of title
-	keywordstyle=\textbf,          % keyword style
+	keywordstyle=\color{blue!60},          % keyword style
+	rulesepcolor=\color{blue!20},%
+	commentstyle=\color{gray}, %
 }
 
 % 目录双栏

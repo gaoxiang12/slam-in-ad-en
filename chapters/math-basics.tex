@@ -1,7 +1,7 @@
 % !Mode:: "TeX:UTF-8"
 \thispagestyle{empty}
 
-\chapter{Review of Basic Mathematical Concepts}
+\chapter{Quick Review of Basic Mathematical Concepts}
 \label{sec:math-basics}
 \thispagestyle{empty}
 
@@ -850,272 +850,291 @@ Similarly, when perturbing $\mathbf{R}_2$, we can obtain:
 
 Equations \eqref{eq:2.99} and \eqref{eq:2.104} serve as the basis for many complex function derivatives. It's essential for readers to grasp them. In practical applications, it's common to encounter compositions involving rotation matrices and other matrices or vectors. Many composite formulas can be derived using the above two equations.
 
-%\section{运动学演示案例：圆周运动}
-%\label{sec:motion-example}
-%下面我们通过一些实际案例来演示四元数与旋转矩阵在角速度上的处理方法差异。
-%
-%当我们在开车时，如果把车辆控制在固定速度，方向盘打到固定角度，车辆应该就会画出一个圆周运动的轨迹。现在请考虑：这件事情如何在程序中进行模拟？
-%
-%显然这样一台车辆应该有固定的角速度。由于我们取\textbf{前左上}作为坐标系，该车辆的角速度矢量$\boldsymbol{\omega}$应该指向$Z$方向。而前面讲的\textbf{固定速度}，则是指在车辆坐标系中，速度矢量应该为固定指向正前方$\mathbf{v}_b=[v_x, 0, 0]^\top$。当然它在世界系下的速度必定不是沿着$X$轴方向，因为它还会同时拐弯。现在我们来实现一个模拟这种车辆运行的程序。我们会用旋转矩阵和四元数两种方法来处理车辆的旋转。
-%
-%\begin{lstlisting}[language=c++,caption=src/ch2/motion.cc]
-%#include <gflags/gflags.h>
-%#include <glog/logging.h>
-%
-%#include "common/eigen_types.h"
-%#include "common/math_utils.h"
-%#include "tools/ui/pangolin_window.h"
-%
-%/// 本节程序演示一个正在作圆周运动的车辆
-%/// 车辆的角速度与线速度可以在flags中设置
-%
-%DEFINE_double(angular_velocity, 10.0, "角速度，角度制");
-%DEFINE_double(linear_velocity, 5.0, "车辆前进线速度 m/s");
-%DEFINE_bool(use_quaternion, false, "是否使用四元数计算");
-%
-%int main(int argc, char** argv) {
-%	google::InitGoogleLogging(argv[0]);
-%	FLAGS_stderrthreshold = google::INFO;
-%	FLAGS_colorlogtostderr = true;
-%	google::ParseCommandLineFlags(&argc, &argv, true);
-%	
-%	/// 可视化
-%	sad::ui::PangolinWindow ui;
-%	if (ui.Init() == false) {
-%		return -1;
-%	}
-%	
-%	double angular_velocity_rad = FLAGS_angular_velocity * sad::math::kDEG2RAD;  // 弧度制角速度
-%	SE3 pose;                                                                    // TWB表示的位姿
-%	Vec3d omega(0, 0, angular_velocity_rad);                                     // 角速度矢量
-%	Vec3d v_body(FLAGS_linear_velocity, 0, 0);                                   // 本体系速度
-%	const double dt = 0.05;                                                      // 每次更新的时间
-%	
-%	while (ui.ShouldQuit() == false) {
-%		// 更新自身位置
-%		Vec3d v_world = pose.so3() * v_body;
-%		pose.translation() += v_world * dt;
-%		
-%		// 更新自身旋转
-%		if (FLAGS_use_quaternion) {
-%			Quatd q = pose.unit_quaternion() * Quatd(1, 0.5 * omega[0] * dt, 0.5 * omega[1] * dt, 0.5 * omega[2] * dt);
-%			q.normalize();
-%			pose.so3() = SO3(q);
-%		} else {
-%			pose.so3() = pose.so3() * SO3::exp(omega * dt);
-%		}
-%		
-%		LOG(INFO) << "pose: " << pose.translation().transpose();
-%		ui.UpdateNavState(sad::NavStated(0, pose, v_world));
-%		
-%		usleep(dt * 1e6);
-%	}
-%	
-%	ui.Quit();
-%	return 0;
-%}
-%\end{lstlisting}
-%
-%由于这是本书出现的第一个程序，我们把它贴的完整一些。后面的程序就不会这样完整了，我们只贴出核心代码。
-%
-%本书整体上使用GLog来管理日志，使用Gflags来管理程序参数。本程序可以接受用户指定的角速度与线速度大小，也可以指定使用旋转矩阵的处理方式还是使用四元数的处理方式。我们做了如下几件事：
-%
-%\begin{enumerate}
-%	\item 首先，将用户给定的角速度转换为弧度制，将线速度转换到车体坐标系下的v\_body。设定仿真的时间间隔为0.05秒。
-%	\item 在每次更新时，首先计算世界系下速度。为此，我们需要知道车辆的朝向，所以把pose变量的姿态取出来，右乘车体速度。
-%	\item 然后再更新车辆状态。如果用户指定用四元数表示，则使用式\eqref{eq:2.76}；如果不使用四元数，则用\eqref{eq:2.53}更新自身姿态。
-%	\item 最后将计算好的姿态交给UI显示，并等待一个时间间隔。
-%\end{enumerate}
-%
-%为了实时显示本节程序效果，我们为读者准备了一个UI界面。如果往UI界面中更新当前的位姿与速度，它们就会实时显示在一个3D窗口中，如图~\ref{fig:motion-example}~所示。在编译本章程序后，读者可以运行：
-%\begin{lstlisting}[language=sh,caption=终端输入：]
-%./bin/motion
-%\end{lstlisting}
-%来执行本节程序。如果需要改变参数或计算方式，填写它的gflags即可：
-%\begin{lstlisting}[language=sh,caption=终端输入：]
-%bin/motion --use_quaternion=true --angular_velocity=15
-%\end{lstlisting}
-%
-%\begin{figure}[!htp]
-%	\centering
-%	\includegraphics[width=0.7\textwidth]{math-basics/motion-example.png}
-%	\caption{一个圆周运动车辆的运动学模拟}
-%	\label{fig:motion-example}
-%\end{figure}
-%
-%本书后文的大部分程序都可以通过这种方式执行。读者可以用本节程序来适应一下本书的代码风格。通过本节实验，我们可以看到车辆走出一个完整的圆形轨迹，它的世界系速度类似于三角函数，本体系下速度则保持$X$轴固定不变。使用四元数还是旋转矩阵，在处理运动学方面并无本质差异。读者可以利用本节程序，演示一些常见的自由落体或者抛物线运动。这些作为本节习题留给读者。
-%
-%\section{滤波器与最优化理论}
-%下面我们回顾基础的滤波器原理以及它和最优化方法之间的联系。我们仍然从状态估计讲起。
-%
-%\subsection{状态估计问题与最小二乘}
-%SLAM问题、定位问题或者建图问题都可以概括为状态估计问题。典型的离散时间状态估计问题由一
-%组运动方程和一组观测方程组成：
-%\begin{equation}
-%	\left\{ \begin{array}{l}
-%		{\mathbf{x}_k} = \mathbf{f}\left( {{\mathbf{x}_{k - 1}},{\mathbf{u}_k}} \right) + \mathbf{w}_k,\quad k=1, \ldots, N\\
-%		{\mathbf{z}_{k}} = \mathbf{h} \left( \mathbf{x}_k  \right)+ \mathbf{v}_{k},
-%	\end{array} \right.
-%\end{equation}
-%其中$\mathbf{f}$称为运动方程，$\mathbf{h}$称为观测方程，$\mathbf{w}_k \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_k)$, $\mathbf{v}_k 
-%\sim \mathcal{N}( \mathbf{0}, \mathbf{Q}_k)$为高斯分布的随机噪声。如果设$\mathbf{f}$和$\mathbf{h}$为线性函数，就可以得到线性高斯系统（linear Gaussian, LG系统）的状态估计问题：
-%\begin{equation}
-%	\left\{ \begin{array}{l}
-%		{\mathbf{x}_k} = \mathbf{A}_k {{\mathbf{x}_{k - 1}}+{\mathbf{u}_k}} + \mathbf{w}_k \\
-%		{\mathbf{z}_{k}} = \mathbf{C}_k  { \mathbf{x}_k} + \mathbf{v}_{k} \end{array} \right. .
-%\end{equation}
-%其中$\mathbf{A}_k, \mathbf{C}_k$为系统的转移矩阵和观测矩阵。线性系统是最简单的状态估计问题，它的
-%无偏最优估计由\textbf{卡尔曼滤波器}（Kalman filter, KF）给出\cite{Zarchan2005,Barfoot2016}。
-%
-%\subsection{卡尔曼滤波器}
-%卡尔曼滤波器描述了如何从一个时刻的状态估计递推到下一个时刻。它由\textbf{预测}（prediction）和\textbf{更新}（update）两个步骤组成。预测步骤对运动方程进行递推，观测步骤则对上一步结果进行修正。我们设$k-1$时刻状态估计为$\mathbf{x}_{k-1},
-% \mathbf{P}_{k-1}$，其中$\mathbf{x}_{k-1}$为均值，$\mathbf{P}_{k-1}$为估计协方差矩阵。
-%\begin{mdframed}
-%	\begin{enumerate}
-%		\item 预测：
-%		\begin{equation}
-%			\mathbf{x}_{k,\mathrm{pred}} = {\mathbf{A}_k {\mathbf{x}_{k - 1}} + {\mathbf{u}_k}}, \quad 
-%			\mathbf{P}_{k,\mathrm{pred}} = \mathbf{A}_k \mathbf{P}_{k-1} \mathbf{A}^\top_k + \mathbf{R}_k.
-%		\end{equation}
-%		\item 更新：
-%		先计算$\mathbf{K}$，它又称为\textbf{卡尔曼增益}。
-%		\begin{equation}
-%			\label{eq:kalman-K-another}
-%			\mathbf{K}_k = \mathbf{P}_{k, \mathrm{pred}} \mathbf{C}_k^\top {\left( {\mathbf{C}_k \mathbf{P}_{k, 
-%			\mathrm{pred}} \mathbf{C}_k^\top + {\mathbf{Q}_k}} \right)^{ - 1}}.
-%		\end{equation}
-%		然后计算后验概率的分布。
-%		\begin{equation}
-%			\begin{array}{l}
-%				{\mathbf{x}}_k = {\mathbf{x}_{k, \mathrm{pred}}} + \mathbf{K}_k \left( {\mathbf{z}_k - 
-%				{\mathbf{C}_k}{\mathbf{x}_{k, \mathrm{pred}}}} \right), \\
-%				\mathbf{P}_k = \left( {\mathbf{I} - \mathbf{K}_k {\mathbf{C}_k}} \right) \mathbf{P}_{k, \mathrm{pred}}.
-%			\end{array}
-%		\end{equation}
-%	\end{enumerate}
-%\end{mdframed}
-%
-%其中下标$\text{pred}$表示预测得到的结果。不同书籍可能会使用各种不同的符号来表达它和最终估计值的差异，比如$\hat{\mathbf{x}}, \mathbf{x}^*, \check{\mathbf{x}}$，等等。本书后文统一使用下标方式来区分预测变量。
-%
-%我们不准备展开线性卡尔曼滤波器的推导过程。但我们要提醒读者，在线性系统中，各类方法（贝叶斯滤波、卡尔曼滤波、最小二乘、增益最优化等）都会达成同样的结论，“条条大路通罗马”，所以卡尔曼滤波器可以由各种方法推导出来，例如：
-%\begin{enumerate}
-%	\item 从增益最优化角度来推导，即，假设最优估计由$\mathbf{x}_{k, \mathrm{pred}} +\mathbf{K}_k (\mathbf{z}_k - \mathbf{C}_k \mathbf{x}_{k, \mathrm{pred}})$形式构成，然后寻找最优的$\mathbf{K}_k$。这种推导方式最为简单，也是大多数
-%	类似材料的首选推导方法。
-%	\item 从贝叶斯滤波器来推导，这需要用到高斯分布的线性变换和边缘化。这也是\cite{Thrun2005}
-%	的首选做法，也是我们在《十四讲》中的做法。
-%	\item 从最大后验估计（MAP）来推导，这种方法只需要基础的线性代数即可。 
-%	\item 
-%	从批量MAP解出发，使用Cholesky分解区分前后向过程，由前向过程推导卡尔曼滤波。这是\cite{Barfoot2016}
-%	的首选做法，优点是可以很好地显示卡尔曼滤波器与Rauch-Tung-Stribel Smoother（RTS平滑）方法的联系（
-%	以及与批量MAP间的联系），缺点是推导过程比较复杂，需要大量的篇幅。
-%\end{enumerate}
-%
-%与传统卡尔曼滤波器不同的是，本书会统一使用李群李代数的方式来处理卡尔曼滤波器。因为我们需要考虑运动学方程，所以状态变量$\mathbf{x}$除了含有位置和姿态以外，还会带有速度、传感器零偏等其他变量。这样一个高维的$\mathbf{x}$就落在一个高维流形$\mathcal{M}$上，称为\textbf{流形上的卡尔曼滤波器}（KF on manifold）\cite{he2021kalman}。在下一章我们会看到，这种流形的处理方式要比基于欧拉角或者四元数原始分量的方式更加简洁。
-%
-%\subsection{非线性系统的处理方法}
-%在非线性系统中，首选的方式是对$\mathbf{f}$和$\mathbf{h}$进行\textbf{线性化}（linearization）。线性化本质是求一个函数在固定点的\textbf{泰勒展开}（Taylor expansion），并保留一阶系数。线性化是后文广泛用到的理论。如果对一个普通的矢量函数$\mathbf{f}(\mathbf{x})$在$\mathbf{x}_0$点处进行线性化，应该得到：
-%\begin{equation}\label{key}
-%\mathbf{f} (\mathbf{x}_0 + \Delta \mathbf{x}) = \mathbf{f} (\mathbf{x}_0) + \mathbf{J} \Delta \mathbf{x} + \frac{1}{2} \Delta \mathbf{x} ^\top \mathbf{H} \Delta \mathbf{x} + O(\Delta \mathbf{x}^2),
-%\end{equation}
-%这里$\mathbf{J}$称为\textbf{雅可比矩阵}（Jacobians），$\mathbf{H}$称为\textbf{海塞矩阵}（Hessians），是线性化中最重要的两个矩阵。如果只保留一阶项，那么$\mathbf{f}(\mathbf{x})$就可以近似为：
-%\begin{equation}\label{key}
-%\mathbf{f} (\mathbf{x}_0 + \Delta \mathbf{x}) \approx \mathbf{f} (\mathbf{x}_0) + \mathbf{J} \Delta \mathbf{x},
-%\end{equation}
-%
-%我们可以对非线性系统的运动方程和观测方程进行线性化，然后将卡尔曼滤波器的结论应用在非线性系统中，得到\textbf{扩展卡尔曼滤波器}（Extended Kalman filter, EKF）。如果不展开讨论$\mathbf{x}$的定义以及各矩阵的详细形式，通用的EKF可以简单描述如下。
-%
-%首先，将运动方程在上一时刻的状态进行线性化，得到：
-%\begin{equation}\label{key}
-%\mathbf{x}_k \approx \mathbf{f}(\mathbf{x}_{k-1}, \mathbf{u}_k) + \mathbf{F}_k \Delta \mathbf{x}_k + \mathbf{w}_k,
-%\end{equation}
-%这里$\mathbf{F}$即为运动方程的相对于上一时刻状态的雅可比矩阵。该矩阵主要用于计算协方差的预测值。至于均值的预测值，可以将$\mathbf{x}_{k-1}$代入$\mathbf{f}$后得到。这样就写出了EKF的预测过程：
-%\begin{mdframed}
-%\begin{equation}\label{key}
-%\mathbf{x}_{k, \text{pred}} = \mathbf{f}(\mathbf{x}_{k-1}, \mathbf{u}_k), \quad \mathbf{P}_{k, \text{pred}} = \mathbf{F}_k \mathbf{P}_{k-1} \mathbf{F}_k^\top + \mathbf{R}_k.
-%\end{equation}
-%\end{mdframed}
-%注意这里实际上假设了\textbf{一个高斯分布状态变量经过非线性函数后仍为高斯分布}。这其实是一个近似，与实际情况可能差别较大。对于观测方程，可以在$\mathbf{x}_{k, \text{pred}}$处作线性化，得到：
-%\begin{equation}\label{key}
-%\mathbf{z}_k \approx \mathbf{h}(\mathbf{x}_{k, \text{pred}}) + \mathbf{H}_k (\mathbf{x}_k - \mathbf{x}_{k, \text{pred}}) + \mathbf{n}_k,
-%\end{equation}
-%然后代入卡尔曼滤波器的增益公式和更新方程，就可以得到EKF的更新过程：
-%\begin{mdframed}
-%\begin{align}\label{key}
-%\mathbf{K}_k &= \mathbf{P}_{k, \text{pred}} \mathbf{H}_k^\top (\mathbf{H}_k \mathbf{P}_{k, \text{pred}} \mathbf{H}_k^\top + \mathbf{Q}_k)^{-1}, \\
-%\mathbf{x}_k &= \mathbf{x}_{k, \text{pred}} + \mathbf{K}_k (\mathbf{z}_k - \mathbf{H}_k \mathbf{x}_{k, \text{pred}}), \\
-%\mathbf{P}_k &= (\mathbf{I} - \mathbf{K}_k \mathbf{C}_k) \mathbf{P}_{k, \text{pred}}.
-%\end{align}
-%\end{mdframed}
-%
-%对比KF和EKF，我们发现它们在公式上基本是一样的，只是EKF几个系数矩阵并不固定，可以随着线性化点发生改变而已。
-%
-%这样我们就快速地回顾了一遍KF和EKF的公式，但这里的讨论并没有展开说明，当$\mathbf{x}$中存在位移、旋转、速度等变量时，每个矩阵应该怎样计算。特别地，如果$\mathbf{x}$当中的旋转以$\mathbf{R}$的形式来表示，我们实际并不能直接写$\mathbf{x}_k - \mathbf{x}_{k-1}$或者$\mathbf{x}_k - \mathbf{x}_{k, \text{pred}}$这样的写法，而应该使用左右扰动模型来处理这些项。当引入李群李代数之后，EKF应该作出怎样的改变，是我们在第~\ref{cpt:ins}~章中要讨论的问题。
-%
-%\subsection{最优化方法与图优化}
-%另一方面，运动学方程和观测方程都可以看成一个状态变量$\mathbf{x}$与运动学输入、观测值之间的残差，这是一种\textbf{批量最小二乘}（batch least square）的视角：
-%\begin{align}\label{eq:2.118}
-%\mathbf{e}_{\text{motion}} &= \mathbf{x}_k - \mathbf{f}(\mathbf{x}_{k-1}, \mathbf{u}) \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_k), \\
-%\mathbf{e}_{\text{obs}} &= \mathbf{z}_k - \mathbf{h}(\mathbf{x}_k) \sim \mathcal{N}(\mathbf{0}, \mathbf{Q}_k).
-%\end{align}
-%
-%而滤波器当中的最优状态估计可以看成关于各误差项的最小二乘问题：
-%\begin{equation}\label{key}
-%\mathbf{x}^* = \arg \min_{\mathbf{x}}  \sum_{k} \left( \mathbf{e}_k^\top \boldsymbol{\Omega}_k^{-1} \mathbf{e}_k \right).
-%\end{equation}
-%其中$\mathbf{e}_k$表示第$k$项误差，$\boldsymbol{\Omega}_k$为该误差的协方差矩阵。这里$\mathbf{e}_k$可以由前面的运动误差或观测误差代入，但最小二乘算法并不刻意区分运动学误差或观测误差。对于一个通用的误差函数$\mathbf{e}_k$组成的最小二乘问题，我们可以用\textbf{迭代最优化}方法进行求解。它们的整体思路是这样的：
-%
-%\begin{enumerate}
-%\item 首先，从$\mathbf{x}$的某个初始值出发，例如$\mathbf{x}_0$。
-%\item 设第$i$次的迭代值为$\mathbf{x}_i$，那么对上述误差函数，在$\mathbf{x}_i$处进行线性化，得到：
-%\begin{equation}\label{key}
-%\mathbf{e}_k(\mathbf{x}_i + \Delta \mathbf{x}) \approx \mathbf{e}_k (\mathbf{x}_i) + \mathbf{J}_{k,i} \Delta \mathbf{x}_i ,
-%\end{equation}
-%这里线性化矩阵为$\mathbf{J}_{k,i}$。
-%\item 利用高斯牛顿法或者类似的求解方法，解得本次迭代的增量$\Delta \mathbf{x}_i$。以高斯牛顿法为例，其求解的线性方程为：
-%\begin{equation}\label{key}
-%\sum_k (\mathbf{J}_{k,i} \boldsymbol{\Omega}_k^{-1} \mathbf{J}_{k,i}^\top) \Delta \mathbf{x}_i = - \sum_k (\mathbf{J}_{k,i} \boldsymbol{\Omega}_k^{-1} \mathbf{e}_k).
-%\end{equation}
-%\item 更新$\mathbf{x}_i$，得到下次迭代值：$\mathbf{x}_{i+1} = \mathbf{x}_i + \Delta \mathbf{x}_i$。
-%\item 判断算法是否收敛。若收敛则退出，不收敛则进行下一次迭代。
-%\end{enumerate}
-%
-%最优化方法与滤波器方法有千丝万缕的联系。它们在线性系统中会得到同样的结果\cite{Barfoot2016}，但在非线性系统中通常不然。主要原因有以下几个：
-%\begin{enumerate}
-%	\item 最优化方法有迭代过程，而EKF则没有。
-%	\item 迭代过程会不断在新的线性化点$\mathbf{x}_i$上求取雅可比矩阵，而EKF的雅可比矩阵只在预测位置上求取一次。
-%	\item EKF还会区分$\mathbf{x}_{k,\mathrm{pred}}$，分开处理预测过程与观测过程。而最优化方法则没有$\mathbf{x}_{k,\mathrm{pred}}$，统一处理各处的状态变量。
-%\end{enumerate}
-%
-%一个重要的问题是，如果我们忽略上述第3条，将卡尔曼滤波器看作非线性优化，那么卡尔曼滤波器应该有几个优化变量和几种误差函数？答案是：两个优化变量，三种误差函数。两个优化变量是指$\mathbf{x}_{k-1}$和$\mathbf{x}_{k}$，而三种误差函数分别是：
-%\begin{enumerate}
-%\item $k-1$时刻的状态$\mathbf{x}_{k-1}$服从它的先验高斯分布。我们设$\mathbf{x}_{k-1} \sim \mathcal{N}(\bar{\mathbf{x}}_{k-1}, \mathbf{P}_{k-1})$\footnote{注意这里必须引入$\bar{\mathbf{x}}_{k-1}$，它是一个已知的数值，在上一时刻算得。而$\mathbf{x}_{k-1}$是一个可变化的变量，请注意区分。}，那么此处产生了一个\textbf{先验误差}：
-%\begin{equation}\label{key}
-%\mathbf{e}_{\text{prior}} = \mathbf{x}_{k-1} - \bar{\mathbf{x}}_{k-1} \sim \mathcal{N}(0, \mathbf{P}_{k-1}).
-%\end{equation}
-%\item 从$k-1$到$k$的\textbf{运动误差}；
-%\item $k$时刻的\textbf{观测误差}。
-%\end{enumerate}
-%后两者已经列写在式\eqref{eq:2.118}中。这样，卡尔曼滤波器与最优化问题就等效了起来（见图~\ref{fig:ekf-factors}）。当然它们实际求解过程是有差异的。EKF并不会更新$\mathbf{x}_{k-1}$，只计算$\mathbf{x}_k$的变化量，而最优化则一视同仁。另一方面，EKF也会更新协方差矩阵$\mathbf{P}_{k}$，而普通的优化器只计算均值部分$\mathbf{x}_{k}$。如果我们想得到$\mathbf{P}_{k}$，还需要对最优化问题进行\textbf{边缘化}（Marginalization）。
-%
-%\begin{figure}[!htp]
-%	\centering
-%	\includegraphics[width=0.7\textwidth]{math-basics/ekf-factors.pdf}
-%	\caption{卡尔曼滤波器与图优化模型}
-%	\label{fig:ekf-factors}
-%\end{figure}
-%
-%在SLAM领域，最优化问题通过用图模型进行描述，对应的图模型称为\textbf{图优化}（graph optimization）或者\textbf{因子图}(factor graph)。因子图模型可以进一步引入\textbf{概率图模型}中的方法进行求解。本书不刻意区分图优化和因子图的概念，它们在实际操作当中通常没有太大区别。但是，将卡尔曼滤波器与图优化方法进行对比和讨论，是本书后文的重点之一。我们会实际来实现一遍经典的EKF和图优化方法，来求解带有惯导、GPS和激光点云的问题。我们也会将EKF拓展成迭代卡尔曼滤波器（IEKF），来处理观测模型中存在最近邻问题的情况（带有最近邻问题的观测模型，方程数量和形式可能在迭代过程中发生改变，而非简单地在不同点进行线性化）。
-%
-%\section{小结}
-%本节向读者介绍了常见的各种坐标系、运动学理论，重点介绍了四元数与$\mathrm{SO}(3)$两种处理运动学的方法，并讨论了它们的异同。我们也回顾了KF、EKF的基本公式，讨论了它们和图优化之间的一些差异。
-%
-%本节内容以回顾为主，下一节我们将展开介绍ESKF，并给出实现以及动画演示。
-%
-%\section*{习题}
-%\begin{enumerate}
-%	\item 分别使用左右扰动模型，计算 $$\frac{\partial \mathbf{R}^{-1} \mathbf{p}}{\partial \mathbf{R}}.$$
-%	\item 分别使用左右扰动模型，计算 $$\frac{\partial \mathbf{R}_1 \mathbf{R}_2^{-1}}{\partial \mathbf{R}_2}.$$
-%	\item 将\ref{sec:motion-example}节的实验修改成带旋转的抛物线运动。物体一方面沿Z轴自转，一方面存在水平的初始线速度，又受到$-Z$方向的重力加速度影响。请设计程序并完成动画演示。
-%\end{enumerate}
+\section{Kinematics Example: Circular Motion}
+\label{sec:motion-example}
+
+Below we demonstrate the differences in handling angular velocity using quaternions and rotation matrices through some practical examples.
+
+When driving a car, if we maintain a constant speed and fix the steering wheel at a certain angle, the car should trace out a circular path. Now consider: how can we simulate this in a program?
+
+Clearly, such a vehicle should have a fixed angular velocity. Assuming \textbf{forward-left-up} as the coordinate system, the angular velocity vector $\boldsymbol{\omega}$ of the vehicle should point towards the $Z$ direction. The previously mentioned \textbf{constant speed} implies that in the vehicle's coordinate system, the velocity vector should be fixed pointing forward $\mathbf{v}_b=[v_x, 0, 0]^\top$. Of course, its velocity in the world frame is not solely along the $X$-axis because it is also turning simultaneously. Now let's implement a program to simulate this vehicle's motion. We'll use both rotation matrices and quaternions to handle the vehicle's rotation.
+	
+\begin{lstlisting}[language=c++,caption=src/ch2/motion.cc]
+#include <gflags/gflags.h>
+#include <glog/logging.h>
+
+#include "common/eigen_types.h"
+#include "common/math_utils.h"
+#include "tools/ui/pangolin_window.h"
+
+/// This program demonstrates a vehicle undergoing circular motion
+/// Angular velocity and linear velocity of the vehicle can be set in flags
+
+DEFINE_double(angular_velocity, 10.0, "Angular velocity in degrees per second");
+DEFINE_double(linear_velocity, 5.0, "Linear velocity of the vehicle in m/s");
+DEFINE_bool(use_quaternion, false, "Whether to use quaternion calculations");
+
+int main(int argc, char** argv) {
+	google::InitGoogleLogging(argv[0]);
+	FLAGS_stderrthreshold = google::INFO;
+	FLAGS_colorlogtostderr = true;
+	google::ParseCommandLineFlags(&argc, &argv, true);
+	
+	/// Visualization
+	sad::ui::PangolinWindow ui;
+	if (ui.Init() == false) {
+		return -1;
+	}
+	
+	double angular_velocity_rad = FLAGS_angular_velocity * sad::math::kDEG2RAD;  // Angular velocity in radians
+	SE3 pose;		// Pose represented by TWB
+	Vec3d omega(0, 0, angular_velocity_rad);         // Angular velocity vector
+	Vec3d v_body(FLAGS_linear_velocity, 0, 0);		 // Body frame velocity
+	const double dt = 0.05;			// Time for each update
+	
+	while (ui.ShouldQuit() == false) {
+		// Update position
+		Vec3d v_world = pose.so3() * v_body;
+		pose.translation() += v_world * dt;
+		
+		// Update rotation
+		if (FLAGS_use_quaternion) {
+			Quatd q = pose.unit_quaternion() * Quatd(1, 0.5 * omega[0] * dt, 0.5 * omega[1] * dt, 0.5 * omega[2] * dt);
+			q.normalize();
+			pose.so3() = SO3(q);
+		} else {
+			pose.so3() = pose.so3() * SO3::exp(omega * dt);
+		}
+		
+		LOG(INFO) << "pose: " << pose.translation().transpose();
+		ui.UpdateNavState(sad::NavStated(0, pose, v_world));
+		
+		usleep(dt * 1e6);
+	}
+	
+	ui.Quit();
+	return 0;
+}
+\end{lstlisting}
+
+Since this is the first program appearing in this book, let's provide a more complete version of it. Subsequent programs will only display the core code.
+
+Throughout this book, we use GLog for managing logs and Gflags for managing program parameters. This program accepts user-specified angular velocity and linear velocity magnitudes, as well as the choice between using rotation matrices or quaternions for processing. Here's what we do:
+
+\begin{enumerate}
+	\item Firstly, we convert the user-provided angular velocity to radians and linear velocity to \( v_{\text{body}} \) in the vehicle's body frame. We set the simulation time interval to 0.05 seconds.
+	\item During each update, we calculate the velocity in the world frame. For this, we need to know the orientation of the vehicle, so we extract the pose variable's pose and right-multiply it by the body velocity.
+	\item Then we update the vehicle's state. If the user specifies quaternion representation, we use Equation \eqref{eq:2.76}; otherwise, we update the self-attitude using Equation \eqref{eq:2.53}.
+	\item Finally, we pass the calculated pose to the UI for display and wait for a time interval.
+\end{enumerate}
+
+To visualize the effect of this program in real-time, we provide a UI interface for readers. By updating the current pose and velocity in the UI interface, they will be displayed in real-time in a 3D window, as shown in Figure~\ref{fig:motion-example}. After compiling the code in this chapter, readers can execute the program using:
+
+\begin{lstlisting}[language=sh,caption=Terminal Input:]
+./bin/motion
+\end{lstlisting}
+
+To change parameters or calculation methods, simply fill in the GFlags:
+
+\begin{lstlisting}[language=sh,caption=Terminal Input:]
+bin/motion --use_quaternion=true --angular_velocity=15
+\end{lstlisting}
+
+\begin{figure}[!htp]
+	\centering
+	\includegraphics[width=\textwidth]{math-basics/motion-example.png}
+	\caption{Kinematic simulation of a vehicle undergoing circular motion}
+	\label{fig:motion-example}
+\end{figure}
+
+Most programs in this book can be executed in a similar manner. Readers can familiarize themselves with the code style of this book using this section's program. Through this experiment, we observe the vehicle tracing out a complete circular path. Its velocity in the world frame resembles trigonometric functions, while the velocity in the body frame remains fixed along the $X$ axis. Whether using quaternions or rotation matrices, there's no essential difference in handling kinematics. Readers can utilize this section's program to demonstrate common free fall or parabolic motion. These are left as exercises for the readers.
+
+\section{Filters and Optimization}
+Here we review the basic principles of filters and their connection to optimization methods. We'll start with state estimation.
+
+\subsection{State Estimation and Least Squares}
+SLAM problems, localization problems, or mapping problems can all be summarized as state estimation problems. A typical discrete-time state estimation problem consists of a set of motion equations and a set of observation equations:
+\begin{equation}
+	\left\{ \begin{array}{l}
+		{\mathbf{x}_k} = \mathbf{f}\left( {{\mathbf{x}_{k - 1}},{\mathbf{u}_k}} \right) + \mathbf{w}_k,\quad k=1, \ldots, N\\
+		{\mathbf{z}_{k}} = \mathbf{h} \left( \mathbf{x}_k  \right)+ \mathbf{v}_{k},
+	\end{array} \right.
+\end{equation}
+where $\mathbf{f}$ is called the motion equation, $\mathbf{h}$ is called the observation equation, $\mathbf{w}_k \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_k)$, $\mathbf{v}_k 
+\sim \mathcal{N}( \mathbf{0}, \mathbf{Q}_k)$ are Gaussian-distributed random noises. If $\mathbf{f}$ and $\mathbf{h}$ are assumed to be linear functions, we obtain the state estimation problem of a Linear Gaussian (LG) system:
+\begin{equation}
+	\left\{ \begin{array}{l}
+		{\mathbf{x}_k} = \mathbf{A}_k {{\mathbf{x}_{k - 1}}+{\mathbf{u}_k}} + \mathbf{w}_k \\
+		{\mathbf{z}_{k}} = \mathbf{C}_k  { \mathbf{x}_k} + \mathbf{v}_{k} \end{array} \right. .
+\end{equation}
+Here $\mathbf{A}_k$ and $\mathbf{C}_k$ are the system's transition matrix and observation matrix, respectively. LG systems represent the simplest form of state estimation problems, and their unbiased optimal estimation is provided by the \textbf{Kalman Filter} (KF) \cite{Zarchan2005,Barfoot2016}.
+
+\subsection{Kalman Filter}
+The Kalman filter describes how to recursively estimate the state from one time step to the next. It consists of two steps: \textbf{prediction} and \textbf{update}. The prediction step propagates the motion equation, while the update step corrects the result from the previous step. Let $\mathbf{x}_{k-1}, \mathbf{P}_{k-1}$ denote the state estimate and its covariance matrix at time $k-1$, where $\mathbf{x}_{k-1}$ is the mean and $\mathbf{P}_{k-1}$ is the estimated covariance matrix.
+
+\begin{mdframed}
+	\begin{enumerate}
+		\item Prediction:
+		\begin{equation}
+			\mathbf{x}_{k,\mathrm{pred}} = {\mathbf{A}_k {\mathbf{x}_{k - 1}} + {\mathbf{u}_k}}, \quad 
+			\mathbf{P}_{k,\mathrm{pred}} = \mathbf{A}_k \mathbf{P}_{k-1} \mathbf{A}^\top_k + \mathbf{R}_k.
+		\end{equation}
+		\item Update:
+		First, calculate $\mathbf{K}$, also known as the \textbf{Kalman gain}.
+		\begin{equation}
+			\label{eq:kalman-K-another}
+			\mathbf{K}_k = \mathbf{P}_{k, \mathrm{pred}} \mathbf{C}_k^\top {\left( {\mathbf{C}_k \mathbf{P}_{k, 
+						\mathrm{pred}} \mathbf{C}_k^\top + {\mathbf{Q}_k}} \right)^{ - 1}}.
+		\end{equation}
+		Then compute the posterior distribution.
+		\begin{equation}
+			\begin{array}{l}
+				{\mathbf{x}}_k = {\mathbf{x}_{k, \mathrm{pred}}} + \mathbf{K}_k \left( {\mathbf{z}_k - 
+					{\mathbf{C}_k}{\mathbf{x}_{k, \mathrm{pred}}}} \right), \\
+				\mathbf{P}_k = \left( {\mathbf{I} - \mathbf{K}_k {\mathbf{C}_k}} \right) \mathbf{P}_{k, \mathrm{pred}}.
+			\end{array}
+		\end{equation}
+	\end{enumerate}
+\end{mdframed}
+
+Here, the subscript "pred" denotes the predicted result. Different books may use various symbols to express the difference between it and the final estimate, such as $\hat{\mathbf{x}}, \mathbf{x}^*, \check{\mathbf{x}}$, and so on. In this book, we use subscript notation to distinguish predicted variables.
+
+We won't delve into the derivation process of the linear Kalman filter. However, we would like to remind readers that in linear systems, various methods (Bayesian filters, Kalman filters, least squares, gain optimization, etc.) will all reach the same conclusion, so the Kalman filter can be derived from various methods, such as:
+
+\begin{enumerate}
+	\item Derivation from the perspective of gain optimization, i.e., assuming the optimal estimate takes the form of $\mathbf{x}_{k, \mathrm{pred}} +\mathbf{K}_k (\mathbf{z}_k - \mathbf{C}_k \mathbf{x}_{k, \mathrm{pred}})$ and then finding the optimal $\mathbf{K}_k$. This derivation method is the simplest and is the preferred method for most similar materials.
+	\item Derivation from the Bayesian filter, which requires the use of linear transformations and marginalization of Gaussian distributions. This is also the preferred method in \cite{Thrun2005} and is our approach in \cite{Gao2017}.
+	\item Derivation from Maximum A Posteriori (MAP) estimation, which only requires basic linear algebra.
+	\item Derivation from batch MAP solution, using Cholesky decomposition to distinguish between forward and backward processes, and deriving the Kalman filter from the forward process. This is the preferred method in \cite{Barfoot2016}, which has the advantage of showing the connection between the Kalman filter and the Rauch-Tung-Stribel Smoother method (as well as the connection with batch MAP), but the downside is that the derivation process is more complex and requires a lot of space to write it.
+\end{enumerate}
+
+Different from traditional Kalman filters, this book uniformly employs Lie group and Lie algebra methods to handle Kalman filters. Since we need to consider motion equations, the state variable $\mathbf{x}$ not only includes position and orientation but also includes other variables such as velocity and sensor biases. Thus, such a high-dimensional $\mathbf{x}$ lies on a high-dimensional manifold $\mathcal{M}$, known as the \textbf{Kalman Filter on Manifold} \cite{he2021kalman}. In the next chapter, we will see that this manifold-based approach is more concise than methods based on Euler angles or raw quaternion components.
+
+\subsection{Nonlinear Systems}
+In nonlinear systems, the preferred approach is to linearize $\mathbf{f}$ and $\mathbf{h}$ (\textbf{linearization}). Linearization essentially involves finding a \textbf{Taylor expansion} of a function around a fixed point and retaining only the first-order coefficients. Linearization is a widely used theory in the subsequent discussion. If linearization is performed on a general vector function $\mathbf{f}(\mathbf{x})$ at point $\mathbf{x}_0$, the result should be:
+
+\begin{equation}
+	\mathbf{f} (\mathbf{x}_0 + \Delta \mathbf{x}) = \mathbf{f} (\mathbf{x}_0) + \mathbf{J} \Delta \mathbf{x} + \frac{1}{2} \Delta \mathbf{x} ^\top \mathbf{H} \Delta \mathbf{x} + O(\Delta \mathbf{x}^2),
+\end{equation}
+where $\mathbf{J}$ is the \textbf{Jacobian matrix}, and $\mathbf{H}$ is the \textbf{Hessian matrix}, which are the two most important matrices in linearization. If only the first-order term is retained, $\mathbf{f}(\mathbf{x})$ can be approximated as:
+
+\begin{equation}
+	\mathbf{f} (\mathbf{x}_0 + \Delta \mathbf{x}) \approx \mathbf{f} (\mathbf{x}_0) + \mathbf{J} \Delta \mathbf{x}.
+\end{equation}
+
+We can linearize the motion equations and observation equations of nonlinear systems, and then apply the conclusions of the Kalman filter to nonlinear systems, resulting in the \textbf{Extended Kalman Filter} (EKF). Without discussing the definition of $\mathbf{x}$ and the detailed forms of each matrix, a general EKF can be described as follows.
+
+First, linearize the motion equations around the previous state to obtain:
+
+\begin{equation}
+	\mathbf{x}_k \approx \mathbf{f}(\mathbf{x}_{k-1}, \mathbf{u}_k) + \mathbf{F}_k \Delta \mathbf{x}_k + \mathbf{w}_k,
+\end{equation}
+
+where $\mathbf{F}$ is the Jacobian matrix relative to the previous state. This matrix is mainly used to compute the predicted covariance. As for the predicted mean value, it can be obtained by substituting $\mathbf{x}_{k-1}$ into $\mathbf{f}$. This forms the prediction process of the EKF:
+
+\begin{mdframed}
+\begin{equation}
+\mathbf{x}_{k, \text{pred}} = \mathbf{f}(\mathbf{x}_{k-1}, \mathbf{u}_k), \quad \mathbf{P}_{k, \text{pred}} = \mathbf{F}_k \mathbf{P}_{k-1} \mathbf{F}_k^\top + \mathbf{R}_k.
+\end{equation}
+\end{mdframed}
+
+It should be noted that this actually assumes that \textbf{a Gaussian distributed state variable remains Gaussian distributed after passing through a nonlinear function}. This is actually an approximation and may differ significantly from the actual situation. For the observation equation, linearize it around $\mathbf{x}_{k, \text{pred}}$ to obtain:
+
+\begin{equation}
+	\mathbf{z}_k \approx \mathbf{h}(\mathbf{x}_{k, \text{pred}}) + \mathbf{H}_k (\mathbf{x}_k - \mathbf{x}_{k, \text{pred}}) + \mathbf{n}_k,
+\end{equation}
+
+then substitute it into the Kalman filter's gain formula and update equation to obtain the update process of the EKF:
+
+\begin{mdframed}
+\begin{align}
+	\mathbf{K}_k &= \mathbf{P}_{k, \text{pred}} \mathbf{H}_k^\top (\mathbf{H}_k \mathbf{P}_{k, \text{pred}} \mathbf{H}_k^\top + \mathbf{Q}_k)^{-1}, \\
+	\mathbf{x}_k &= \mathbf{x}_{k, \text{pred}} + \mathbf{K}_k (\mathbf{z}_k - \mathbf{H}_k \mathbf{x}_{k, \text{pred}}), \\
+	\mathbf{P}_k &= (\mathbf{I} - \mathbf{K}_k \mathbf{C}_k) \mathbf{P}_{k, \text{pred}}.
+\end{align}
+\end{mdframed}
+
+Comparing the KF and EKF, we find that they are basically the same in terms of formulas, except that the coefficients matrices of the EKF are not fixed and can change with the linearization point.
+
+In this way, we have quickly reviewed the formulas of KF and EKF. However, the discussion here does not elaborate on how to calculate each matrix when $\mathbf{x}$ contains variables such as displacement, rotation, velocity, etc. In particular, if the rotation in $\mathbf{x}$ is represented in the form of $\mathbf{R}$, we actually cannot directly write expressions like $\mathbf{x}_k - \mathbf{x}_{k-1}$ or $\mathbf{x}_k - \mathbf{x}_{k, \text{pred}}$, and should use left and right perturbation models to handle these terms. After introducing Lie groups and Lie algebras, how should the EKF be modified is the problem we will discuss in Chapter~\ref{cpt:ins}.
+
+\subsection{Graph Optimization}
+
+On the other hand, both the motion equations and observation equations can be viewed as residuals between a state variable $\mathbf{x}$ and the kinematic inputs or observations. This is a perspective of \textbf{batch least squares}:
+
+\begin{align}\label{eq:2.118}
+	\mathbf{e}_{\text{motion}} &= \mathbf{x}_k - \mathbf{f}(\mathbf{x}_{k-1}, \mathbf{u}) \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_k), \\
+	\mathbf{e}_{\text{obs}} &= \mathbf{z}_k - \mathbf{h}(\mathbf{x}_k) \sim \mathcal{N}(\mathbf{0}, \mathbf{Q}_k).
+\end{align}
+
+The optimal state estimation in the filter can be seen as a least squares problem with respect to the error terms:
+
+\begin{equation}
+	\mathbf{x}^* = \arg \min_{\mathbf{x}}  \sum_{k} \left( \mathbf{e}_k^\top \boldsymbol{\Omega}_k^{-1} \mathbf{e}_k \right).
+\end{equation}
+
+Here, $\mathbf{e}_k$ represents the $k$-th error term, and $\boldsymbol{\Omega}_k$ is the covariance matrix of this error. The error $\mathbf{e}_k$ can be replaced by the motion error or observation error mentioned above, but the least squares algorithm does not deliberately distinguish between kinematic errors or observation errors. For a least squares problem composed of a general error function $\mathbf{e}_k$, we can use \textbf{iterative optimization} methods for solving. The overall idea is as follows:
+
+\begin{enumerate}
+\item First, start from some initial value of $\mathbf{x}$, for example $\mathbf{x}_0$.
+\item Suppose the $i$-th iteration value is $\mathbf{x}_i$. Then, linearize the error function at $\mathbf{x}_i$:
+\begin{equation}
+	\mathbf{e}_k(\mathbf{x}_i + \Delta \mathbf{x}) \approx \mathbf{e}_k (\mathbf{x}_i) + \mathbf{J}_{k,i} \Delta \mathbf{x}_i ,
+\end{equation}
+
+where the linearization matrix is $\mathbf{J}_{k,i}$.
+\item Use methods like Gauss-Newton or similar to solve for the increment $\Delta \mathbf{x}_i$. For example, the linear equation solved by Gauss-Newton is:
+\begin{equation}
+	\sum_k (\mathbf{J}_{k,i} \boldsymbol{\Omega}_k^{-1} \mathbf{J}_{k,i}^\top) \Delta \mathbf{x}_i = - \sum_k (\mathbf{J}_{k,i} \boldsymbol{\Omega}_k^{-1} \mathbf{e}_k).
+\end{equation}
+
+\item Update $\mathbf{x}_i$ to obtain the next iteration value: $\mathbf{x}_{i+1} = \mathbf{x}_i + \Delta \mathbf{x}_i$.
+\item Check if the algorithm has converged. If it has, exit; if not, proceed to the next iteration.
+
+\end{enumerate}
+
+Optimization methods are intricately linked with filtering methods. They yield the same results in linear systems, but generally not in nonlinear systems. The main reasons are as follows:
+
+\begin{enumerate}
+\item Optimization methods involve an iterative process, while the EKF does not.
+\item The iterative process continuously computes Jacobian matrices at new linearization points $\mathbf{x}_i$, whereas the EKF's Jacobian matrix is only computed once at the prediction position.
+\item The EKF also distinguishes $\mathbf{x}_{k,\mathrm{pred}}$, treating the prediction process and observation process separately, while optimization methods do not have $\mathbf{x}_{k,\mathrm{pred}}$ and treat state variables uniformly.
+\end{enumerate}
+
+
+An important question is, if we ignore the third point above and regard the Kalman filter as a nonlinear optimization problem, how many optimization variables and error functions should the Kalman filter have? The answer is: two optimization variables and three error functions. The two optimization variables refer to $\mathbf{x}_{k-1}$ and $\mathbf{x}_{k}$, while the three error functions are:
+
+\begin{enumerate}
+\item The prior error from the $k-1$ time step state $\mathbf{x}_{k-1}$, which follows its prior Gaussian distribution. If we assume $\mathbf{x}_{k-1} \sim \mathcal{N}(\bar{\mathbf{x}}_{k-1}, \mathbf{P}_{k-1})$, then a \textbf{prior error} is generated:
+\begin{equation}
+	\mathbf{e}_{\text{prior}} = \mathbf{x}_{k-1} - \bar{\mathbf{x}}_{k-1} \sim \mathcal{N}(0, \mathbf{P}_{k-1}).
+\end{equation}
+
+\item The \textbf{motion error} from $k-1$ to $k$.
+\item The \textbf{observation error} at time step $k$.
+\end{enumerate}
+
+The latter two are already listed in Equation \eqref{eq:2.118}. Thus, the Kalman filter and the optimization problem are equivalent (see Figure \ref{fig:ekf-factors}). However, their actual solution processes differ. The EKF does not update $\mathbf{x}_{k-1}$ but only calculates the change of $\mathbf{x}_k$, while the optimizer treats all states equally. On the other hand, the EKF also updates the covariance matrix $\mathbf{P}_{k}$, while a regular optimizer only computes the mean part $\mathbf{x}_{k}$. If we want to obtain $\mathbf{P}_{k}$, we also need to perform \textbf{marginalization} on the optimization problem.
+
+\begin{figure}[!htp]
+	\centering
+	\includegraphics[width=0.7\textwidth]{math-basics/ekf-factors.pdf}
+	\caption{Kalman Filter and Graph Optimization Models}
+	\label{fig:ekf-factors}
+\end{figure}
+
+In the field of SLAM, optimization problems are described using graph models, corresponding to \textbf{graph optimization} or \textbf{factor graph}. Factor graph models can further introduce methods from \textbf{probabilistic graphical models} for solving. This book does not deliberately distinguish between the concepts of graph optimization and factor graph, as they usually do not have much difference in practical operation. However, comparing and discussing Kalman filters with graph optimization methods is one of the focuses of this book. We will implement classic EKF and graph optimization methods to solve problems involving inertial navigation, GPS, and laser point clouds. We will also extend EKF to Iterated Extended Kalman Filter (IEKF) to handle cases where there are nearest neighbor issues in the observation model (observation models with nearest neighbor issues may change in equation number and form during the iteration process, rather than simply linearizing at different points).
+
+\section{Summary}
+This section introduced various common coordinate systems and kinematic theories to the readers, focusing on two methods for handling kinematics: quaternions and $\mathrm{SO}(3)$. We discussed their similarities and differences. We also reviewed the basic equations of KF and EKF, and discussed some differences between them and graph optimization.
+
+The content of this section is primarily a review. In the next section, we will introduce ESKF in detail and provide implementations as well as animated demonstrations.
+
+\section*{Exercises}
+\begin{enumerate}
+	\item Calculate $$\frac{\partial \mathbf{R}^{-1} \mathbf{p}}{\partial \mathbf{R}}$$ using both left and right perturbation models.
+	\item Calculate $$\frac{\partial \mathbf{R}_1 \mathbf{R}_2^{-1}}{\partial \mathbf{R}_2}$$ using both left and right perturbation models.
+	\item Modify the experiment in Section \ref{sec:motion-example} to include parabolic motion with rotation. The object should rotate along the Z-axis while having an initial horizontal linear velocity and being subjected to gravity acceleration in the $-Z$ direction. Design a program and complete the animated demonstration.
+\end{enumerate}
 
 \newpage
