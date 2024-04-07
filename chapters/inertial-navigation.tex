@@ -68,201 +68,160 @@ In theory, according to Newton's second law, the force acting on an object is di
 
 Furthermore, if the IMU is not placed at the center of the vehicle, when the vehicle rotates and moves, the IMU should also measure the centrifugal force, Coriolis force, and angular acceleration caused by the vehicle's rotation, reflected in the accelerometer readings. Some vehicles also experience various mechanical vibrations, such as suspension systems, moving parts of the vehicle (brushes, rollers, mechanical arms, etc.), which can also affect IMU readings. Therefore, the complete equation should include these terms. However, if all these small terms are included in the subsequent state estimation equations, the equations will become excessively long, which is not conducive to teaching. In practice, these readings themselves are small, and by ensuring that the IMU is installed as close to the vehicle's center as possible, we can avoid the problems caused by misalignment between the IMU and the vehicle's coordinate system. For these reasons, we will continue to use this simplified IMU measurement model in the subsequent discussions.
 
-%
-%\subsection{IMU测量方程中的噪声模型}
-%\label{sec:imu-noise}
-%在大多数系统中，我们认为IMU的噪声由两部分组成：\textbf{测量噪声}（measurement noise）与\textbf{零偏}（bias）。为什么这样做呢？IMU由于各种各样的原因，即使在车辆静止时，其角速度和加速度输出也不一定形成均值为$\bm{0}$的白噪声，而是带有一定的\textbf{偏移}。这个偏移量是由IMU内部机电测量装置导致的，有些IMU的偏移较小，也有的会比较大。同时，该偏移还会受温度等因素的影响，随着时间发生变化。在数学上，我们将它\textbf{建模}出来，认为\textbf{零偏}也是系统的状态量，而且随着时间发生随机的改变。但是，读者应该要理解，这是一种\textbf{数学建模}，而非\textbf{系统本质}。我们并不是从IMU的机械特性或者物理特性得出零偏的变化关系，我们也没有在物理上描述IMU零偏和温度之间的关系，即使这种关系客观存在。我们只是\textbf{假定}数学模型是这样的，然后看它与实际的IMU器件读数是否有明显差异\footnote{所以，请读者不要认为IMU内部客观存在一个随机游走的物理量称为零偏，然后测量值上面叠加了这个物理量。}。在大部分系统里，这样的建模关系是足够的。但如果不够，我们也可以视情况添加各种补偿参数，来精确地描述零偏的变化。
-%
-%记陀螺仪和加速度计的测量噪声分别为$\boldsymbol{\eta}_g, \boldsymbol{\eta}_a$，同时记零偏为$\bm{b}_g, 
-%\bm{b}_a$，下标$g$表示陀螺仪，$a$表示加速度计。那么这几个参数在测量方程中体现为：
-%\begin{subequations}\label{eq:imu-measurement}
-%\begin{align}
-%\tilde{\bm{a}} &= \bm{R}^\top (\bm{a} - \bm{g}) + \bm{b}_a + \boldsymbol{\eta}_a, \\
-%\tilde{\boldsymbol{\omega}} &= \boldsymbol{\omega} + \bm{b}_g + \boldsymbol{\eta}_g.
-%\end{align}
-%\end{subequations}
-%
-%在连续时间下，我们认为IMU测量噪声是一个方差为$\mathrm{Cov}(\boldsymbol{\eta}_g),\mathrm{Cov}(\boldsymbol{\eta}_a)$的\textbf{零均值白噪声高斯过程}(zero-mean white Gaussian 
-%process)\footnote{有关高斯过程的基本信息，读者可以参考文献\cite{Barfoot2016}第2.3节。}。同时，
-%认为零偏是一个\textbf{维纳过程}（Wiener process），或称\textbf{布朗运动}（Brownian motion）或\textbf{随机游走}（random walk）。它们都是常见的、经典的随机过程。
-%
-%一个均值为零，协方差为$\boldsymbol{\Sigma}$的白噪声高斯过程随机变量$\bm{w}(t)$可以写为：
-%\begin{equation}\label{key}
-%\bm{w}(t) \sim \mathcal{GP}(\bm{0}, \boldsymbol{\Sigma} \delta (t-t')),
-%\end{equation}
-%其中$\boldsymbol{\Sigma}$称为\textbf{能量谱密度矩阵}，$\delta$为狄拉克函数。狄拉克函数的存在让我们
-%可以轻松地从连续时间的高斯过程推导离散时间采样之后的IMU测量噪声，详细推导可以参考文献\cite{Crassidis2006}
-%中的附录，后文我们也将在离散化模型中进行介绍。
-%
-%另一方面，一个通常的零偏$\bm{b}$的随机游走过程可以建模为：
-%\begin{equation}\label{key}
-%\dot{\bm{b}}(t) = \boldsymbol{\eta}_b (t),
-%\end{equation}
-%其中$\boldsymbol{\eta}_b (t)$也是一个高斯过程。于是，$\bm{b}_a$和$\bm{b}_g$的随机游走都可以
-%建模为：
-%\begin{subequations}\label{key}
-%\begin{align}
-%\dot{\bm{b}}_a (t) = \boldsymbol{\eta}_{ba}(t) \sim \mathcal{GP}(\bm{0}, 
-%\mathrm{Cov}(\boldsymbol{b}_a) \delta (t-t')), \\
-%\dot{\bm{b}}_g (t) = \boldsymbol{\eta}_{bg}(t) \sim \mathcal{GP}(\bm{0}, 
-%\mathrm{Cov}(\boldsymbol{b}_g) \delta (t-t')).
-%\end{align}
-%\end{subequations}
-%
-%如果读者对随机过程不熟悉，我们也可以从直观上来理解。由于高斯过程的协方差是随着时间变得越
-%来越大的，IMU本身的测量值会随着采样时间变长而变得更加不准确，因此采样频率越高的IMU，其精
-%度也会相对较高。而零偏部分由布朗运动描述，呈现随机游走状态。表现在实际当中，则可以认为一
-%个IMU的零偏会从某个初始值开始，随机地向附近不规律的运动。运动的幅度越大，我们就称它的零
-%偏越不稳定。所以质量越好的IMU，零偏应该保持在初始值附近不动。
-%
-%\textbf{随机游走}实际上就是导数为高斯过程的随机过程。站在IMU的角度来看，由于我们关心的是测量的角
-%速度与加速度，所以零偏部分看起来是随机游走。不过，站在高一级的系统层面来看，角速度就是角
-%度的导数，加速度又是速度的导数。所以IMU的测量噪声，也可以解释为\textbf{角度的随机游走}和\textbf{
-%速度的随机游走}。所以请不要看到随机游走这四个字，就只想到零偏部分，而应该更加整体的看待
-%问题。
-%
-%请读者注意，这里的高斯过程和布朗运动过程，都是IMU测量数据的\textbf{数学模型}。数学模型并不
-%一定是和真实世界完全对应的。有些时候数学模型是对真实世界的一种\textbf{简化}，便于后续的算法计算。我们应当理解这种思想。后面我们对许多系统进行线性近似，保留各种一阶项，也是基于这种\textbf{简化}的思想。真实IMU的测量噪声和零偏受到非常多因素的影响，比如载体的震动、温度、IMU自身的受力、标定与安装误差，等等。把它们建模为两个随机过程，更多是为了方便状态估计算法的计算，不是完美、精确的建模方式。这种先\textbf{简化}，再\textbf{补偿}的思想，在现实当中十分常见。
-%
-%\subsection{IMU的离散时间噪声模型}
-%尽管在连续时间下的IMU噪声方程比较复杂，但它们在离散时间下却十分简单。实际当中的IMU会按
-%照固定时间间隔对运动物体的惯性进行采样，所以我们拿到的数据总可以看成是离散的。完整的离散时间模型推导比较繁琐，感兴趣的读者请参考\cite{Crassidis2006}，我们这里只给出其结论。因为IMU传感器按照固定频率进行采样，不妨设每次采样间隔为$\Delta t$，那么对于噪声来说，陀螺仪和加速度计的离散测量噪声可以简化地描述为\footnote{需要舍掉\cite{Crassidis2006}中的一些小项。}：
-%\begin{subequations}\label{key}
-%\begin{align}
-%\boldsymbol{\eta}_{g}(k) & \sim \mathcal{N}(0, \frac{1}{\Delta t}  \mathrm{Cov}(\boldsymbol{\eta}_g)),
-%\\
-%\boldsymbol{\eta}_{a}(k) & \sim \mathcal{N}(0,  \frac{1}{\Delta t} \mathrm{Cov}(\boldsymbol{\eta}_a)) .
-%\end{align}
-%\end{subequations}
-%而对于零偏部分，则可以写为：
-%\begin{subequations}\label{key}
-%\begin{align}
-%\bm{b}_g(k+1) - \bm{b}_g(k) \sim \mathcal{N}(\bm{0}, \Delta t \ \mathrm{Cov}(\bm{b}_g)), \\
-%\bm{b}_a(k+1) - \bm{b}_a(k) \sim \mathcal{N}(\bm{0}, \Delta t \ \mathrm{Cov}(\bm{b}_a)).
-%\end{align}
-%\end{subequations}
-%
-%因此，在离散时间系统中（也是我们平时操作的系统），两个噪声都是非常便于处理的。而且，在很
-%多系统实现中，甚至不考虑用\textbf{协方差矩阵}来表达IMU测量噪声和零偏随机游走，而是简单地将它们表达
-%为\textbf{对角矩阵}，这实际上忽略了各个轴之间的相关性。在程序里，我们往往使用诸如$\sigma_g, \sigma_a$的参数来表达IMU的噪声\textbf{标准差}，用$\sigma_{bg}, \sigma_{ba}$参数来表达零偏游走的\textbf{标准差}。这时，离散时间下的噪声标准差
-%应该写为：
-%\begin{subequations}\label{eq:imu-noise-relationship}
-%\begin{align}
-%	\sigma_{g}(k) &= \frac{1}{\sqrt{\Delta t}} \sigma_g , \quad	\sigma_{a}(k) = \frac{1}{\sqrt{\Delta t}} 
-%	\sigma_a, \\
-%	\sigma_{bg}(k) &= \sqrt{\Delta t} \sigma_{bg} , \quad 	\sigma_{ba}(k) = \sqrt{\Delta t} \sigma_{ba} .
-%\end{align}
-%\end{subequations}
-%在后文介绍滤波器和预积分时，我们会使用这些符号来配置IMU的噪声情况。从物理单位上来看，离
-%散时间的噪声是直接加在被测的物理量上的，很容易确定它们的物理单位。离散时间的零偏本身是
-%加在被测物理量上的，因此它们与被测物理量具有相同单位\cite{Woodman2007}。
-%\begin{equation}\label{key}
-%\sigma_g (k) \rightarrow \frac{rad}{s}, \quad \sigma_a(k) \rightarrow \frac{m}{s^2}, \quad 
-%\sigma_{bg}(k) \rightarrow \frac{rad}{s}, \quad \sigma_{ba}(k) \rightarrow \frac{m}{s^2}.
-%\end{equation}
-%而连续时间的方差需要在离散方差上乘或除以一个开方时间单位，因此它们的物理单位变为：
-%\begin{equation}\label{key}
-%\sigma_g  \rightarrow \frac{rad}{\sqrt{s}}, \quad \sigma_a \rightarrow \frac{m}{s \sqrt{s}}, \quad 
-%\sigma_{bg} \rightarrow \frac{rad}{s \sqrt{s}}, \quad \sigma_{ba} \rightarrow \frac{m}{s^2 \sqrt{s}}.
-%\end{equation}
-%请注意同样的单位之间可以进行大小的转换，例如弧度可以转换为度，秒也可以转换为分钟、小时，
-%等等。也有的材料里，把$\frac{1}{\Delta 
-%t}$的单位记成$Hz$，所以上述变量的物理单位也可以记为：
-%\begin{equation}\label{key}
-%\sigma_g  \rightarrow \frac{rad}{s \sqrt{Hz}}, \quad \sigma_a \rightarrow \frac{m}{s^2 \sqrt{Hz}}, 
-%\quad \sigma_{bg} \rightarrow \frac{rad}{s^2 \sqrt{Hz}}, \quad \sigma_{ba} \rightarrow \frac{m}{s^3 
-%\sqrt{Hz}}.
-%\end{equation}
-%
-%\subsection{现实当中的IMU}
-%\begin{figure}
-%	\centering
-%	\includegraphics[width=0.9\textwidth]{ins/real-imu.pdf}
-%	\caption{实际当中的各种IMU产品}
-%	\label{fig:real-imus}
-%\end{figure}
-%
-%
-%\begin{figure}
-%	\centering
-%	\includegraphics[width=1.0\linewidth]{./ins/imu-datasheet-cn.png}
-%	\caption{典型IMU的数据手册参数}
-%	\label{fig:imu-datasheet}
-%\end{figure}
-%
-%我们在图~\ref{fig:real-imus}~中给出一些典型IMU产品的样例。读者可以在大多数市场上直接购买到IMU
-%的相关产品，包括单独IMU的传感器以及集成的产品。随着IMU本身的小型化，许多产品在出厂时也
-%会在内部集成IMU。最常见的就是我们平时使用的手机，普遍集成了低成本的MEMS IMU器件。而类
-%似于激光、相机等机器人领域中常用的传感器，也越发普遍地集成了现成的IMU。在写书的这段时间，许多固态雷达（大疆Livox系列、Ouster OS2）
-%、单目、双目相机（Zed 2, MYNT Eye S）都已经提供内置IMU作为惯性导航的数据源。
-%
-%IMU产品普遍提供自身的参数手册，以说明它在出厂时的数据精度、稳定性等指标。这些指标也可以
-%用于指导我们调节状态估计算法的权重。图~\ref{fig:imu-datasheet}~展示了一个典型IMU的参数配置（ADIS
-% 16488）。可以看到，与我们后续算法相关的主要有这几项：
-%\begin{enumerate}
-%	\item 测量噪声，在整个运动模型看来是\textbf{角度随机游走}和\textbf{速度随机游走}，对应\textbf{
-%	连续时间}噪声模型中的$\sigma_g, 
-%	\sigma_a$。我们也可以简单地称为\textbf{陀螺白噪声}和\textbf{加速度计白噪声}。可见这个IMU
-%	的指标是0.66$^\circ/\sqrt{\text{小时}}$和0.11$m/s/\sqrt{\text{小时}}$。直观上可以理解为，在正确
-%	找到零偏的情况下，如果我们对这个IMU进行积分，那么每小时它积分误差的标准差应该为0.66$^\circ$
-%	和$0.11m/s$。
-%	\item 零偏随机游走方差，也就是噪声模型中的$\sigma_{bg}, \sigma_{ba}$。但这个量通常没有直
-%	接在手册中对应，在实际当中也很难测量到。手册里经常给出的是零偏重复性和运行时偏置稳定性来代替。在我们刚打开IMU时，可以在静止状态下估计IMU
-%	的零偏。每次零偏的大小变化就由零偏重复性来描述。另一方面，如果其他客观条件不变，这个开
-%	机零偏在运行过程中也会发生一定改变，其幅值就由\textbf{运行时零偏稳定性}描述，在该手册中
-%	为14.5$^\circ /\text{小时}$。直观上讲，在理想条件下，我们可以认为IMU的零偏会在初始零偏附近
-%	的这个范围内。然而实际当中的IMU往往不会运行在恒温条件下，其零偏变化需要我们实时进行估
-%	计。整体而言，我们可以参考这个指标来设定零偏随机游走的幅值大小。\footnote{关于这两个值的详细定义，请参考《GJB 585A-1998惯性技术术语》。}
-%\end{enumerate}
-%
-%\section{使用IMU进行航迹推算}
-%前面我们介绍了在运动系统中，角速度与加速度是如何测量的。这种思路是仿真的思路，或者说是描
-%述已知系统的思路。也就是说，我们可以先假设物体发生了什么运动，再去考虑这种运动下应该产生
-%什么样的IMU测量。但是，实际情况是反过来的。我们能够读取到IMU传感器的读数，但必须根据IMU
-%和其他传感器的读数来推断系统的运动，而不能直接获取系统的各种速度、加速度信息。
-%
-%在有很多传感器的时候，我们会综合利用各种传感器数据，进行融合的定位或SLAM，这也是本书主
-%要的内容。我们后文会介绍IMU与RTK、激光等系统的融合。在本节，我们先考察只有IMU时，我们如何
-%推断系统的运动状态。我们会发现这样做是可行的，但只有IMU的系统需要对IMU读数进行二次积分，
-%其测量误差与零偏的存在会导致状态变量很快地漂移。
-%
-%\subsection{利用IMU数据进行短时间航迹推算}
-%我们已经在\ref{sec:imu-kinematic}节中介绍了IMU系统本身的运动学模型，而IMU的测量模型则在式\eqref{eq:imu-measurement}
-%中介绍。于是，我们直接把测量模型代入运动学方程，忽略测量噪声影响，即可得到连续时间下的积
-%分模型：
-%\begin{subequations}\label{key}
-%\begin{align}
-%	\dot{\bm{R}} &= \bm{R} (\tilde{\boldsymbol{\omega}} - \bm{b}_g )^\wedge, \quad \text{或} \ 
-%	\dot{\bm{q}} = \bm{q} \left[0, \frac{1}{2} \left( \tilde{\boldsymbol{\omega}} -\bm{b}_g\right) 
-%	\right], \\
-%	\dot{\bm{p}} &= \bm{v}, \\
-%	\dot{\bm{v}} &= \bm{R} (\tilde{\bm{a}} - \bm{b}_a) + \bm{g}.
-%\end{align}
-%\end{subequations}
-%
-%有时候我们也把$\bm{p}, \bm{v}, \bm{q}$称为PVQ状态。该方程可以从时间$t$积分至$t+\Delta t$，
-%推出下一个时刻的状态情况：
-%\begin{subequations}\label{eq:3.14}
-%\begin{align}
-%	\bm{R}(t+\Delta t) &= \bm{R}(t) \mathrm{Exp} \left( (\tilde{\boldsymbol{\omega}}-\bm{b}_g) \Delta 
-%	t \right),\quad \text{或} \ \bm{q}(t+\Delta t) = \bm{q}(t) \left[ 1, \frac{1}{2} \left( 
-%	\tilde{\boldsymbol{\omega}} - \bm{b}_g\right) \Delta t\right], \\
-%	\bm{p}(t+\Delta t) &= \bm{p}(t) + \bm{v} \Delta t + \frac{1}{2} \left(\bm{R}(t)(\tilde{\bm{a}}-\bm{b}_a) 
-%	\right) \Delta t^2 + \frac{1}{2} \bm{g} \Delta t^2, \\
-%	\bm{v}(t+\Delta t) &= \bm{v}(t) + \bm{R}(t) (\tilde{\bm{a}} - \bm{b}_a) \Delta t + \bm{g} \Delta t	.
-%\end{align}
-%\end{subequations}
-%通过该式，我们就可以用一个时刻的状态，加上下一个时刻的IMU数据，推算出下一个时刻的状态了
-%。这种做法一般称为\textbf{递推}。从数值积分的角度来看\footnote{不熟悉数值运算的读者可以参考\cite{LiQinYang2001}
-%。}，即为数值积分中的欧拉法（图~\ref{fig:integ-method}）。
-%
-%\begin{figure}
-%	\centering
-%	\includegraphics[width=1\textwidth]{ins/integ-method.pdf}
-%	\caption{不同积分方法的示意图。从左至右：起点积分、中值积分、梯形积分、真实积分。}
-%	\label{fig:integ-method}
-%\end{figure}
-%
+
+\subsection{Noise Model in IMU Measurement Equations}
+\label{sec:imu-noise}
+
+In most systems, we consider the noise in an Inertial Measurement Unit (IMU) to consist of two parts: \textbf{measurement noise} and \textbf{bias}. Why do we do this? Due to various reasons, even when a vehicle is stationary, the output of angular velocity and acceleration from an IMU may not form a white noise with a mean of $\bm{0}$, but rather have some \textbf{offset}. This offset is caused by the electromechanical measuring devices within the IMU; some IMUs have small offsets while others may have larger ones. Additionally, this offset is also influenced by factors such as temperature and changes over time. Mathematically, we model it and consider \textbf{bias} as a state variable of the system, which undergoes random changes over time. However, readers should understand that this is a \textbf{mathematical model}, not the \textbf{essence of the system}. We do not derive the variation relationship of bias from the mechanical or physical characteristics of the IMU, nor do we physically describe the relationship between IMU bias and temperature, even if such a relationship objectively exists. We simply \textbf{assume} that the mathematical model is such, and then observe if it significantly differs from the actual readings of the IMU device\footnote{Therefore, readers should not assume that there objectively exists a physically measurable quantity termed bias inside the IMU, and then this quantity is superimposed on the measurement values.}. In most systems, such modeling relationships are sufficient. However, if not, we can also add various compensation parameters as needed to accurately describe the variation of bias.
+
+Let the measurement noise of the gyroscope and accelerometer be denoted as $\boldsymbol{\eta}_g, \boldsymbol{\eta}_a$, and let the biases be denoted as $\bm{b}_g, \bm{b}_a$, where the subscript $g$ represents the gyroscope and $a$ represents the accelerometer. Then, these parameters manifest in the measurement equations as follows:
+\begin{subequations}\label{eq:imu-measurement}
+	\begin{align}
+		\tilde{\bm{a}} &= \bm{R}^\top (\bm{a} - \bm{g}) + \bm{b}_a + \boldsymbol{\eta}_a, \\
+		\tilde{\boldsymbol{\omega}} &= \boldsymbol{\omega} + \bm{b}_g + \boldsymbol{\eta}_g.
+	\end{align}
+\end{subequations}
+
+In continuous time, we consider the IMU measurement noise to be a zero-mean white Gaussian process with variances $\mathrm{Cov}(\boldsymbol{\eta}_g)$ and $\mathrm{Cov}(\boldsymbol{\eta}_a)$\footnote{For basic information on Gaussian processes, readers can refer to Section 2.3 in \cite{Barfoot2016}.}. Additionally, we regard the biases as Wiener processes, also known as Brownian motion or random walk. These are common and classical stochastic processes.
+
+A zero-mean white Gaussian process random variable $\bm{w}(t)$ with covariance $\boldsymbol{\Sigma}$ can be expressed as:
+\begin{equation}\label{eq:white-gaussian-process}
+	\bm{w}(t) \sim \mathcal{GP}(\bm{0}, \boldsymbol{\Sigma} \delta (t-t')),
+\end{equation}
+where $\boldsymbol{\Sigma}$ is termed the \textbf{energy spectral density matrix}, and $\delta$ denotes the Dirac delta function. The presence of the Dirac delta function enables us to easily derive the IMU measurement noise after discrete-time sampling from the continuous-time Gaussian process. For detailed derivations, please refer to the appendix of \cite{Crassidis2006}, and we will also discuss this in the subsequent sections when introducing the discrete-time model.
+
+On the other hand, a typical random walk process for a bias $\bm{b}$ can be modeled as:
+\begin{equation}\label{eq:random-walk}
+	\dot{\bm{b}}(t) = \boldsymbol{\eta}_b (t),
+\end{equation}
+where $\boldsymbol{\eta}_b (t)$ is also a Gaussian process. Therefore, the random walks for $\bm{b}_a$ and $\bm{b}_g$ can be modeled as follows:
+\begin{subequations}\label{eq:bias-random-walk}
+	\begin{align}
+		\dot{\bm{b}}_a (t) &= \boldsymbol{\eta}_{ba}(t) \sim \mathcal{GP}(\bm{0}, 
+		\mathrm{Cov}(\boldsymbol{b}_a) \delta (t-t')), \\
+		\dot{\bm{b}}_g (t) &= \boldsymbol{\eta}_{bg}(t) \sim \mathcal{GP}(\bm{0}, 
+		\mathrm{Cov}(\boldsymbol{b}_g) \delta (t-t')).
+	\end{align}
+\end{subequations}
+
+If readers are not familiar with stochastic processes, we can also provide an intuitive understanding. Since the covariance of a Gaussian process increases with time, the measurement values of an IMU itself become less accurate as the sampling time increases. Therefore, a higher sampling frequency IMU tends to have higher precision. Meanwhile, the bias part is described by Brownian motion, exhibiting a random walk behavior. In practice, we can think of an IMU's bias starting from some initial value and randomly moving irregularly around it. The larger the magnitude of this movement, the more unstable the bias is. Therefore, a better quality IMU should maintain its bias near the initial value without significant deviation.
+
+\textbf{Random walk} is essentially a stochastic process whose derivative is a Gaussian process. From the perspective of an IMU, since we are concerned with measuring angular velocity and acceleration, the bias part appears as a random walk. However, from a higher-level system perspective, angular velocity is the derivative of angle, and acceleration is the derivative of velocity. So, the IMU's measurement noise can also be interpreted as a \textbf{random walk of angles} and \textbf{random walk of velocities}. Therefore, when encountering the term "random walk," it's important not to only associate it with the bias part, but rather to consider the problem more holistically.
+
+Please note that Gaussian processes and Brownian motion processes mentioned here are \textbf{mathematical models} of IMU measurement data. Mathematical models do not necessarily correspond exactly to the real world. Sometimes, mathematical models are a \textbf{simplification} of reality, which facilitate subsequent algorithmic computations. We should understand this concept. Later on, when we perform linear approximations and retain various first-order terms in many systems, it's based on this \textbf{simplification} mindset. The real measurement noise and bias of IMUs are influenced by many factors such as vehicle vibration, temperature, IMU's own forces, calibration, installation errors, and so on. Modeling them as two stochastic processes is more for the convenience of state estimation algorithm computation, rather than being a perfect, accurate modeling approach. This \textbf{simplify-then-compensate} approach is very common in practice.
+
+\subsection{Discrete-Time Noise Model for IMU}
+
+Although the noise equations for IMUs in continuous time are relatively complex, they simplify significantly in discrete time. In practice, IMUs sample the inertia of moving objects at fixed time intervals, so the data we obtain is always discrete. The complete derivation of the discrete-time model is cumbersome; interested readers can refer to \cite{Crassidis2006}. Here, we only present the conclusions. Because IMU sensors sample at a fixed frequency, let's assume the sampling interval is $\Delta t$. Then, for the noise, the discrete measurement noises of the gyroscope and accelerometer can be simplified as\footnote{Some small terms from \cite{Crassidis2006} are neglected.}:
+\begin{subequations}\label{eq:discrete-noise}
+	\begin{align}
+		\boldsymbol{\eta}_{g}(k) & \sim \mathcal{N}(0, \frac{1}{\Delta t}  \mathrm{Cov}(\boldsymbol{\eta}_g)),
+		\\
+		\boldsymbol{\eta}_{a}(k) & \sim \mathcal{N}(0,  \frac{1}{\Delta t} \mathrm{Cov}(\boldsymbol{\eta}_a)) .
+	\end{align}
+\end{subequations}
+As for the bias part, it can be written as:
+\begin{subequations}\label{eq:discrete-bias}
+	\begin{align}
+		\bm{b}_g(k+1) - \bm{b}_g(k) &\sim \mathcal{N}(\bm{0}, \Delta t \ \mathrm{Cov}(\bm{b}_g)), \\
+		\bm{b}_a(k+1) - \bm{b}_a(k) &\sim \mathcal{N}(\bm{0}, \Delta t \ \mathrm{Cov}(\bm{b}_a)).
+	\end{align}
+\end{subequations}
+
+Therefore, in discrete-time systems (which is what we usually deal with), both noises are very easy to handle. In many system implementations, even the \textbf{covariance matrices} are not used to express the IMU measurement noise and bias random walk. Instead, they are simply represented as \textbf{diagonal matrices}, effectively ignoring the correlation between different axes. In programming, parameters such as $\sigma_g, \sigma_a$ are often used to express the \textbf{standard deviations} of IMU noise, and parameters $\sigma_{bg}, \sigma_{ba}$ are used to express the \textbf{standard deviations} of bias drift. In this case, the standard deviations of noise in discrete time should be written as:
+\begin{subequations}\label{eq:noise-std-dev}
+	\begin{align}
+		\sigma_{g}(k) &= \frac{1}{\sqrt{\Delta t}} \sigma_g , \quad	\sigma_{a}(k) = \frac{1}{\sqrt{\Delta t}} 
+		\sigma_a, \\
+		\sigma_{bg}(k) &= \sqrt{\Delta t} \sigma_{bg} , \quad 	\sigma_{ba}(k) = \sqrt{\Delta t} \sigma_{ba} .
+	\end{align}
+\end{subequations}
+When discussing filters and preintegration later on, we will use these symbols to configure the noise conditions of the IMU. Physically, in discrete time, the noise is directly added to the measured physical quantities, making it easy to determine their physical units. The bias in discrete time itself is added to the measured physical quantities, so they share the same units \cite{Woodman2007}.
+\begin{equation}\label{eq:physical-units}
+	\sigma_g (k) \rightarrow \frac{rad}{s}, \quad \sigma_a(k) \rightarrow \frac{m}{s^2}, \quad 
+	\sigma_{bg}(k) \rightarrow \frac{rad}{s}, \quad \sigma_{ba}(k) \rightarrow \frac{m}{s^2}.
+\end{equation}
+Continuous-time variances need to be multiplied or divided by a square root time unit to obtain discrete variances, so their physical units become:
+\begin{equation}\label{eq:physical-units-continuous}
+	\sigma_g  \rightarrow \frac{rad}{\sqrt{s}}, \quad \sigma_a \rightarrow \frac{m}{s \sqrt{s}}, \quad 
+	\sigma_{bg} \rightarrow \frac{rad}{s \sqrt{s}}, \quad \sigma_{ba} \rightarrow \frac{m}{s^2 \sqrt{s}}.
+\end{equation}
+Note that units can be converted between similar units, such as radians to degrees, and seconds to minutes or hours, etc. Some materials may use the unit $\frac{1}{\Delta t}$ as $Hz$, so the physical units of the above variables can also be denoted as:
+\begin{equation}\label{eq:physical-units-hertz}
+	\sigma_g  \rightarrow \frac{rad}{s \sqrt{Hz}}, \quad \sigma_a \rightarrow \frac{m}{s^2 \sqrt{Hz}}, 
+	\quad \sigma_{bg} \rightarrow \frac{rad}{s^2 \sqrt{Hz}}, \quad \sigma_{ba} \rightarrow \frac{m}{s^3 
+		\sqrt{Hz}}.
+\end{equation}
+
+\subsection{IMUs in Reality}
+\begin{figure}
+	\centering
+	\includegraphics[width=0.9\textwidth]{ins/real-imu.pdf}
+	\caption{Various IMU Products in Reality}
+	\label{fig:real-imus}
+\end{figure}
+
+
+\begin{figure}
+	\centering
+	\includegraphics[width=1.0\linewidth]{./ins/imu-datasheet-cn.png}
+	\caption{Datasheet of Real IMUs \emph{TODO: replace}}
+	\label{fig:imu-datasheet}
+\end{figure}
+
+Figure~\ref{fig:real-imus} displays examples of typical IMU products. Readers can directly purchase various IMU-related products in most markets, including standalone IMU sensors and integrated products. With the miniaturization of IMUs, many products are also integrated with IMUs internally at the factory. The most common example is our everyday smartphones, which commonly integrate low-cost MEMS IMU devices. In the field of robotics, sensors commonly used in applications such as LiDAR, cameras, etc., are also increasingly integrating ready-made IMUs. During the period of writing this book, many solid-state LiDARs (e.g., DJI Livox series, Ouster OS2), monocular and stereo cameras (e.g., Zed 2, MYNT Eye S) have already provided built-in IMUs as sources of inertial navigation data.
+
+IMU products generally provide their own datasheets to illustrate their data accuracy, stability, and other metrics at the time of manufacture. These metrics can also be used to guide us in adjusting the weights of state estimation algorithms. Figure~\ref{fig:imu-datasheet} shows a typical parameter configuration of an IMU (ADIS 16488). It can be seen that the main parameters relevant to our subsequent algorithms are as follows:
+
+\begin{enumerate}
+	\item Measurement noise, which in the entire motion model is regarded as \textbf{angular random walk} and \textbf{velocity random walk}, corresponding to $\sigma_g$ and $\sigma_a$ in the \textbf{continuous-time} noise model. We can also simply refer to them as \textbf{gyroscope white noise} and \textbf{accelerometer white noise}. It can be observed that the specifications of this IMU are 0.66$^\circ/\sqrt{\text{hour}}$ and 0.11$m/s/\sqrt{\text{hour}}$. Intuitively, this can be understood as follows: assuming we have correctly identified the bias, if we integrate this IMU, the standard deviation of its integration error per hour should be 0.66$^\circ$ and $0.11m/s$.
+	
+	\item Bias instability variance, which is also known as $\sigma_{bg}$ and $\sigma_{ba}$ in the noise model. However, this quantity is usually not directly corresponding in the datasheet and is difficult to measure in practice. The datasheet often provides bias repeatability and bias stability during operation instead. When we first turn on the IMU, we can estimate the bias of the IMU in a static state. The variability of each bias change is described by bias repeatability. On the other hand, if other objective conditions remain unchanged, this boot-up bias will also change to some extent during operation. Its magnitude is described by \textbf{operational bias stability}, which in this datasheet is 14.5$^\circ /\text{hour}$. Intuitively, under ideal conditions, we can assume that the bias of the IMU will remain within this range near the initial bias. However, in reality, IMUs often do not operate under constant temperature conditions, and their bias changes need to be estimated in real time. Overall, we can refer to this specification to set the magnitude of bias instability.\footnote{For detailed definitions of these two values, please refer to "GJB 585A-1998 Inertial Technology Terminology".}
+\end{enumerate}
+
+
+\section{Trajectory Estimation Using IMU}
+
+Previously, we introduced how angular velocity and acceleration are measured in a motion system. This approach is a simulation-based perspective or a description of a known system. In other words, we can first assume what motion the object undergoes and then consider what kind of IMU measurements should be generated under this motion. However, the reality is the opposite. We can read the readings of IMU sensors, but we must infer the motion of the system based on the readings of IMU and other sensors, rather than directly obtaining various velocity and acceleration information of the system.
+
+When there are many sensors, we integrate various sensor data for fusion-based positioning or SLAM, which is the main content of this book. Later, we will discuss the fusion of IMU with RTK, LiDAR, and other systems. In this section, we will first examine how to infer the motion state of the system when only IMU data is available. We will find that this approach is feasible, but a system with only IMU requires double integration of IMU readings, and the existence of measurement errors and biases will cause the state variables to drift quickly.
+
+\subsection{Short-Term Trajectory Estimation Using IMU Data}
+
+We have introduced the kinematic model of the IMU system itself in Section \ref{sec:imu-kinematic}, while the measurement model of the IMU is introduced in Equation \eqref{eq:imu-measurement}. Therefore, by directly substituting the measurement model into the kinematic equation and ignoring the influence of measurement noise, we can obtain the integration model in continuous time:
+
+\begin{subequations}\label{key}
+	\begin{align}
+		\dot{\bm{R}} &= \bm{R} (\tilde{\boldsymbol{\omega}} - \bm{b}_g )^\wedge, \quad \text{or} \ 
+		\dot{\bm{q}} = \bm{q} \left[0, \frac{1}{2} \left( \tilde{\boldsymbol{\omega}} -\bm{b}_g\right) 
+		\right], \\
+		\dot{\bm{p}} &= \bm{v}, \\
+		\dot{\bm{v}} &= \bm{R} (\tilde{\bm{a}} - \bm{b}_a) + \bm{g}.
+	\end{align}
+\end{subequations}
+
+Sometimes we also refer to $\bm{p}, \bm{v}, \bm{q}$ as the PVQ state. This equation can be integrated from time $t$ to $t+\Delta t$ to derive the state at the next moment:
+
+\begin{subequations}\label{eq:3.14}
+	\begin{align}
+		\bm{R}(t+\Delta t) &= \bm{R}(t) \mathrm{Exp} \left( (\tilde{\boldsymbol{\omega}}-\bm{b}_g) \Delta 
+		t \right),\quad \text{or} \ \bm{q}(t+\Delta t) = \bm{q}(t) \left[ 1, \frac{1}{2} \left( 
+		\tilde{\boldsymbol{\omega}} - \bm{b}_g\right) \Delta t\right], \\
+		\bm{p}(t+\Delta t) &= \bm{p}(t) + \bm{v} \Delta t + \frac{1}{2} \left(\bm{R}(t)(\tilde{\bm{a}}-\bm{b}_a) 
+		\right) \Delta t^2 + \frac{1}{2} \bm{g} \Delta t^2, \\
+		\bm{v}(t+\Delta t) &= \bm{v}(t) + \bm{R}(t) (\tilde{\bm{a}} - \bm{b}_a) \Delta t + \bm{g} \Delta t	.
+	\end{align}
+\end{subequations}
+
+With this equation, we can use the state at one moment plus the IMU data at the next moment to infer the state at the next moment. This approach is generally referred to as \textbf{recursion}. From the perspective of numerical integration\footnote{Readers unfamiliar with numerical computation can refer to \cite{LiQinYang2001}.}, it corresponds to the Euler method in numerical integration (Figure~\ref{fig:integ-method}).
+
+\begin{figure}
+	\centering
+	\includegraphics[width=1\textwidth]{ins/integ-method.pdf}
+	\caption{Schematic diagram of different integration methods. From left to right: start-point integration, mid-point integration, trapezoidal integration, true integration.}
+	\label{fig:integ-method}
+\end{figure}
+
 %不同的数值积分方式是不一样的，而欧拉法是最简单的一种。物体本身的旋转和平
 %移都是连续的，而IMU则是按照固定时间间隔采样。在采样的这段时间$\Delta t$里，存在若干种不同
 %的手段来看待这一小段时间内的角速度与加速度。欧拉法采用了最简单的做法：认为$t$到$t+\Delta t$
