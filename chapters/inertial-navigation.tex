@@ -20,12 +20,12 @@ IMUs are typically installed in a moving system. We infer the state of the objec
 Based on the kinematics introduced earlier, we can simply write down the kinematic equations in continuous time\footnote{The mathematical symbols in this book are kept simple. We try to avoid adding various subscripts and superscripts, while maintaining consistency throughout the text. However, most of the materials still tend to write out complete symbols with subscripts and superscripts \cite{Huai2018}. This may make the formulae appear more complex, but readers should be able to discern the writing habits of different books.}:
 
 \begin{subequations}\label{eq:motion-equation}
-\begin{align}
-\dot{\bm{R}} &= \bm{R} \boldsymbol{\omega}^\wedge, \quad \text{or} \  \dot{\bm{q}} = \frac{1}{2} 
-\bm{q} \boldsymbol{\omega}, \\
-\dot{\bm{p}} &= \bm{v}, \\
-\dot{\bm{v}} &= \bm{a}.
-\end{align}
+	\begin{align}
+		\dot{\bm{R}} &= \bm{R} \boldsymbol{\omega}^\wedge, \quad \text{or} \  \dot{\bm{q}} = \frac{1}{2} 
+		\bm{q} \boldsymbol{\omega}, \\
+		\dot{\bm{p}} &= \bm{v}, \\
+		\dot{\bm{v}} &= \bm{a}.
+	\end{align}
 \end{subequations}
 The rotational part can be represented either by a rotation matrix, as seen in Equation \eqref{eq:rotation-matrix-kinematics}, or by quaternions, as seen in Equation \eqref{eq:quaternion-kinematics}. These physical quantities, when annotated with subscripts, should be denoted as $\bm{R}_{wb}$ and $\bm{p}_{wb}$. Since $\bm{p}_{wb}$ corresponds to the vehicle's world coordinates, after differentiation, it becomes the velocity and acceleration of the vehicle in the world coordinate system, denoted as $\bm{v}_w$ and $\bm{a}_w$. This notation is intuitive, so subsequent text will omit the subscripts related to coordinate systems. Other materials may define variables such as $_w \bm{v}_{wb}$ to distinguish between world-frame velocity and body-frame velocity, but this book uniformly uses quantities in the world frame, with special cases mentioned separately.
 
@@ -213,7 +213,7 @@ Sometimes we also refer to $\bm{p}, \bm{v}, \bm{q}$ as the PVQ state. This equat
 	\end{align}
 \end{subequations}
 
-With this equation, we can use the state at one moment plus the IMU data at the next moment to infer the state at the next moment. This approach is generally referred to as \textbf{recursion}. From the perspective of numerical integration\footnote{Readers unfamiliar with numerical computation can refer to \cite{LiQinYang2001}.}, it corresponds to the Euler method in numerical integration (Figure~\ref{fig:integ-method}).
+With this equation, we can use the state at one moment plus the IMU data at the next moment to infer the state at the next moment. This approach is generally referred to as \textbf{propagation}. From the perspective of numerical integration\footnote{Readers unfamiliar with numerical computation can refer to \cite{LiQinYang2001}.}, it corresponds to the Euler method in numerical integration (Figure~\ref{fig:integ-method}).
 
 \begin{figure}
 	\centering
@@ -222,1605 +222,1544 @@ With this equation, we can use the state at one moment plus the IMU data at the 
 	\label{fig:integ-method}
 \end{figure}
 
-%不同的数值积分方式是不一样的，而欧拉法是最简单的一种。物体本身的旋转和平
-%移都是连续的，而IMU则是按照固定时间间隔采样。在采样的这段时间$\Delta t$里，存在若干种不同
-%的手段来看待这一小段时间内的角速度与加速度。欧拉法采用了最简单的做法：认为$t$到$t+\Delta t$
-%这段时间内，物体整个角速度等于$\boldsymbol{\omega}(t)$，加速度等于$\bm{a}(t)$。这相当于在
-%数值积分当中，用小区间的起始点作为积分矩形的函数值。而在另一些做法中，也可以使用中值法、
-%梯形法、以及高阶的插值法（最典型的是龙格库塔法\cite{Liu2020}）来处理。这些方法在实际当中也
-%并不复杂，只需要用插值之后的$\tilde{\boldsymbol{\omega}}, 
-%\tilde{\bm{a}}$代替上式当中的观测量，进行递推即可。理论上来讲，中值法、梯形法要比最简单的欧
-%拉积分应该更加准确，而插值方法则引入了额外的计算量，其精度提升相比计算量的提升是否值得，
-%要视具体应用而定。
-%
-%上式也可以进一步累积，比如从$i$时刻一直递推到$j$时刻。我们只需把中间的IMU读数累计起来即
-%可：
-%\begin{subequations}\label{eq:imu-dead-reckoning}
-%\begin{align}
-%\bm{R}_j &= \bm{R}_i \prod_{k=i}^{j-1}\mathrm{Exp} \left(\left(\tilde{\boldsymbol{\omega}}_k - 
-%\bm{b}_{g,k}\right) \Delta t\right) \quad \text{或}\ \bm{q}_j = \bm{q}_i \prod_{k=i}^{j-1} \left[1, 
-%\frac{1}{2} \left(\tilde{\boldsymbol{\omega}}_k - \bm{b}_{g,k}\right) \Delta t \right], \\
-%\bm{p}_j &= \bm{p}_k + \sum_{k=i}^{j-1} \left[\bm{v}_k \Delta t + \frac{1}{2} \bm{g} \Delta t^2\right] + 
-%\frac{1}{2} \sum_{k=i}^{j-1} \bm{R}_k \left(\tilde{\bm{a}}_k - \bm{b}_{a,k} \right) \Delta t^2, \\
-%\bm{v}_j &= \bm{v}_i + \sum_{k=i}^{j-1}\left[ \bm{R}_k\left(\tilde{\bm{a}}_k - \bm{b}_{a,k} \right) 
-%\Delta t+ \bm{g} \Delta t  \right].
-%\end{align}
-%\end{subequations}
-%
-%注意我们这里还没有考虑噪声的影响。在第~\ref{cpt:preinteg}~讲中，我们将进一步考察测量噪声和零偏噪声对IMU积分之后的影响，这里我们只看它的递推形式。注意到上式实际上是\textbf{增量形式}的，每一个$\bm{R}_k, \bm{v}_k$都可以作为计算结果，用到下一个时刻中。所以在代码实现中，在某帧IMU到达后，我们可以用上一帧的结果来计算下一帧的递推结果，而不必等待所有数据到达后再按照公式进行累加。在旋转方面，使用四元数还是旋转矩阵，并没有本质差别，不过旋转矩阵的表示在数学公式上会更加简洁一些，而且不用经常归一化。本章我们仍然保留两种写法，以供读者随时对比。但在后续章节中，我们将主要使用旋转矩阵的表达方式。
-%
-%\subsection{IMU递推的代码实验}
-%下面我们通过一个实验来看看如何用IMU数据进行轨迹的推算。在没有外部观测时，我们只能用式（\ref{eq:imu-dead-reckoning}）
-%来进行二次积分，得到运动物体本身的位置和姿态信息。这种积分通常是快速发散的，因此IMU并不
-%适合单独拿来进行航迹推算。我们的实验也将展现这一点。
-%
-%\begin{lstlisting}[language=c++,caption=ch3/imu\_integration.h]
-%class IMUIntegration {
-%	public:
-%	IMUIntegration(const Vec3d& gravity, const Vec3d& init_bg, const Vec3d& init_ba)
-%	: gravity_(gravity), bg_(init_bg), ba_(init_ba) {}
-%	
-%	// 增加imu读数
-%	void AddIMU(const IMU& imu) {
-%		double dt = imu.timestamp_ - timestamp_;
-%		if (dt > 0 && dt < 0.1) {
-%			// 假设IMU时间间隔在0至0.1以内
-%			p_ = p_ + v_ * dt + 0.5 * gravity_ * dt * dt + 0.5 * (R_ * (imu.acce_ - ba_)) * dt * dt;
-%			v_ = v_ + R_ * (imu.acce_ - ba_) * dt + gravity_ * dt;
-%			R_ = R_ * Sophus::SO3d::exp((imu.gyro_ - bg_) * dt);
-%		}
-%		
-%		// 更新时间
-%		timestamp_ = imu.timestamp_;
-%	}
-%	
-%	/// 组成NavState
-%	NavStated GetNavState() const { return NavStated(timestamp_, R_, p_, v_, bg_, ba_); }
-%	
-%	SO3 GetR() const { return R_; }
-%	Vec3d GetV() const { return v_; }
-%	Vec3d GetP() const { return p_; }
-%	
-%	private:
-%	// 累计量
-%	SO3 R_;
-%	Vec3d v_ = Vec3d::Zero();
-%	Vec3d p_ = Vec3d::Zero();
-%	
-%	double timestamp_ = 0.0;
-%	
-%	// 零偏，由外部设定
-%	Vec3d bg_ = Vec3d::Zero();
-%	Vec3d ba_ = Vec3d::Zero();
-%	
-%	Vec3d gravity_ = Vec3d(0, 0, -9.8);  // 重力
-%};
-%\end{lstlisting}
-%
-%该函数实现了简单的IMU积分器，可以持续读取IMU数据，并给出自身的积分结果。我们在data/ch3/
-%中给读者准备了一些传感器数据（在后续章节还会用到）。读者可以任选一段轨迹，运行以下程序，
-%查看IMU积分的结果。
-%\begin{lstlisting}[language=c++,caption=ch3/run\_imu\_integration.cc]
-%sad::TxtIO io(FLAGS_imu_txt_path);
-%
-%// 该实验中，我们假设零偏已知
-%Vec3d gravity(0, 0, -9.8);  // 重力方向
-%Vec3d init_bg(00.000224886, -7.61038e-05, -0.000742259);
-%Vec3d init_ba(-0.165205, 0.0926887, 0.0058049);
-%
-%sad::IMUIntegration imu_integ(gravity, init_bg, init_ba);
-%
-%sad::ui::PangolinWindow ui;
-%ui.Init();
-%
-%/// 记录结果
-%auto save_result = [](std::ofstream& fout, double timestamp, const Sophus::SO3d& R, const Vec3d& v,
-%const Vec3d& p) {
-%	auto save_vec3 = [](std::ofstream& fout, const Vec3d& v) { fout << v[0] << " " << v[1] << " " << v[2] << " "; };
-%	auto save_quat = [](std::ofstream& fout, const Quatd& q) {
-%		fout << q.w() << " " << q.x() << " " << q.y() << " " << q.z() << " ";
-%	};
-%	
-%	fout << std::setprecision(18) << timestamp << " " << std::setprecision(9);
-%	save_vec3(fout, p);
-%	save_quat(fout, R.unit_quaternion());
-%	save_vec3(fout, v);
-%	fout << std::endl;
-%};
-%
-%std::ofstream fout("./data/ch3/state.txt");
-%io.SetIMUProcessFunc([&imu_integ, &save_result, &fout, &ui](const sad::IMU& imu) {
-%	imu_integ.AddIMU(imu);
-%	save_result(fout, imu.timestamp_, imu_integ.GetR(), imu_integ.GetV(), imu_integ.GetP());
-%	ui.UpdateNavState(imu_integ.GetNavState());
-%	usleep(1e2);
-%}).Go();
-%
-%ui.Quit();
-%\end{lstlisting}
-%
-%该程序会把积分结果存储在ch3/state.txt中。注意本书会大量使用C++中的lambda函数来实现灵活的函数调用。这里的TxtIO负责读取文本文件并解析传感器数据，然后按照预设的回调函数来执行各种传感器的回调。由于不同章节的程序需要将这些传感器数据进行不同的处理，这里的回调部分以lambda函数实现。
-%
-%现在来执行这个程序：
-%\begin{lstlisting}[language=sh, caption=终端输入：]
-%bin/run_imu_integration
-%\end{lstlisting}
-%
-%它会在UI中显示车辆实时位置。不过这个程序会很快发散，车辆会消失在屏幕边缘。在程序结束之后，我们运行绘图脚本就可以绘制这段轨迹：
-%\begin{lstlisting}[language=sh, caption=终端输入：]
-% python3 scripts/plot_ch3_state.py data/ch3/state.txt 
-%\end{lstlisting}
-%
-%\begin{figure}
-%	\centering
-%	\includegraphics[width=1\textwidth]{ins/ch3-imu-integ-ui.png}
-%	\caption{IMU积分结果在UI中显示}
-%	\label{fig:ch3-imu-integ-ui}
-%\end{figure}
-%
-%UI里的车辆运动如图~\ref{fig:ch3-imu-integ-ui}所示，轨迹的绘制结果如图~\ref{fig:ch3-imu-integ}~所示。我们看到，以四元数表达的姿态整体上仍能保持稳定。该数据来源是车载IMU，四元数姿态中的$q_y, q_z$一直保持在零附近，但位移方面则很快发散。由于缺少外部观测，速度状态很快超出了控制，远远大于车辆的实际速度（该车辆为时速低于25公里的低速车辆），使得位置估计发散到一个很大的数值。读者也可以尝试其他数据，它们都会快速发散。
-%
-%\begin{figure}
-%	\centering
-% 	\includegraphics[width=1\textwidth]{ins/ch3-imu-integ.pdf}
-%	\caption{IMU积分的结果}
-%	\label{fig:ch3-imu-integ}
-%\end{figure}
-%
-%后面我们将介绍如何将其他传感器数据与IMU进行融合，来得到更准确的状态估计。在传统导航领域，IMU最主要的融合方式是和卫星导航进行组合，这样的系统称为GINS（GNSS-INS）系统。
-%
-%\section{卫星导航}
-%卫星导航（Global Navigation Satellite System, GNSS）是室外车辆定位的另一个主要信息来源。卫星导航内部原理非常复杂，然而它的输出结果却十分简单。当然从某种角度来说，如果把实用的系统拆分到原理层面，人们很快就会被工程细节淹没。即使像单片机这样看起来简单的系统，如果从
-%电路层面讲起，也会显得十分复杂。所以，我们并不准备从如何发射火箭或卫星开始介绍GNSS系统，
-%而是从另一个更加实际的角度来看这个问题，那就是，从自动驾驶车辆的视角来看，卫星导航
-%能给一辆车提供什么信息？
-%
-%这个问题的答案倒是十分简单的。在正常工作的时候，卫星导航实际上可以提供车辆所需的\textbf{所
-%有定位信息}，包括车辆的位置、姿态、速度等物理量。于是读者会问，那是否只靠卫星定位都可以
-%实现自动驾驶呢？要回答这个问题，我们需要考量几个方面的因素：
-%
-%\begin{enumerate}
-%	\item GNSS提供的定位精度是否满足要求？
-%	\item GNSS的定位频率是否足够下游使用？
-%	\item GNSS的定位可用性如何？是否能够全天候全场地使用？
-%\end{enumerate}
-%
-%实际上，GNSS也存在许多个细分种类，对上述问题的答案也并没有统一的回答。有些GNSS定位方
-%法可以提供很高精度，但必须要求物体静止一段时间（通常十分钟以上）；也有的方法可以提供较好
-%的动态物体定位，但需要事先架设一个或多个基站。几乎所有GNSS都存在“看天吃饭”的问题——它
-%们的稳定性与场景、结构、物体的遮挡关系、甚至和当天的天气有关。这使得在自动驾驶行业中，卫星导航大多数时候处于
-%一种精度够用，但稳定性很难控制的状态。
-%
-%\subsection{GNSS的分类与供应商}
-%% GNSS接收器图
-%整体而言，GNSS系统通过测量自身与地球周围各卫星的距离来确定自身的位置，而与卫星的距离主
-%要是通过测量时间间隔来确定的。一个卫星信号从卫星上发出时，带有一个发送时间。而GNSS接收机接收到它时，又有一个接收时间。我们比较接收时间与卫星发送时间，就能估算各卫星离我们的距离。而各种GNSS系统和测量方法的主要差异，就是如何减少这个时间的误差。从这种角度来看，GNSS本质上可以看成一种高精度的授时系统。
-%
-%\begin{figure}
-%	\centering
-%	\includegraphics[width=0.7\textwidth]{ins/rtk-receivers.pdf}
-%	\caption{各式各样的GNSS/RTK接收机。}
-%	\label{fig:rtk-receivers}
-%\end{figure}
-%
-%目前世界范围内，我们可以接收到卫星信号主要来自四个系统：美国的全球定位系统（Global 
-%Positioning System, GPS）、中国的北斗卫星导航系统（Beidou Navigation Satellite System, 
-%BDS）、俄罗斯的格洛纳斯系统（GLONASS）、欧盟的伽利略系统（GALILEO）。每个系统都在空
-%间中部署了20至30颗卫星。直接利用这些卫星定位信息的系统通常称为\textbf{单点GNSS}定位\footnote{GNSS
-%系统一直在发展，出于一些历史原因，早期的人们习惯于使用GPS这个称呼，但现在大部分文献会区
-%分GPS和GNSS的名词。}。大部分位于地面的GNSS接收机都可以接收到各卫星系统的信号。
-%它们可以选择其中一个卫星定位信息来源，也可以同时使用多个卫星信号来源。
-%这种单点GNSS定位系统通常能够提供数米范围内的定位精度。大部分手机设备上就使用单点GNSS进行定位和导航（图~\ref{fig:rtk-receivers}）。
-%
-%卫星定位的最终精度受很多因素影响。从发射端的卫星电磁信号，到中间的传输过程，再到接收端的
-%时钟信号，每一种误差都可能引起最终卫星定位的结果偏差。同时，人们也提出了各种各样的校正技
-%术来消除这些已知的误差。近几年人们发展了\textbf{PPP}（Precise Point 
-%Positioning，精密单点定位）、\textbf{RTK}（Real-Time 
-%Kinematic，实时动态差分）等技术，其定位精度仍在不断提升。实际上这些技术的涵盖面非常广泛，本书在从使用人员而非研发人员的角度来看待
-%问题，故不针对各种卫星定位的改进技术作深入论述。感兴趣的读者请参考\cite{李晓欢2020, 
-%周建华2020}等文献。在2023年的今天，GNSS定位已经从早年的10米左右的定位精度，逐渐提升到实
-%时可用的厘米级别定位精度，而且已经可以面向大众。截止到目前，国内的GNSS服务商也越来越
-%丰富，千寻、合众、讯腾等公司已能提供覆盖广泛、价格合理的卫星定位服务。这些终端也逐渐走进
-%消费者的手机、汽车等产品内部。
-%
-%对于自动驾驶汽车来说，最常用的卫星定位技术包括以下几种：
-%\begin{enumerate}
-%	\item 单点GNSS定位，即传统的米级精度卫星定位。这种定位方式价格低廉，应用广泛。大多数
-%	手机、车机等终端都具备单点卫星定位能力。在普通车辆的道路级导航当中\footnote{自动驾驶通常需要\textbf{
-%	车道级}导航而非\textbf{道路级}导航。车道级导航可以指出车辆位于道路当中哪个车道，比道路级
-%	导航要更稳定一些。}，单点定位的精足以让驾驶人员辩认出车辆位于哪条道路，但在多条道路并排时，它的精度又往往不足以区分车辆是在高速路上还是辅路上，或者在主路还是匝道的情况。
-%	\item 
-%	RTK定位。由于卫星定位信号在传输过程中可能产生误差，人们发展了\textbf{差分定位技术}，即
-%	通过地面上的一个已知精确位置的基准站与车辆通讯，校正车辆卫星接收机的信号。差分定位又可
-%	进一步分为位置、伪距以及载波相位差分定位。其中最广泛使用的，是基于\textbf{载波相位差分}的RTK技
-%	术。RTK通过与一个或多个基站进行通信，可以实时地获取校正后的卫星导航位置。
-%\end{enumerate}
-%
-%目前已有多家企业为自动驾驶提供RTK服务。这些企业通常会大范围地架设基准站，通过4G和5G移动网络与
-%车辆进行实时通信，输出车辆的实时位置。在天气、路况较好的场景，我们可以直接使用RTK提供的
-%定位信息来实现自动驾驶。也有一些供应商组合RTK与惯导系统，构成更加稳定的组合导航算法，从而增
-%加定位系统的可靠性。
-%
-%\subsection{实际的RTK安装与接收数据}
-%百闻不如一见。下面我们向读者展示一些自动驾驶中实际接收的RTK数据（GNSS数据同理）。RTK接收器通常安装在车
-%辆顶部，呈圆盘形状（人们通常亲切地称为“蘑菇头”）。一个蘑菇头可以提供精确卫星定位位置，如
-%果使用两个接收器组成\textbf{双天线}方案，那就可以根据两根天线给出的位置差，计算车辆的实时
-%朝向（heading）。
-%
-%\begin{figure}
-%	\centering
-%	\includegraphics[width=0.7\textwidth]{ins/apollo-rtk.pdf}
-%	\caption{百度阿波罗开发套件的一种RTK天线安装方式。}
-%	\label{fig:apollo-rtk}
-%\end{figure}
-%
-%图~\ref{fig:apollo-rtk}~展示了一种实际车辆上的RTK双天线方案。这个车辆没有外壳，我们容易从照片中看出来各类传感
-%器的安装位置。这台车辆有两个RTK蘑菇头，一个在车辆前方，另一个在车辆后方，它们是沿着车辆前进轴放置的。
-%也有些车辆的双天线采用水平安装或者侧向安装方法。总体而言，双天线方案中，我们定义其中一个为主天线，表达车辆位置。然后以另一个为副天线，将主副天
-%线的位置矢量相减，得到两根天线之间的朝向，进而获取车辆角度（主要为航向角yaw）。在左右安装的方案中，通常以左侧为
-%主天线； 而在前后安装方案中，通常以后侧为主天线。不过，这些只是人为定义，两根天线没有什
-%么本质上的不同，反着定义也是完全可以的。
-%
-%图~\ref{fig:rtk-antenna}~展示了几种RTK天线的不同安装方式，实际当中也可以按照车辆本身外形进
-%行定制。为了准确测量车辆角度，人们往往会把两根天线放得尽可能远\footnote{两根天线的位置都会
-%受一定噪声的影响。当它们的距离越远时，测量噪声对角度的影响就会变小。}。双天线的距离也叫
-%做RTK的\textbf{基线}（baseline）\footnote{基线这个词定义非常广泛，各种传感器都可以有将自己某条线段定义为基线，比如RTK的基线、双目视觉的基线，等等。读者不必纠结这个词与其他地方所说的基线之间的联系。}。RTK本身作为一种传感器，在车辆上的安装位置可以视为它的外
-%参，可以由一个矩阵描述。不过，由于双天线一般在一个水平面内，它的旋转部分外参只需用一个角
-%来描述，称为\textbf{安装偏角}（antenna angle）；平移部分则称为\textbf{安装偏移}（antenna 
-%position）。这两个参数一般在结构设计时确定。
-%
-%\begin{figure}
-%	\centering
-%	\includegraphics[width=0.7\textwidth]{ins/rtk-antenna.pdf}
-%	\caption{RTK双天线的不同安装方式：左右安装、前后安装、对角安装。}
-%	\label{fig:rtk-antenna}
-%\end{figure}
-%
-%卫星定位普遍输出物体的经纬度位置。这种输出形式与地球上某个固定的坐标系相关，而不像其他激光、视觉定位那样可以随意定义坐标系。同时，双天线RTK的角度也存在习惯的定义方式。我们先来介绍常见的世界坐标系，再来处理一些实际的RTK数据。
-%
-%\subsection{常见的世界坐标系}
-%物理世界当中存在多种普遍使用的世界坐标系。我们来简单介绍一下它们的定义方式。
-%
-%\subsubsection{地理坐标系}
-%\begin{figure}
-%	\centering
-%	\includegraphics[width=0.4\textwidth]{ins/latlon.pdf}
-%	\caption{经纬度坐标系示意图}
-%	\label{fig:latlon}
-%\end{figure}
-%
-%地球上最常见的坐标系就是\textbf{经纬度}（latitude longitude）坐标系，也称为\textbf{地理坐标系}（Geographic Coordinate System），参见图~\ref{fig:latlon}。它们再加上高度就形成了经纬高坐标系（latitude-longitude-altitude, LLA）。经纬度是指按横向和纵向对地球表面进行均匀的切分。经度从本初子午线向东西各180度，纬度则是从赤道向南北各90度。这两个数值均为角度值或者弧度值。高度方面则可使用海拔高度或者地心高度，它们都是相对于某个基准水平面的高度。
-%
-%经纬度是十分直观、好用的坐标系，能够覆盖整个地球。许多地图系统都会首选使用经纬度坐标作为默认的坐标系。但自动驾驶地图通常在城市级别或者更小的范围内，经纬度坐标会让坐标系统有效数字变多（建筑物级别的经纬度通常要精确到小数点后8至9位），读起来比较费力。它们与日常接触的米制单位转换关系也不够线性，例如一度经度在北极可以对应0米，而在赤道可能对应上百公里。因此，除了经纬度这种全局坐标系，我们还会使用一些日常的局部坐标系。
-%
-%\subsubsection{UTM坐标系}
-%%\begin{figure}
-%%	\centering
-%%	\includegraphics[width=1.0\textwidth]{ins/utm.pdf}
-%%	\caption{UTM坐标系的分区示意图}
-%%	\label{fig:utm}
-%%\end{figure}
-%
-%UTM（Universal Transverse Mercator Grid System）坐标系是将地球视为一个椭球体（World Geodetic System 84椭球体），投影至横躺的圆柱体上，然后展开进行分区后得到的。它将经度分为60个区，将纬度分为20个区，并赋予标号。经度方向为数字标号，纬度方向为字母标号。除个别地方外，这些分区大体是均匀分布的。注意这里所谓的均匀分布是指沿经纬度均匀分布，但由于地球本身是球面，它们在米制单位上并不是均匀的。另外，两极区域在铺平之后有较大畸变，所以UTM的纬度有效范围是南北80度以内。
-%
-%在每个分区内，UTM坐标以正东，正北的米制坐标来表达车辆位置。由于地球半径约6378公里，可以算得UTM一格在东西向最宽约66.7万米。于是，UTM正东坐标是指，将该区的经度中心线取为$x=500000$，然后取向东的偏移量。此时，如果某个点落在中心线以西，则$x$坐标将小于500000米，但仍为正数。正北方向则以赤道的投影距离为原点，取这个点偏离赤道的距离为$y$坐标。那么，在北半球中，我们将正东视为$X$轴，正北视为$Y$轴，按照右手坐标系，$Z$轴应该指向天空。这样就定义了一个分区内的世界坐标系，且符合\textbf{东北天坐标系}习惯。或者，也可以正北为$X$轴，以正东为$Y$轴，$Z$轴指向地面，定义\textbf{北东地坐标系}。两者在实际应用中都有使用。
-%
-%UTM的优点是使了米制坐标，与其他传感器的兼容性好，缺点是某些地区可能在两个分区的跨界处，需要额外的坐标处理。由于地球的投影畸变，实际的UTM坐标与米制单位之间还有一个0.9996的倍数关系，在高精度场合中需要考虑进去。此外，\textbf{东北天坐标}与\textbf{北东地坐标}的$Z$轴指向相反，所以在角度定义方面会有差别，这在实际情况中也应该进行转换。
-%
-%\subsection{RTK读数的显示}
-%不少RTK和组合导航生产厂商都可以按照用户选择的坐标系往外输出坐标，其中最基本的就是输出RTK接收器测量到的经纬度。下面我们演示如何将RTK的经纬度坐标转换为米制的UTM坐标，同时使用双天线方案确定车辆的方向角。这里我们不考虑车辆的俯仰和滚转，把它们视为零。于是，虽然车辆输出的是\textbf{四自由度坐标}，但在假设车辆俯仰和滚转为零的前提下，也可以把RTK输出视为六自由度的位置变换，即$\mathrm{SE}(3)$的位姿。
-%
-%我们继续使用上一节的数据。这些数据实际上是IMU、RTK、轮速计读数的数据文件，位于data/ch3/下。读者可以用文本编辑器打开它们，格式如下：
-%
-%\begin{lstlisting}[language=sh, caption=数据文件例子]
-%GNSS 1571900872.47168827 30.0011840411666668 117.97859182983332 305.98748779296875 
-%330.047799999999995 1
-%ODOM 1571900872.50085688 0 0
-%IMU 1571900872.56527948 -0.000740019602845583204 -0.000471238898038460995 
-%6.98131700797720067e-06 0.362519161666666645 -0.0608012299999999908 
-%9.82135997500000002
-%\end{lstlisting}
-%文件的每一行表示一个数据，开头的“GNSS”、“IMU”、“ODOM”表达它的记录类型。对于GNSS读数
-%来说，每行的内容为：记录时间、纬度、经度、高度、方向角、方向角有效位标志。对于IMU或轮速
-%来说，则是各自的加速度计、陀螺仪和轮速计的读数。这里的GNSS定位是由千寻FindCM方案提供
-%的，在固定解状态下标称精度为2cm。
-%
-%由于经纬度转UTM的算法比较复杂和琐碎，不是本书的重点内容，我们使用一个开源的转换方法来实
-%现这部分内容，参见thirdparty/utm\_convert目录\footnote{工具地址见：\url{https://github.com/hobu/mgrs}}。我们为它添加一个封装函数，让我们方便
-%地计算GNSS读数对应的$\mathrm{SE}(3)$位姿。转换代码如下：
-%
-%\begin{lstlisting}[language=c++,caption=ch3/utm\_convert.cc]
-%bool LatLon2UTM(const Vec2d& latlon, UTMCoordinate& utm_coor) {
-%	long zone = 0;
-%	char char_north = 0;
-%	long ret = Convert_Geodetic_To_UTM(latlon[0] * math::kDEG2RAD, latlon[1] * math::kDEG2RAD, &zone, &char_north,
-%	&utm_coor.xy_[0], &utm_coor.xy_[1]);
-%	utm_coor.zone_ = (int)zone;
-%	utm_coor.north_ = char_north == 'N';
-%	
-%	return ret == 0;
-%}
-%
-%bool ConvertGps2UTM(GNSS& gps_msg, const Vec2d& antenna_pos, const double& antenna_angle, const Vec3d& map_origin) {
-%	/// 经纬高转换为UTM
-%	UTMCoordinate utm_rtk;
-%	if (!LatLon2UTM(gps_msg.lat_lon_alt_.head<2>(), utm_rtk)) {
-%		return false;
-%	}
-%	utm_rtk.z_ = gps_msg.lat_lon_alt_[2];
-%	
-%	/// GPS heading 转成弧度
-%	double heading = 0;
-%	if (gps_msg.heading_valid_) {
-%		heading = (90 - gps_msg.heading_) * math::kDEG2RAD;  // 北东地转到东北天
-%	}
-%	
-%	/// TWG 转到 TWB
-%	SE3 TBG(SO3::rotZ(antenna_angle * math::kDEG2RAD), Vec3d(antenna_pos[0], antenna_pos[1], 0));
-%	SE3 TGB = TBG.inverse();
-%	
-%	/// 若指明地图原点，则减去地图原点
-%	double x = utm_rtk.xy_[0] - map_origin[0];
-%	double y = utm_rtk.xy_[1] - map_origin[1];
-%	double z = utm_rtk.z_ - map_origin[2];
-%	SE3 TWG(SO3::rotZ(heading), Vec3d(x, y, z));
-%	SE3 TWB = TWG * TGB;
-%	
-%	gps_msg.utm_valid_ = true;
-%	gps_msg.utm_.xy_[0] = TWB.translation().x();
-%	gps_msg.utm_.xy_[1] = TWB.translation().y();
-%	gps_msg.utm_.z_ = TWB.translation().z();
-%	
-%	if (gps_msg.heading_valid_) {
-%		// 组装为带旋转的位姿
-%		gps_msg.utm_pose_ = TWB;
-%	} else {
-%		// 组装为仅有平移的SE3
-%		// 注意当安装偏移存在时，并不能实际推出车辆位姿
-%		gps_msg.utm_pose_ = SE3(SO3(), TWB.translation());
-%	}
-%	
-%	return true;
-%}
-%\end{lstlisting}
-%
-%其中经纬度到UTM的转换由库函数完成,而我们需要把GNSS坐标系下的UTM坐标转换为车辆的观测位姿，其中要考虑RTK的安装外参。本节使用的双天线RTK安装方式如图~\ref{fig:dual-rtk-coor}~所示，蓝色的$x_B, y_B, O_B$表示车身坐标系，红色的$x_G, y_G, O_G$表示GNSS接收器的坐标系。
-%
-%数学上，可以将RTK的UTM坐标读数视为$\bm{T}_{WG}$，其中$W$代表世界坐标系，$G$代表GNSS
-%接收器的坐标系。为了方便后续的融合定位，我们将它转换到$\bm{T}_{WB}$，其中$B$为车辆本体
-%坐标系。于是GNSS接收器与车辆间的外参就可以由$\bm{T}_{GB}$或$\bm{T}_{BG}$描述。
-%
-%\begin{figure}
-%	\centering
-%	\includegraphics[width=0.3\textwidth]{ins/dual-rtk-coor.pdf}
-%	\caption{本书样例中使用的RTK安装方式。下标$G$表示GNSS接收器的坐标系，$B$表示车辆本体坐标系。这台车辆的主天线位于车辆右后侧，副天线位于左前侧。}
-%	\label{fig:dual-rtk-coor}
-%\end{figure}
-%
-%在标定参数中，我们指定安装偏移$\bm{a}_t$为$O_B$指向$O_G$的矢量，且在$B$系中取坐标，这实际上就是$\bm{T}_{BG}$的平移分量。同
-%时，安装偏角$a_{\theta}$定义为$B$系的$x$轴转向$G$系$x$轴之间的转角。将$\bm{a}_t, a_{\theta}$代入到$\bm{T}_{BG}$中，不难得到：
-%\begin{equation}\label{key}
-%	\bm{T}_{BG} = \begin{bmatrix}
-%		\bm{R}_Z (a_{\theta}) &  \bm{a}_t \\
-%		\bm{0}^\top & 1
-%	\end{bmatrix},
-%\end{equation}
-%其中$\bm{R}_Z$表示绕$Z$轴进行旋转的矩阵。
-%
-%需要解释的是，这种\textbf{安装偏角}和\textbf{安装偏移}的定义方式是符合直观的，但它并不是唯一的，具体定义方式需要照顾到操作上的便利性。这两个量也可以按照反方向来定义，只要现场标定人员可以很容易地测量出来。我们往往让数学符号习惯跟从现实习惯，而不是让现实操作来符合数学定义。如果我们让标定人员测量$\bm{R}_{BG}$或者$\bm{t}_{BG}$，他往往无法很直观地想象出来。但我们给出两个点的连线，或者两条线的夹角，人们就很容易操作。
-%
-%车辆本体系到世界系的变换矩阵$\bm{T}_{WB}$可由RTK读数和它的外参解出：
-%\begin{equation}\label{key}
-%\bm{T}_{WB} = \bm{T}_{WG} \bm{T}_{GB}.
-%\end{equation}
-%
-%将此式的旋转与平移部分写开，可得：
-%\begin{equation}\label{key}
-%\bm{R}_{WB} = \bm{R}_{WG} \bm{R}_{GB}, \quad \bm{t}_{WB} = \bm{R}_{WG} \bm{t}_{GB} + \bm{t}_{WG}.
-%\end{equation}
-%
-%这里要提一点，即使RTK外参$\bm{t}_{GB}$已知，要确定车辆坐标$\bm{t}_{WB}$，还需要知道RTK的朝向$\bm{R}_{WG}$。如果我们使用的是单天线方案，而安装偏移相关的量$\bm{t}_{GB}$又不为零，那么\textbf{当车辆朝向不明时，并不能真正确定车辆本体的世界坐标}。当然，在状态估计算法中，车辆姿态$\bm{R}_{WB}$存在估计值，此时也可以使用$\bm{R}_{WB} \bm{R}_{BG}$来作为当时的$\bm{R}_{WG}$。
-%
-%此外，这里的转换程序还做了\textbf{东北天}至\textbf{北东地}的转换。由于RTK生产厂商的协议并不相同，有些厂商在输出角度时会按照他们预定的方案来实现，这可能会导致角度定义的不一致。本书使用的UTM坐标使用正东正北作为$XY$轴，属于\textbf{东北天}坐标系；而RTK厂商输出的则是\textbf{北东地}坐标系。前者以东为零度，后者以北为零度，且旋转方向相反。于是一个北东地坐标系下的方位角$h$转换到东北天坐标系下的角度$h'$，应为：
-%\begin{equation}\label{key}
-%h' = \pi/2 - h.
-%\end{equation}
-%上述代码就对方位角作了上述处理。
-%
-%接着，我们再写一段程序，将数据文件中的GNSS读数转换为位姿后，写入输出的文件。读者可
-%以用python脚本绘制整个GNSS的轨迹。同时我们也把RTK的位姿放入实时图形界面中，让读者可以马上看到当前的位置和朝向。
-%
-%\begin{lstlisting}[language=c++,caption=ch3/process\_gnss.cc]
-%DEFINE_string(txt_path, "./data/ch3/10.txt", "数据文件路径");
-%
-%// 以下参数仅针对本书提供的数据
-%DEFINE_double(antenna_angle, 12.06, "RTK天线安装偏角（角度）");
-%DEFINE_double(antenna_pox_x, -0.17, "RTK天线安装偏移X");
-%DEFINE_double(antenna_pox_y, -0.20, "RTK天线安装偏移Y");
-%
-%/**
-%* 本程序演示如何处理GNSS数据
-%* 我们将GNSS原始读数处理成能够进行后续处理的6自由度Pose
-%* 需要处理UTM转换、RTK天线外参、坐标系转换三个步骤
-%*
-%* 我们将结果保存在文件中，然后用python脚本进行可视化
-%*/
-%
-%int main(int argc, char** argv) {
-%	sad::TxtIO io(fLS::FLAGS_txt_path);
-%	
-%	std::ofstream fout("./data/ch3/gnss_output.txt");
-%	Vec2d antenna_pos(FLAGS_antenna_pox_x, FLAGS_antenna_pox_y);
-%	
-%	auto save_result = [](std::ofstream& fout, double timestamp, const SE3& pose) {
-%		auto save_vec3 = [](std::ofstream& fout, const Vec3d& v) { fout << v[0] << " " << v[1] << " " << v[2] << " "; };
-%		auto save_quat = [](std::ofstream& fout, const Quatd& q) {
-%			fout << q.w() << " " << q.x() << " " << q.y() << " " << q.z() << " ";
-%		};
-%		
-%		fout << std::setprecision(18) << timestamp << " " << std::setprecision(9);
-%		save_vec3(fout, pose.translation());
-%		save_quat(fout, pose.unit_quaternion());
-%		fout << std::endl;
-%	};
-%	
-%	std::shared_ptr<sad::ui::PangolinWindow> ui = nullptr;
-%	if (FLAGS_with_ui) {
-%		ui = std::make_shared<sad::ui::PangolinWindow>();
-%		ui->Init();
-%	}
-%	
-%	bool first_gnss_set = false;
-%	Vec3d origin = Vec3d::Zero();
-%	io.SetGNSSProcessFunc([&](const sad::GNSS& gnss) {
-%		sad::GNSS gnss_out = gnss;
-%		if (sad::ConvertGps2UTM(gnss_out, antenna_pos, FLAGS_antenna_angle)) {
-%			if (first_gnss_set == false) {
-%				origin = gnss_out.utm_pose_.translation();
-%				first_gnss_set = true;
-%			}
-%			gnss_out.utm_pose_.translation() -= origin;
-%			
-%			save_result(fout, gnss_out.unix_time_, gnss_out.utm_pose_);
-%			ui->UpdateNavState(
-%				sad::NavStated(gnss_out.unix_time_, gnss_out.utm_pose_.so3(), gnss_out.utm_pose_.translation()));
-%			
-%			usleep(1e4);
-%		}
-%	}).Go();
-%	
-%	if (ui) {
-%		while (!ui->ShouldQuit()) {
-%			usleep(1e5);
-%		}
-%		ui->Quit();
-%	}
-%	
-%	return 0;
-%}
-%\end{lstlisting}
-%
-%该程序将RTK读数转换为UTM位姿，并去除了原点，然后写入文本文件，同时传递给UI进行显示。请读者编译运行该程序，指定一个输入的文本文件：
-%\begin{lstlisting}[language=sh, caption=终端输入：]
-%bin/process_gnss --txt_path ./data/ch3/10.txt
-%\end{lstlisting}
-%
-%该程序将RTK转换后的六自由度坐标写入data/ch3/gnss\_output.txt文件中。接下来我们可以用scripts/plot\_ch3\_gnss\_2d和3d两种脚本分别绘制二维和三维的GNSS轨迹：
-%\begin{lstlisting}[language=sh, caption=终端输入：]
-%python3 scripts/plot_ch3_gnss_2d.py ./data/ch3/gnss_output.txt 
-%\end{lstlisting}
-%
-%二维和三维的轨迹图如图~\ref{fig:gnss-traj}~所示。可见，这个场景中RTK本身能够给出非常不错的车辆轨迹，但高度层面则存在明显抖动和误差，
-%说明RTK的高度测量数据精度通常是不如水平坐标的。读者也可以尝试画出本书提供的其他几个样例
-%数据，只需更改对应的文件路径即可。此处展示的案例是一个GNSS信号良好的场景，不过我们提供
-%的数据里也存在一些GNSS相对较差的路段，读者可以对比一下它们的轨迹图。
-%
-%\begin{figure}
-%	\centering
-%	\includegraphics[width=1.0\textwidth]{ins/gnss-traj.pdf}
-%	\caption{GNSS轨迹的二维和三维视图。}
-%	\label{fig:gnss-traj}
-%\end{figure}
-%
-%本节测试程序也会提供实时的GNSS位姿展示，如图~\ref{fig:process-gnss}。在RTK角度有效时，车辆应该为$X$轴向前，$Y$轴向左，$Z$轴向上。如果读者自己运行了本程序，应该能观察到RTK测量的角度相比位置更加不稳定一些。在运行过程中，RTK角度经常会出现失效的情况。而按照我们之前的推导，如果RTK姿态失效，车辆本身的位置也将无法完全解算出来。所以读者还应该能观察到，在RTK角度失效时，我们计算出来的车辆位置也会有小幅度的抖动。
-%
-%\begin{figure}
-%	\centering
-%	\includegraphics[width=1.0\textwidth]{ins/ch3-process-gnss.png}
-%	\caption{GNSS的实时轨迹}
-%	\label{fig:process-gnss}
-%\end{figure}
-%
-%注意本节仅使用了RTK设备提供的位置与方向角信息。也有的RTK或组合导航设备内部集成了IMU，
-%可以直接向外输出角速度、线速度等物理量。不过本书的目标在于介绍其原理，所以在此不直接使用RTK
-%设备带来的这些信息了。
-%
-%\section{使用误差状态卡尔曼滤波器实现组合导航}
-%RTK设备为我们提供了一个不太稳定的位姿观测源。我们可以将它直接视为定位滤波器的一种观测。
-%本节我们来将RTK与IMU结合，使用拓展卡尔曼滤波器形成传统的组合导航算法，以供后续的算
-%法作为对比。严格来说，我们向读者介绍的是\textbf{误差状态}的拓展卡尔曼滤波器（Error state Kalman 
-%filter, ESKF）。ESKF的应用十分广泛，从GINS组合导航到视觉SLAM\cite{Kleinert2010,Li2013,Davison2003}、外参自标定\cite{Kelly2011,Mirzaei2008}等任务中都有应用。 为什么需要ESKF呢？ESKF与EKF之间又有何区别呢？我们会从动机层面开始介绍。这种由简至繁的过程也可以帮助
-%读者更好地理清各种算法的发展过程。
-%
-%\subsection{ESKF的数学推导}
-%前面我们已经介绍过IMU器件的观测模型了，现在我们需要把IMU视为运动模型，并把GNSS观测视
-%为观测模型，推导整个滤波器。这件事情并不难。
-%
-%我们设状态变量为：
-%\begin{equation}\label{key}
-%\bm{x} = [\bm{p}, \bm{v}, \bm{R}, \bm{b}_g, \bm{b}_a, \bm{g}]^\top,
-%\end{equation}
-%所有变量都默认取下标$()_{WB}$，其中$\bm{p}$为平移，$\bm{v}$为速度，$\bm{R}$为旋转，$\bm{b}_g,
-% \bm{b}_a$为零偏，$\bm{g}$为重力。按照我们前面介绍的运动学方程式\eqref{eq:motion-equation}并代入IMU测量值，状态变量在连续时间下的运
-%动方程为：
-%\begin{subequations}\label{eq:ekf-continous}
-%\begin{align}
-%	\dot{\bm{p}} &= \bm{v}, \\
-%	\dot{\bm{v}} &= \bm{R} (\tilde{\bm{a}} - \bm{b}_{a} - \boldsymbol{\eta}_a) + \bm{g}, \\
-%	\dot{\bm{R}} &= \bm{R} \left( \tilde{\boldsymbol{\omega}} - \bm{b}_{g} - \boldsymbol{\eta}_g 
-%	\right)^\wedge, \\
-%	\dot{\bm{b}}_{g} & = \boldsymbol{\eta}_{bg}, \\
-%	\dot{\bm{b}}_{a} & = \boldsymbol{\eta}_{ba}, \\ 
-%	\dot{\bm{g}} &= \bm{0}.
-%\end{align}
-%\end{subequations}
-%
-%为了在EKF的预测过程中对协方差进行预测，我们需要对该方程进行线性化。理论上，离散时间线性化的形式为：
-%\begin{equation}\label{key}
-%\bm{x}_{k+1} = \bm{f} (\bm{x}_k) + \bm{F} \mathrm{d} \bm{x} + \bm{w},
-%\end{equation}
-%其中$\bm{F} = \left. \frac{\partial \bm{f}}{\partial \bm{x}} \right|_{\bm{x}_{k}}$为系数矩阵。该矩阵由
-%运动方程和各项状态变量的导数构成。然而，这里我们遇到了一个非常现实的问题：一方面，$\bm{F}$当中需
-%要计算旋转矩阵$\bm{R}$相对于某个扰动的导数，而在不引入张量的情况下，是无法表达矩阵对向量导
-%数的形式的。于是，传统算法往往会退一步，用欧拉角或者四元数的四个标量作为状态变量\cite{crassidis2006sigma}，但这样
-%就无法优雅地使用流形上的方法了。另一方面，如果我们考虑将惯性导航系统与卫星导航系统进行融合，那么$\bm{x}$中的平移变量就应该使用全局坐标系。这会使得$\bm{x}$中的数值变得很大，在有些场合超出浮点数的有效数字范围。这将导致一些常见的运算可能会失效，例如数值计算中的“大数吃小数”现象\cite{bonnans2006numerical}。
-%
-%于是，我们会说，能否避免直接使用$\bm{x}$和$\bm{P}$来表达状态的均值和协方差，来推导运动和观测方程？能否使用原先卡尔曼滤波器中的\textbf{更新量}来推导这两个方程？我们回忆卡尔曼滤波器中的观测部分：
-%\begin{equation}\label{key}
-%\bm{x}_k = \bm{x}_{k, \text{pred}} + \bm{K}_k \underbrace{(\bm{z}_k - \bm{H}_k \bm{x}_{k, \text{pred}})}_{\text{更新量}}.
-%\end{equation}
-%
-%在流形意义下，右侧的更新量应是位于切空间中的矢量，中间的加法应为流形与切空间指数映射的广义加法。但我们也可以将更新量（或者称为误差状态）视为滤波器的状态变量，来推导运动和观测模型。这就引出了\textbf{误差状态卡尔曼滤波器}。更进一步，不光是平移和旋转，我们索性把所有的状态都用误差状态来表达，这就是典型ESKF的做法。
-%
-%ESKF是许多传统的、现代的系统里都广泛使用的状态估计方法，既可以作为组合导航的滤波器，也
-%可以用来实现LIO、VIO等复杂系统\cite{Xu2021,xu2021fast, Bloesch2017}。相比于传统KF，ESKF的优点可以总
-%结如下\cite{Madyastha2011}：
-%\begin{enumerate}
-%	\item 在旋转的处理上，ESKF的状态变量可以采用最小化的参数表达，也就是使用三维变量来表达
-%	旋转的增量。该变量位于切空间中，而切空间是一个矢量空间。传统KF需要用到四元数（4维）或者更高维的变量来表达状态（旋转矩阵，9维），要不就得
-%	采用带有奇异性的表达方式（欧拉角）。
-%	\item ESKF总是在原点附近，离奇异点较远，数值方面更加稳定，并且也不会产生离工作点太远而导致线性化近似不够的问题。
-%	\item ESKF的状态量为小量，其二阶变量相对来说可以忽略。同时大多数雅可比矩阵在小量情况下变得非常简单，甚至可以用单位阵代替。
-%	\item 误差状态的运动学也相比原状态变量要来得更小（小量的运动学），因此我们可以把更新部分返回到原状态变量中。
-%\end{enumerate}
-%
-%在ESKF中，我们通常把原状态变量称为\textbf{名义状态变量}（nominal state），然后把ESKF里的
-%状态变量称为\textbf{误差状态变量}（error state）。名义状态变量和误差状态变量之和称为\textbf{真
-%值}。我们把噪声的处理放到误差状态变量中，可以认为名义状态变量的方程是不含噪声的。这种做
-%法在初次接触时会显得相对复杂，但将噪声分离之后，名义状态变量的方程反而变得简洁了。所谓的
-%滤波器，也仅需要考虑误差状态如何运动，如何观测，最后如何进行滤波，和名义状态的关系不大。
-%
-%ESKF整体流程如下：当IMU测量数据到达时，我们把它积分后，放入名义状态变量中。由于这种做
-%法没有考虑噪声，其结果自然会快速漂移，于是我们把误差部分作为误差变量。在运动过程中，名义状态随着IMU数据进行递推，误差状态则受到高斯噪声影响而变大。此时，ESKF的误差状态均值和协方差会描述误差状态扩大的具体数值（视为高斯分布）\footnote{但是后文我们将看到，由于各项噪声均为零均值的白噪声，误差状态的均值在运动方程中保持为零，只是协方差会增大。}。此外，ESKF的更新过程需要依赖IMU以外的传感器观测。更新过程中，我们利用传感器数据，更新误差状态的\textbf{后验}均值与协方差。随后我们可以把这部分误差\textbf{合入}名义状态变量中，并把ESKF置零，这样就完成了一次预测——更新的循环。
-%
-%下面来推导ESKF的两个过程。我们设ESKF的真值状态为：$\bm{x}_t = [\bm{p}_t, \bm{v}_t, \bm{R}_t, \bm{b}_{at}, \bm{b}_{gt}, 
-%\bm{g}_t]^\top$。下标$t$表示$\text{true}$，即真值状态。这个状态随时间改变，可以记$\bm{x}_t(t)$。在连续时间上，我们记IMU读
-%数为$\tilde{\boldsymbol{\omega}}, \tilde{\bm{a}}$，那么根据之前的推导，我们可以写出状态变量导
-%数相对于观测量之间的关系式：
-%\begin{subequations}\label{eq:eskf-true-state}
-%	\begin{align}
-%		\dot{\bm{p}}_t &= \bm{v}_t, \\
-%		\dot{\bm{v}}_t &= \bm{R}_t (\tilde{\bm{a}} - \bm{b}_{at} - \boldsymbol{\eta}_a) + \bm{g}_t, \\
-%		\dot{\bm{R}}_t &= \bm{R}_t \  \left( \tilde{\boldsymbol{\omega}} - \bm{b}_{gt} - 
-%		\boldsymbol{\eta}_g \right)^\wedge, \\
-%		\dot{\bm{b}}_{gt} & = \boldsymbol{\eta}_{bg}, \\
-%		\dot{\bm{b}}_{at} & = \boldsymbol{\eta}_{ba}, \\ 
-%		\dot{\bm{g}}_t &= \bm{0}.
-%	\end{align}
-%\end{subequations}
-%
-%该式和前面所述的式\eqref{eq:ekf-continous}是一致的。注意这里把重力$\bm{g}$考虑进来的
-%主要理由是方便确定IMU的初始姿态。如果我们不在状态方程里写出重力变量，那么必须事先确定初
-%始时刻的IMU朝向$\bm{R}(0)$，才可以执行后续的计算。此时IMU的姿态是相对于初始的水平面来
-%描述的。而如果把重力写出来，就可以设IMU的初始姿态为单位矩阵$\bm{R}=\bm{I}$，把重力方向
-%作为IMU当前姿态相比于水平面的一个度量。二种方法都是可行的，不过将重力方向单独表达出来会
-%使得初始姿态表达更加简单，同时还可以增加一些线性性\cite{Lupton2009}。
-%
-%如果我们把观测量和噪声量整理成一个向量，就可以把上式整理成矩阵形式。不过这样的矩阵形式将
-%含有很多的零项，相比上式并不会有明显简化，所以我们就先使用这种散开的公式。下面我们来推导
-%误差状态方程。首先定义误差状态变量为：
-%\begin{subequations}\label{eq:eskf-true-to-error}
-%	\begin{align}
-%		\bm{p}_t &= \bm{p} + \delta \bm{p}, \\
-%		\bm{v}_t &= \bm{v} + \delta \bm{v}, \\
-%		\bm{R}_t &= \bm{R} \delta \bm{R} \quad  \text{或} \ \bm{q}_t = \bm{q} \delta \bm{q}, \\
-%		\bm{b}_{gt} &= \bm{b}_g + \delta \bm{b}_g, \\
-%		\bm{b}_{at} &= \bm{b}_a + \delta \bm{b}_a, \\
-%		\bm{g}_t &= \bm{g} + \delta \bm{g}.
-%	\end{align}
-%\end{subequations}
-%
-%不带下标的就是式（\ref{eq:eskf-true-state}）中的\textbf{名义状态变量}。名义状态变量的运动学方程
-%式与真值相同，只是\textbf{不必考虑噪声}（因为噪声在误差状态方程中考虑了）。其中旋转部分的$\delta
-% \bm{R}$可以用它的李代数$\mathrm{Exp}(\delta \boldsymbol{\theta})$来表示，此时(c)式也需要改成
-%用指数形式来表达。
-%
-%在误差状态的(a,d,e,f)式中，在等式两侧分别对时间求导，很容易能得到对应的时间导数表达式：
-%\begin{subequations}
-%	\begin{align}
-%		\delta \dot{\bm{p}} &= \delta \bm{v}, \\
-%		\delta \dot{\bm{b}_g} &= \boldsymbol{\eta}_{bg}, \\
-%		\delta \dot{\bm{b}_a} &= \boldsymbol{\eta}_{ba}, \\
-%		\delta \dot{\bm{g}} &= \bm{0}.
-%	\end{align}
-%\end{subequations}
-%而(b),(c)两式由于和$\delta \bm{R}$有关系，形式稍微复杂一些，下面给出单独的推导。
-%
-%
-%\subsubsection{误差状态的旋转项}
-%对式（\ref{eq:eskf-true-to-error}）(c)两侧求时间导数，可得：
-%\begin{equation}\label{eq:eskf-3.19}
-%	\begin{aligned}
-%		\dot{\bm{R}}_t &= \dot{\bm{R}} \mathrm{Exp} (\delta \boldsymbol{\theta}) + \bm{R} 
-%		\dot{\mathrm{Exp}(\delta \boldsymbol{\theta})},  \\
-%		&\buildrel{\ref{eq:eskf-true-state}(c)}\over=  \bm{R}_t \left( \tilde{\boldsymbol{\omega}} - 
-%		\bm{b}_{gt} - \boldsymbol{\eta}_g \right) ^\wedge.
-%	\end{aligned}
-%\end{equation}
-%
-%注意到该式右边的$\dot{\mathrm{Exp}(\delta \boldsymbol{\theta})}$满足：
-%\begin{equation}
-%	\dot{\mathrm{Exp}(\delta \boldsymbol{\theta})} = \mathrm{Exp}(\delta \boldsymbol{\theta}) \delta 
-%	\dot{\boldsymbol{\theta}}^\wedge.
-%\end{equation} 
-%因此\eqref{eq:eskf-3.19}的第一个式子可写成：
-%\begin{equation}\label{key}
-%	\dot{\bm{R}} \mathrm{Exp} (\delta \boldsymbol{\theta}) + \bm{R} \dot{\mathrm{Exp}(\delta 
-%	\boldsymbol{\theta})} = \bm{R} (\tilde{\boldsymbol{\omega}}-\bm{b}_g)^\wedge 
-%	\mathrm{Exp}(\delta \boldsymbol{\theta}) + \bm{R} \mathrm{Exp}(\delta \boldsymbol{\theta} ) 
-%	\delta \dot{\boldsymbol{\theta}}^\wedge.
-%\end{equation}
-%
-%而第二个式子可以写成：
-%\begin{equation}\label{key}
-%	\begin{aligned}
-%		\bm{R}_t \left( \tilde{\boldsymbol{\omega}} - \bm{b}_{gt} - \boldsymbol{\eta}_g \right)^\wedge 
-%		&= \bm{R}  \mathrm{Exp} (\delta \boldsymbol{\theta}) \left( \tilde{\boldsymbol{\omega}} - 
-%		\bm{b}_{gt} - \boldsymbol{\eta}_g \right)^\wedge.
-%	\end{aligned}
-%\end{equation}
-%
-%比较这两个式子，将$\delta \dot{\boldsymbol{\theta}}^\wedge$移到一侧，约掉两侧左边的$\bm{R}$，整理类
-%似项，不难得到：
-%\begin{equation}
-%	\begin{aligned}
-%		\mathrm{Exp} (\delta \boldsymbol{\theta}) \delta \dot{\boldsymbol{\theta}}^\wedge &= 
-%		\mathrm{Exp} (\delta \boldsymbol{\theta}) \left( \tilde{\boldsymbol{\omega}} - \bm{b}_{gt} - 
-%		\boldsymbol{\eta}_g \right)^\wedge - (\tilde{\boldsymbol{\omega}}-\bm{b}_g)^\wedge 
-%		\mathrm{Exp}(\delta \boldsymbol{\theta}).
-%	\end{aligned}
-%\end{equation}
-%
-%注意到$\mathrm{Exp}(\delta 
-%\boldsymbol{\theta})$本身是一个$\mathrm{SO}(3)$矩阵，我们利用$\mathrm{SO}(3)$上的伴随性质：
-%\begin{equation}\label{key}
-%	\boldsymbol{\phi}^\wedge \bm{R} = \bm{R} (\bm{R}^\top \boldsymbol{\phi})^\wedge
-%\end{equation}
-%来交换上面的$\mathrm{Exp}(\delta \boldsymbol{\theta})$：
-%\begin{equation}\label{key}
-%	\begin{aligned}
-%		\mathrm{Exp} (\delta \boldsymbol{\theta}) \delta \dot{\boldsymbol{\theta}}^\wedge &= 
-%		\mathrm{Exp} (\delta \boldsymbol{\theta}) \left( \tilde{\boldsymbol{\omega}} - \bm{b}_{gt} - 
-%		\boldsymbol{\eta}_g \right)^\wedge - \mathrm{Exp} (\delta \boldsymbol{\theta})  \left( 
-%		\mathrm{Exp} (-\delta \boldsymbol{\theta})  (\tilde{\boldsymbol{\omega}}-\bm{b}_g) 
-%		\right)^\wedge \\
-%		&=  \mathrm{Exp} (\delta \boldsymbol{\theta}) \left[ (\tilde{\boldsymbol{\omega}} - \bm{b}_{gt} - 
-%		\boldsymbol{\eta}_g)^\wedge - (\mathrm{Exp} (-\delta \boldsymbol{\theta})  
-%		(\tilde{\boldsymbol{\omega}}-\bm{b}_g) )^\wedge \right] \\
-%		&\approx \mathrm{Exp} (\delta \boldsymbol{\theta}) \left[ (\tilde{\boldsymbol{\omega}} - 
-%		\bm{b}_{gt} - \boldsymbol{\eta}_g)^\wedge - \left((\bm{I} - \delta 
-%		\boldsymbol{\theta}^\wedge)(\tilde{\boldsymbol{\omega}}-\bm{b}_g )\right)^\wedge \right] \\
-%		&=  \mathrm{Exp} (\delta \boldsymbol{\theta}) \left[ \bm{b}_g - \bm{b}_{gt} -\boldsymbol{\eta}_g 
-%		+ \delta \boldsymbol{\theta}^\wedge \tilde{\boldsymbol{\omega}} - \delta 
-%		\boldsymbol{\theta}^\wedge \bm{b}_{g} \right]^\wedge \\
-%		&= \mathrm{Exp} (\delta \boldsymbol{\theta}) \left[ 
-%		(-\tilde{\boldsymbol{\omega}}+\bm{b}_g)^\wedge \delta \boldsymbol{\theta} - \delta \bm{b}_g - 
-%		\boldsymbol{\eta}_g \right]^\wedge.
-%	\end{aligned}
-%\end{equation}
-%
-%
-%约掉等式左侧的系数，可得：
-%\begin{equation}\label{key}
-%	\delta \dot{\boldsymbol{\theta}} \approx -(\tilde{\boldsymbol{\omega}} - \bm{b}_g)^\wedge \delta 
-%	\boldsymbol{\theta} - \delta \bm{b}_g - \boldsymbol{\eta}_g. 
-%\end{equation}
-%
-%该式的$\approx$来自于$\mathrm{Exp}(-\delta \boldsymbol{\theta})$的展开，如果忽略$\delta \boldsymbol{\theta}$的二阶小量，上式也可以写成等号。
-%
-%\subsubsection{误差状态的速度项}
-%接下来考虑式（\ref{eq:eskf-true-to-error}）(b)的误差形式。同样地，对两侧求时间导数，就可以得到$\delta
-% \dot{\bm{v}}$的表达式。等式左侧为：
-%\begin{equation}
-%	\begin{aligned}
-%		\dot{\bm{v}}_t &= \bm{R}_t(\tilde{\bm{a}} - \bm{b}_{at} - \boldsymbol{\eta}_a) + \bm{g}_t \\
-%		&= \bm{R} \mathrm{Exp}(\delta \boldsymbol{\theta}) (\tilde{\bm{a}} - \bm{b}_a - \delta \bm{b}_a 
-%		- \boldsymbol{\eta}_a ) + \bm{g} + \delta \bm{g} \\
-%		&\approx \bm{R} (\bm{I} + \delta \boldsymbol{\theta}^\wedge ) (\tilde{\bm{a}} - \bm{b}_a - \delta 
-%		\bm{b}_a - \boldsymbol{\eta}_a) + \bm{g} + \delta \bm{g} \\
-%		&\approx \bm{R} \tilde{\bm{a}} - \bm{R} \bm{b}_a - \bm{R} \delta \bm{b}_a - \bm{R} 
-%		\boldsymbol{\eta}_a + \bm{R} \delta \boldsymbol{\theta}^\wedge \tilde{\bm{a}} - \bm{R} \delta 
-%		\boldsymbol{\theta}^\wedge \bm{b}_a + \bm{g} + \delta \bm{g} \\
-%		&= \bm{R} \tilde{\bm{a}} - \bm{R} \bm{b}_a - \bm{R} \delta \bm{b}_a - \bm{R} 
-%		\boldsymbol{\eta}_a - \bm{R} \tilde{\bm{a}}^\wedge \delta \boldsymbol{\theta}  + \bm{R} 
-%		\bm{b}_a^\wedge  \delta\boldsymbol{\theta}  + \bm{g} + \delta \bm{g}.
-%	\end{aligned}
-%\end{equation}
-%从第三行推向第四行时，也需要忽略$\delta \boldsymbol{\theta}^\wedge$与$\delta \bm{b}_a, 
-%\boldsymbol{\eta}_a$相乘的二阶小量。从第四行推第五行则用到了叉乘符号交换顺序之后需加负号
-%的性质。另一方面，等式右侧为：
-%
-%\begin{equation}\label{key}
-%	\dot{\bm{v}} + \delta \dot{\bm{v}} = \bm{R}(\tilde{\bm{a}} - \bm{b}_a) + \bm{g} + \delta \dot{\bm{v}}.
-%\end{equation}
-%
-%因为上面两式相等，可以得到：
-%\begin{equation}\label{key}
-%	\delta \dot{\bm{v}} = - \bm{R}(\tilde{\bm{a}} - \bm{b}_a)^\wedge \delta \boldsymbol{\theta} - 
-%	\bm{R} \delta \bm{b}_a  - \bm{R} \boldsymbol{\eta}_a + \delta \bm{g}.
-%\end{equation}
-%
-%这样我们就得到了$\delta \bm{v}$的运动学模型。需要补充一句，由于上式中$\boldsymbol{\eta}_a$
-%是一个零均值白噪声，它乘上任意旋转矩阵之后仍然是一个零均值白噪声，而且由于$\bm{R}^\top
-% \bm{R} = \bm{I}$，容易证明其协方差矩阵也不变（留作习题）。所以，也可以把上式简化为：
-%\begin{equation}\label{key}
-%	\delta \dot{\bm{v}} = - \bm{R}(\tilde{\bm{a}} - \bm{b}_a)^\wedge \delta \boldsymbol{\theta} - 
-%	\bm{R} \delta \bm{b}_a  - \boldsymbol{\eta}_a + \delta \bm{g}.
-%\end{equation}
-%
-%至此，我们可以把误差变量的运动学方程整理如下：
-%\begin{subequations}\label{eq:eskf-error-state-continuous-time}
-%	\begin{align}
-%		\delta \dot{\bm{p}} &= \delta \bm{v}, \\
-%		\delta \dot{\bm{v}} &= - \bm{R}(\tilde{\bm{a}} - \bm{b}_a)^\wedge \delta \boldsymbol{\theta} - 
-%		\bm{R} \delta \bm{b}_a  - \boldsymbol{\eta}_a + \delta \bm{g}, \\
-%		\delta \dot{\boldsymbol{\theta}} &= -(\tilde{\boldsymbol{\omega}} - \bm{b}_g)^\wedge \delta 
-%		\boldsymbol{\theta} - \delta \bm{b}_g - \boldsymbol{\eta}_g, \\
-%		\delta \dot{\bm{b}_g} &= \boldsymbol{\eta}_{bg}, \\
-%		\delta \dot{\bm{b}_a} &= \boldsymbol{\eta}_{ba}, \\
-%		\delta \dot{\bm{g}} &= \bm{0} .
-%	\end{align}
-%\end{subequations}
-%
-%\subsection{离散时间的ESKF运动学方程}
-%从连续时间状态方程推出离散时间的状态方程并不困难，不妨直接来列写它们。\textbf{名义状态变量}的离散
-%时间运动学方程可以写为：
-%\begin{subequations}\label{key}
-%	\begin{align}
-%		\bm{p}(t+\Delta t) &= \bm{p}(t) + \bm{v} \Delta t + \frac{1}{2} 
-%		\left(\bm{R}(\tilde{\bm{a}}-\bm{b}_a) \right) \Delta t^2 + \frac{1}{2} \bm{g} \Delta t^2, \\
-%		\bm{v}(t+\Delta t) &= \bm{v}(t) + \bm{R} (\tilde{\bm{a}} - \bm{b}_a) \Delta t + \bm{g} \Delta t,	\\
-%		\bm{R}(t+\Delta t) &= \bm{R}(t) \mathrm{Exp} \left( (\tilde{\boldsymbol{\omega}}-\bm{b}_g) 
-%		\Delta t \right),\\
-%		\bm{b}_g(t+\Delta t) &= \bm{b}_g(t), \\
-%		\bm{b}_a(t+\Delta t) &= \bm{b}_a(t), \\
-%		\bm{g}(t+\Delta t) &= \bm{g}(t) .
-%	\end{align}
-%\end{subequations}
-%该式只需在式\eqref{eq:3.14}基础上添加零偏项与重力项即可。注意第三行实际就是角速度的积分公式。\textbf{误差状态}的离散形式与\textbf{名义状态}十分相似，同样需要注意角速度部分：
-%
-%\begin{subequations}\label{eq:eskf-motion-equation}
-%	\begin{align}
-%		\delta \bm{p}(t+\Delta t) &= \delta \bm{p} + \delta \bm{v} \Delta t, \\
-%		\delta \bm{v}(t+\Delta t) &= \delta \bm{v} + \left( - \bm{R}(\tilde{\bm{a}} - \bm{b}_a)^\wedge 
-%		\delta \boldsymbol{\theta} - \bm{R} \delta \bm{b}_a  + \delta \bm{g} \right) \Delta t -
-%		\boldsymbol{\eta}_{v}, \\
-%		\delta \boldsymbol{\theta} (t+\Delta t) &= \mathrm{Exp}\left( -(\tilde{\boldsymbol{\omega}} - 
-%		\bm{b}_g) \Delta t \right) \delta \boldsymbol{\theta} - \delta \bm{b}_g \Delta t - 
-%		\boldsymbol{\eta}_{\theta}, \\
-%		\delta \bm{b}_g (t+\Delta t) &= \delta \bm{b}_g + \boldsymbol{\eta}_{bg}, \\
-%		\delta \bm{b}_a (t+\Delta t)&= \delta \bm{b}_a + \boldsymbol{\eta}_{ba}, \\
-%		\delta \bm{g} (t+\Delta t) &= \delta \bm{g}.
-%	\end{align}
-%\end{subequations}
-%
-%注意：
-%\begin{enumerate}
-%	\item 右侧部分我们省略了括号里的$(t)$以简化公式；
-%	\item 关于旋转部分的积分，我们可以将式\eqref{eq:eskf-error-state-continuous-time}(c)看成
-%	关于$\delta \boldsymbol{\theta}$的微分方程然后求解。求解过程类似于对角速度进行积分。
-%	\item 噪声项并不参与递推，需要把它们单独归入噪声部分中。连续时间的噪声项可以视为随机过
-%	程的能量谱密度，而离散时间下的噪声变量就是我们日常看到的随机变量了。这些噪声随机变量的
-%	标准差可以列写如下：
-%	\begin{equation}\label{key}
-%		\sigma(\boldsymbol{\eta}_v) = \Delta t \sigma_a(k), \quad \sigma(\boldsymbol{\eta}_{\theta}) = 
-%		\Delta t \sigma_{g}(k), \quad \sigma(\boldsymbol{\eta}_{bg}) = \sqrt{\Delta t} \sigma_{bg}, \quad  
-%		\sigma(\boldsymbol{\eta}_{ba}) = \sqrt{\Delta t} \sigma_{ba},
-%	\end{equation}
-%	其中前两式的$\Delta t$是由积分关系导致的，后面两式则和\eqref{eq:imu-noise-relationship}相同。
-%\end{enumerate}
-%
-%至此，我们给出了如何在ESKF中进行IMU递推的过程，对应于卡尔曼滤波器中的状态方程。为了让
-%滤波器收敛，我们需要外部的观测来对卡尔曼滤波器进行修正，也就是所谓的组合导航。当然，
-%组合导航的方法有很多，从传统的EKF，到本节介绍的ESKF，以及后续章节将要介绍预积分和图优
-%化技术，都可以应用于组合导航中\cite{Wen2021}。本节，我们以融合GNSS观测为例，向读者介绍如何在ESKF中
-%融合这些观测数据，形成一个收敛的卡尔曼滤波器。在本书最后的应用章节中，也将向读者介绍融合激光点云
-%或者激光定位数据的滤波器方案。
-%
-%\subsection{ESKF的运动过程}
-%根据上述讨论，我们可以写出ESKF的运动过程。误差状态变量$\delta \bm{x}$的离散时间运动方程
-%已经在式\eqref{eq:eskf-motion-equation}给出，我们可以整体地记为：
-%\begin{equation}\label{key}
-%	\delta \bm{x}_{k+1} = \bm{f} (\delta \bm{x}_{k}) + \bm{w}, \bm{w} \sim \mathcal{N}(0, \bm{Q}),
-%\end{equation}
-%其中$\bm{w}$为噪声。按照前面的定义，$\bm{Q}$应该为：
-%\begin{equation}\label{key}
-%	\bm{Q} = \mathrm{diag}(\bm{0}_3, \mathrm{Cov}(\boldsymbol{\eta}_v), 
-%	\mathrm{Cov}(\boldsymbol{\eta}_{\theta}), \mathrm{Cov}(\boldsymbol{\eta}_{g}), 
-%	\mathrm{Cov}(\boldsymbol{\eta}_{a}), \bm{0}_3),
-%\end{equation}
-%两侧的零是由于第一个和最后一个方程本身没有噪声导致的。
-%
-%为了保持与EKF的符号统一，我们计算运动方程的线性化形式：
-%\begin{equation}\label{key}
-%	\delta \bm{x}(t+\Delta t) = \underbrace{\bm{f}(\delta \bm{x}(t))}_{=\bm{0}} + \bm{F} \delta \bm{x} + \bm{w},
-%\end{equation}
-%其中$\bm{F}$为线性化后的雅可比矩阵。由于式\eqref{eq:eskf-motion-equation}已经是线性化的了，
-%现在我们只需把它们的线性系数拿出来，只是要注意变量定义的顺序：
-%\begin{equation}\label{eq:eskf-F}
-%	\bm{F} = \begin{bmatrix}
-%		\bm{I} & \bm{I} \Delta t & \bm{0} & \bm{0} & \bm{0} & \bm{0} \\
-%		\bm{0} & \bm{I} & - \bm{R}(\tilde{\bm{a}} - \bm{b}_a)^\wedge \Delta t & \bm{0} & -\bm{R} \Delta t & \bm{I} \Delta t \\
-%		\bm{0} & \bm{0} & \mathrm{Exp}\left( -(\tilde{\boldsymbol{\omega}} - \bm{b}_g) \Delta t \right) 
-%		&  -\bm{I} \Delta t & \bm{0} & \bm{0} \\
-%		\bm{0} & \bm{0} & \bm{0} & \bm{I} & \bm{0} & \bm{0} \\
-%		\bm{0} & \bm{0} & \bm{0} & \bm{0} & \bm{I} & \bm{0} \\
-%		\bm{0} & \bm{0} & \bm{0} & \bm{0} & \bm{0} & \bm{I} 
-%	\end{bmatrix}.
-%\end{equation}
-%
-%在此基础上，我们执行ESKF的预测过程。预测过程包括对名义状态的预测（IMU积分）以及对误差
-%状态的预测：
-%\begin{subequations}\label{eq:motion-eskf}
-%	\begin{align}
-%		\delta \bm{x}_{\mathrm{pred}} &= \bm{F} \delta \bm{x}, \\
-%		\bm{P}_{\mathrm{pred}} &= \bm{F} \bm{P} \bm{F}^\top + \bm{Q}.
-%	\end{align}
-%\end{subequations}
-%
-%不过由于ESKF的误差状态在每次更新以后会被重置为$\delta \bm{x} = \bm{0}$，因此运动方程的均值部分，即\eqref{eq:motion-eskf}(a) 没有太大意义，而协方差部分则描述了整个误差估计的分布情况。在直观意义上，运动方程的噪声协方差中增加了$\bm{Q}$项，可以看作是\textbf{增大}的过程。
-%
-%\subsection{ESKF的更新过程}
-%\label{subsec:3.4.4}
-%前面介绍的是ESKF的运动过程，现在我们来考虑更新过程。假设一个抽象的传感器能够对状态变量
-%产生观测，其观测方程为抽象的$\bm{h}$，那么可以写为：
-%\begin{equation}\label{key}
-%	\bm{z} = \bm{h} (\bm{x}) + \bm{v}, \bm{v} \sim \mathcal{N}(0, \bm{V}),
-%\end{equation}
-%其中$\bm{z}$为观测数据， $\bm{v}$为观测噪声，$\bm{V}$为该噪声的协方差矩阵\footnote{由于状
-%态变量里已经有$\bm{R}$了，这里我们换个符号。}。
-%
-%在传统EKF中，我们可以直观对观测方程线性化，求出观测方程相对于状态变量的雅可比矩阵，进而
-%更新卡尔曼滤波器。而在ESKF中，我们当前拥有名义状态$\bm{x}$的估计以及误差状态$\delta 
-%\bm{x}$的估计，且希望更新的是误差状态，因此要计算观测方程相对于误差状态的雅可比矩阵：
-%\begin{equation}\label{key}
-%	\bm{H} = \left. \frac{\partial \bm{h}}{\partial \delta \bm{x}} \right|_{\bm{x}_{\text{pred}}}, 
-%\end{equation}
-%然后再计算卡尔曼增益，进而计算误差状态的更新过程：
-%\begin{subequations}\label{eq:eskf-obs-correction}
-%	\begin{align}
-%		\bm{K} &= \bm{P}_{\mathrm{pred}} \bm{H}^\top(\bm{H} \bm{P}_{\mathrm{pred}} 
-%		\bm{H}^\top + \bm{V})^{-1}, \\
-%		\delta \bm{x} &= \bm{K} (\bm{z} - \bm{h}(\bm{x}_{\mathrm{pred}})), \\
-%		\bm{x} &= \bm{x}_{\text{pred}} + \delta \boldsymbol{\bm{x}}, \\
-%		\bm{P} &= (\bm{I} - \bm{K} \bm{H}) \bm{P}_{\mathrm{pred}}.
-%	\end{align}
-%\end{subequations}
-%其中$\bm{K}$为卡尔曼增益，$\bm{P}_{\mathrm{pred}}$为预测的协方差矩阵，最后的$\bm{P}$为修
-%正后的协方差矩阵。
-%
-%大部分的观测数据是对名义状态的观测\footnote{但也有些情况下，我们可以直接推导对误差状态的观测，那么就能省略本节后续的推导。后续的GNSS观测和激光观测都会使用直接观测误差状态的方式来推导。}。此时$\bm{H}$可以通过链式法则来生成：
-%\begin{equation}\label{eq:def-of-H}
-%	\bm{H} = \frac{\partial \bm{h}}{\partial \bm{x}} \frac{\partial \bm{x}}{\partial \delta \bm{x}},
-%\end{equation}
-%其中第一项只需对观测方程进行线性化，第二项，根据我们之前对状态变量的定义，可以得到：
-%\begin{equation}\label{key}
-%	\frac{\partial \bm{x}}{\partial \delta \bm{x}} = \mathrm{diag}(\bm{I}_3, \bm{I}_3, \frac{\partial 
-%	\mathrm{Log} (\bm{R}(\mathrm{Exp}(\delta \boldsymbol{\theta})))}{\partial \delta 
-%	\boldsymbol{\theta}}, \bm{I}_3, \bm{I}_3, \bm{I}_3).
-%\end{equation}
-%其他几项都是平凡的，只有旋转部分，因为$\delta \boldsymbol{\theta}$定义为$\bm{R}$的右乘，我
-%们用右乘的BCH即可：
-%\begin{equation}\label{key}
-%	\frac{\partial \mathrm{Log} (\bm{R}(\mathrm{Exp}(\delta \boldsymbol{\theta})))}{\partial \delta 
-%	\boldsymbol{\theta}} = \bm{J}_r^{-1} (\bm{R}).
-%\end{equation}
-%最后，我们可以给每个变量加下标$k$，表示在$k$时刻进行状态估计，但本节没必要这样做，因为上述公式已经清楚地表明了它们的意义。另外，上述公式也都可以按照四元数的表达方式来推导，大致形式相似，细节方面要更加复杂一些，读者可以参考\cite{Sola2017}。本书正文部分只给出以$\mathrm{SO}(3)$及其李代数方式的推导。
-%
-%\subsection{ESKF的误差状态后续处理}
-%在经过预测和更新过程之后，我们修正了误差状态的估计。接下来，只需把误差状态归入名义状态，
-%然后重置ESKF即可。归入部分可以简单地写为：
-%\begin{subequations}\label{key}
-%	\begin{align}
-%		\bm{p}_{k+1} &= \bm{p}_k + \delta \bm{p}_k, \\
-%		\bm{v}_{k+1} &= \bm{v}_k + \delta \bm{v}_k, \\
-%		\bm{R}_{k+1} &= \bm{R}_k \mathrm{Exp}(\delta \boldsymbol{\theta}_k), \\
-%		\bm{b}_{g, k+1} &= \bm{b}_{g,k} + \delta \bm{b}_{g,k}, \\
-%		\bm{b}_{a, k+1} &= \bm{b}_{a,k} + \delta \bm{b}_{a,k}, \\
-%		\bm{g}_{k+1} &= \bm{g}_{k} + \delta \bm{g}_{k}.
-%	\end{align}
-%\end{subequations}
-%有些文献里也会将上述计算定义为广义的状态变量加法：
-%\begin{equation}\label{key}
-%	\bm{x}_{k+1} = \bm{x}_k \oplus \delta \bm{x}_{k},
-%\end{equation}
-%这种写法可以简化整体的表达式，但会牺牲一定的可读性。如果公式里出现太多的广义加减法（特别是定义不同的广义加减$\oplus$、$\boxplus$、$\ominus$、$\boxminus$等），会让读者一眼望去，难以快速辨认它们的具体含义，所以本书还是倾向于将各状态分别写开，直接用加法而非广义加法符号。
-%
-%ESKF的重置分为均值部分和协方差部分。均值部分可以简单地实现为：
-%\begin{equation}\label{key}
-%	\delta \bm{x} = \bm{0}.
-%\end{equation}
-%由于均值被重置了，之前我们描述的是关于$\bm{x}_k$切空间中的协方差，而现在描述的是$\bm{x}_{k+1}$中的协方差。重置会带来一些微小的差异，主要影响旋转部分。事实上，在重置前，卡尔曼滤波器刻画了$\bm{x}_{\mathrm{pred}}$切空间处的一个高斯分布$\mathcal{N}(\delta \bm{x}, \bm{P})$，而重置之后，应该刻画$\bm{x}_{\mathrm{pred}} + \delta \bm{x}$处的一个$\mathcal{N}(0, \bm{P}_{\mathrm{reset}})$。这对本身即为矢量的状态是一样的，但对于旋转变量来说，它们的切空间零点发生了改变，所以在数学习惯上，需要对此进行区分。
-%
-%我们设重置前的名义旋转估计为$\bm{R}_k$，误差状态为$\delta \boldsymbol{\theta}$，卡尔曼滤波器的增量计算结果为$\delta \boldsymbol{\theta}_k$\footnote{注意此处$\delta \boldsymbol{\theta}_k$是已知的，而$\delta \boldsymbol{\theta}$是一个随机变量。}；重置之后的名义旋转部分为$\bm{R}_k \mathrm{Exp}(\delta \boldsymbol{\theta}_k)=\bm{R}^+$，误差状态为$\delta \boldsymbol{\theta}^+$。由于误差状态被重置了，显然此时$\delta \boldsymbol{\theta}^+ = \bm{0}$。但我们关心的并不是它们直接的取值，而是$\delta \boldsymbol{\theta}^+$与$\delta \boldsymbol{\theta}$的线性化关系。把实际的重置过程写出来：
-%\begin{equation}\label{key}
-%	\bm{R}^+ \mathrm{Exp}(\delta \boldsymbol{\theta}^+) = \bm{R}_k \mathrm{Exp}(\delta \boldsymbol{\theta}_k) \mathrm{Exp}(\delta \boldsymbol{\theta}^+) = \bm{R}_k \mathrm{Exp}(\delta \boldsymbol{\theta}).
-%\end{equation}
-%
-%不难得到：
-%\begin{equation}\label{key}
-%	\mathrm{Exp}(\delta \boldsymbol{\theta}^+) = \mathrm{Exp}(-\delta \boldsymbol{\theta}_k) \mathrm{Exp}(\delta \boldsymbol{\theta}),
-%\end{equation}
-%
-%这里$\delta \boldsymbol{\theta}$为小量，利用线性化后的BCH公式，可以得到：
-%\begin{equation}\label{key}
-%	\delta \boldsymbol{\theta}^+ = -\delta \boldsymbol{\theta}_k + \delta \boldsymbol{\theta} - \frac{1}{2} \delta \boldsymbol{\theta}_k^\wedge \delta \boldsymbol{\theta} + o((\delta \boldsymbol{\theta})^2) .
-%\end{equation}
-%
-%于是：
-%\begin{equation}\label{key}
-%	\frac{\partial \delta \boldsymbol{\theta}^+}{\partial \delta \boldsymbol{\theta}} \approx \bm{I} - \frac{1}{2} \delta \boldsymbol{\theta}_k^\wedge .
-%\end{equation}
-%
-%该式表明重置前后的误差状态相差一个旋转方面的小雅可比矩阵，我们记作$\bm{J}_{\boldsymbol{\theta}} = \bm{I} - \frac{1}{2} \delta \boldsymbol{\theta}_k^\wedge $。把这个小雅可比阵放到整个状态变量维度下，并保持其他部分为单位矩阵，可以得到一个完整的雅可比矩阵：
-%\begin{equation}\label{key}
-%	\bm{J}_k = \mathrm{diag}(\bm{I}_3, \bm{I}_3, \bm{J}_{\boldsymbol{\theta}}, \bm{I}_3, \bm{I}_3, \bm{I}_3),
-%\end{equation}
-%因此，在把误差状态的均值归零同时，它们的协方差矩阵也应该进行线性变换：
-%\begin{equation}\label{eq:tangent-space-projection}
-%	\bm{P}_{\mathrm{reset}} = \bm{J}_k \bm{P} \bm{J}_k^\top.
-%\end{equation}
-%
-%不过，由于$\delta \boldsymbol{\theta}_k$并不大，这里的$\bm{J}_k$仍然十分接近于单位矩阵，所以大部分材料里并不处理这一项，而是直接把前面估计的$\bm{P}$阵作为下一时刻的起点。但本书仍然要介绍这一点，并且会在后面第~\ref{cpt:tightly-lio}~章中继续讨论这个问题。该问题实际意义是做了\textbf{切空间投影}，即把一个切空间中的高斯分布投影到另一个切空间中。在ESKF中，两者没有明显差异，但后文的迭代卡尔曼滤波器（IESKF）还会牵扯到在观测过程中多次变换切空间。与此相比，ESKF只有重置过程中的单次变换，原理更加简单。
-%
-%\section{实现ESKF的组合导航}
-%下面我们通过代码来实现一个融合IMU与GNSS观测的ESKF。本节的代码仍然将结果输出到文本文
-%件中，然后再调用可视化进行处理。在ESKF的实现过程中，我们还将遇到一些实现细节，我们会在本
-%节讨论。
-%
-%\subsection{ESKF滤波器的实现}
-%首先我们来定义ESKF的类。它的成员变量应该包含名义状态、误差状态、协方差，以及各类传感器噪声。
-%
-%\begin{lstlisting}[language=c++,caption=src/ch3/eskf.hpp]
-%template <typename S = double>
-%class ESKF {
-%    /// 类型定义
-%	using SO3 = Sophus::SO3<S>;                     // 旋转变量类型
-%	using VecT = Eigen::Matrix<S, 3, 1>;            // 向量类型
-%	using Vec18T = Eigen::Matrix<S, 18, 1>;         // 18维向量类型
-%	using Mat3T = Eigen::Matrix<S, 3, 3>;           // 3x3矩阵类型
-%	using MotionNoiseT = Eigen::Matrix<S, 18, 18>;  // 运动噪声类型
-%	using OdomNoiseT = Eigen::Matrix<S, 3, 3>;      // 里程计噪声类型
-%	using GnssNoiseT = Eigen::Matrix<S, 6, 6>;      // GNSS噪声类型
-%	using Mat18T = Eigen::Matrix<S, 18, 18>;        // 18维方差类型
-%	using NavStateT = NavState<S>;                  // 整体名义状态变量类型
-%
-%	/// 省略其他构造函数和成员函数
-%private:
-%	/// 成员变量
-%	double current_time_ = 0.0;  // 当前时间
-%	
-%	/// 名义状态
-%	VecT p_ = VecT::Zero();
-%	VecT v_ = VecT::Zero();
-%	SO3 R_;
-%	VecT bg_ = VecT::Zero();
-%	VecT ba_ = VecT::Zero();
-%	VecT g_{0, 0, -9.8};
-%	
-%	/// 误差状态
-%	Vec18T dx_ = Vec18T::Zero();
-%	
-%	/// 协方差阵
-%	Mat18T cov_ = Mat18T::Identity();
-%	
-%	/// 噪声阵
-%	MotionNoiseT Q_ = MotionNoiseT::Zero();
-%	OdomNoiseT odom_noise_ = OdomNoiseT::Zero();
-%	GnssNoiseT gnss_noise_ = GnssNoiseT::Zero();
-%	
-%	/// 标志位
-%	bool first_gnss_ = true;  // 是否为第一个gnss数据
-%	
-%	/// 配置项
-%	Options options_;
-%};
-%
-%using ESKFD = ESKF<double>;
-%using ESKFF = ESKF<float>;
-%\end{lstlisting}
-%
-%按照前文推导，名义状态包含位置、速度、旋转、零偏和重力，误差状态对应它们的向量形式。误差状态变量应该为$3 \times 6=18$维向量，对应的协方差矩阵亦为$18 \times 18$维方阵。我们允许用户使用单精度或双精度的ESKF，它们在性能上有少许差别。浮点精度可以通过模板参数指定，所以我们的ESKF类是一个模板类。有的ESKF实现还允许用户自己定义变量维度和变量顺序，那样模板化之后会让整个类变得更复杂，比如\cite{Hertzberg2013}。本书仅定义float和double的ESKF类。ESKF内部用到的类型则通过using来指定。
-%
-%\subsection{实现预测过程}
-%下面我们实现Predict函数，用于根据当前状态来对IMU数据进行递推。预测过程中，我们需要计算名义状态变量的更新过程以及
-%协方差矩阵的递推过程，实现如下：
-%\begin{lstlisting}[language=c++,caption=src/ch3/eskf.hpp]
-%template <typename S>
-%bool ESKF<S>::Predict(const IMU& imu) {
-%	assert(imu.timestamp_ >= current_time_);
-%	
-%	double dt = imu.timestamp_ - current_time_;
-%	if (dt > (5 * options_.imu_dt_) || dt < 0) {
-%		// 时间间隔不对，可能是第一个IMU数据，没有历史信息
-%		LOG(INFO) << "skip this imu because dt_ = " << dt;
-%		current_time_ = imu.timestamp_;
-%		return false;
-%	}
-%	
-%	// nominal state 递推
-%	VecT new_p = p_ + v_ * dt + 0.5 * (R_ * (imu.acce_ - ba_)) * dt * dt + 0.5 * g_ * dt * dt;
-%	VecT new_v = v_ + R_ * (imu.acce_ - ba_) * dt + g_ * dt;
-%	SO3 new_R = R_ * SO3::exp((imu.gyro_ - bg_) * dt);
-%	
-%	R_ = new_R;
-%	v_ = new_v;
-%	p_ = new_p;
-%	// 其余状态维度不变
-%	
-%	// error state 递推
-%	// 计算运动过程雅可比矩阵 F，见(3.47)
-%	// F实际上是稀疏矩阵，也可以不用矩阵形式进行相乘而是写成散装形式，这里为了教学方便，使用矩阵形式
-%	Mat18T F = Mat18T::Identity();                                                 // 主对角线
-%	F.template block<3, 3>(0, 3) = Mat3T::Identity() * dt;                         // p 对 v
-%	F.template block<3, 3>(3, 6) = -R_.matrix() * SO3::hat(imu.acce_ - ba_) * dt;  // v对theta
-%	F.template block<3, 3>(3, 12) = -R_.matrix() * dt;                             // v 对 ba
-%	F.template block<3, 3>(3, 15) = Mat3T::Identity() * dt;                        // v 对 g
-%	F.template block<3, 3>(6, 6) = SO3::exp(-(imu.gyro_ - bg_) * dt).matrix();     // theta 对 theta
-%	F.template block<3, 3>(6, 9) = -Mat3T::Identity() * dt;                        // theta 对 bg
-%	
-%	// mean and cov prediction
-%	dx_ = F * dx_;  // 这行其实没必要算，dx_在重置之后应该为零，因此这步可以跳过，但F需要参与Cov部分计算，所以保留
-%	cov_ = F * cov_.eval() * F.transpose() + Q_;
-%	current_time_ = imu.timestamp_;
-%	return true;
-%}
-%\end{lstlisting}
-%
-%这里我们写出了完整的$\bm{F}$矩阵，并使用矩阵方式进行协方差阵的更新。读者也可以不使用大的$\bm{F}$矩阵，而是单独的为每个状态变量计算分散的矩阵块。这对于一些稀疏矩阵可以节省一部分计算时间。我们看到，预测过程实质是使用IMU的读数，对名义状态进行递推。同时，在协方差矩阵层面合入运动过程的噪声，这样协方差矩阵就在直观意义下\textbf{变大}了。而误差状态在这一步的操作可以省略，因为观测过程会把误差状态置零，此时无论$\bm{F}$如何取值，$\bm{F} \delta \bm{x}$自然也就是零。运动过程是由IMU触发的，它可以被高频率调用，也可以输出高频率的预测位姿信息。
-%
-%\subsection{实现RTK观测过程}
-%接下来我们考虑如何实现GNSS观测方程。这里我们认为RTK能够提供六自由度观测，即RTK既能观测位置，也能观测角度。注意单天线方案不能按照这种方式处理，应该使用三自由度的观测信息。
-%
-%观测方程的抽象形式是$\bm{y} = \bm{h}(\bm{x})$。我们曾在~\ref{subsec:3.4.4}~节中向大家介绍了通用的
-%观测模型。而这里的GNSS观测数据，转换为车体UTM坐标以后，可以直接看作对当前$\bm{R}, \bm{p}$的观测。我们记某时刻的观测
-%为$\bm{R}_{\mathrm{gnss}}, \bm{p}_{\mathrm{gnss}}$，来推导观测方程和卡尔曼增益部分。这里有以下几个要点：
-%\begin{enumerate}
-%	\item 在双天线方案中，车辆的角度由两个GNSS接收器决定。但可能存在部分时刻，一个GNSS有效而另一个GNSS无效，此时GNSS观测的位置是有效的，但航向角会失效。在本节处理中，我们只使用位置、角度同时有效的观测值。
-%	\item GNSS对$\bm{R}$的观测可以直接写成对误差状态$\delta \boldsymbol{\theta}$的观测，从而省去前面的链式法则推导，简化整个线性化过程。
-%	\item 此外，由于GNSS的UTM坐标一般数值较大，我们需要在实际处理时将去除RTK原点，以节省有效的数字位数。我们将
-%	把第一个有效的GNSS观测记为原点，并让后续的GNSS位置观测都减去这个原点。这样，ESKF和后面可视化处理程序的坐标都将在零附近。有效数字过多可能导致绘图、可视化软件中的一些问题。
-%\end{enumerate}
-%
-%现在我们来解释第2点。先看GNSS的旋转观测方程：
-%\begin{equation}\label{eq:obs-gnss}
-%\bm{R}_{\mathrm{gnss}} = \bm{R} \mathrm{Exp}(\delta \boldsymbol{\theta}),
-%\end{equation}
-%其中$\bm{R}$为该时刻的名义状态，$\delta \boldsymbol{\theta}$为误差状态。由于在观测过程中，名义状态$\bm{R}$是确定的。我们不妨将$\bm{R}_{\mathrm{gnss}}$直接视为对$\delta \boldsymbol{\theta}$的观测。我们对该方程稍作变换，可以写为：
-%\begin{equation}
-%	\bm{z}_{\delta \boldsymbol{\theta}} = \bm{h}(\delta \boldsymbol{\theta}) = \mathrm{Log} 
-%	\left(\bm{R}^\top \bm{R}_{\mathrm{gnss}} \right).
-%\end{equation}
-%
-%此时$\bm{z}_{\delta \boldsymbol{\theta}}$是对$\delta \boldsymbol{\theta}$的直接观测，所以它关于$\delta \boldsymbol{\theta}$的雅可比为单位阵：
-%\begin{equation}\label{key}
-%\frac{\partial \bm{z}_{\delta \boldsymbol{\theta}}}{\partial \delta \boldsymbol{\theta}} = \bm{I}.
-%\end{equation}
-%这样就避免了再从名义状态到误差状态进行转换的过程，可以直接得到对误差状态的雅可比矩阵。注
-%意当我们这样做时，原本ESKF中的\textbf{更新量}（innovation）$\bm{z}-\bm{h}(\bm{x})$也应该写成流形的形式：
-%\begin{equation}\label{key}
-%\bm{z} - \bm{h}(\bm{x}) = [\bm{p}_{\mathrm{gnss}} - \bm{p}, 
-%\mathrm{Log}(\bm{R}^\top \bm{R}_{\mathrm{gnss}})]^\top.
-%\end{equation}
-%
-%因为$\delta \boldsymbol{\theta}$在预测之后仍为零，所以此时$\bm{h} (\bm{x})$的旋转部分视为零，平移部分则按照之前的定义来处理。这个更新量是6维的。我们用它来更新系统状态：
-%\begin{equation}\label{key}
-%\bm{x} = \bm{x}_{\text{pred}} + \bm{K} (\bm{z} - \bm{h}(\bm{x})).
-%\end{equation}
-%
-%注意该加法的旋转分量应该使用流形上的方法。
-%
-%平移部分则是相当平凡的：
-%\begin{equation}\label{key}
-%\bm{p}_{\mathrm{gnss}} = \bm{p} + \delta \bm{p}.
-%\end{equation}
-%
-%因此平移部分的雅可比矩阵为单位阵：
-%\begin{equation}\label{key}
-%\frac{\partial \bm{p}_{\mathrm{gnss}}}{\partial \delta \bm{p}} = \bm{I}_{3 \times 3}.
-%\end{equation}
-%
-%在ESKF类中，我们定义$\mathrm{SE}(3)$的观测（后文还会用到本章的ESKF，使用这里的观测函数或者自定义的观测函数），然后将GNSS读数转为$\mathrm{SE}(3)$中的观测。
-%\begin{lstlisting}[language=c++, caption=src/ch3/eskf.hpp]
-%template <typename S>
-%bool ESKF<S>::ObserveGps(const GNSS& gnss) {
-%	/// GNSS 观测的修正
-%	assert(gnss.unix_time_ >= current_time_);
-%	
-%	if (first_gnss_) {
-%		R_ = gnss.utm_pose_.so3();
-%		p_ = gnss.utm_pose_.translation();
-%		first_gnss_ = false;
-%		current_time_ = gnss.unix_time_;
-%		return true;
-%	}
-%	
-%	assert(gnss.heading_valid_);
-%	ObserveSE3(gnss.utm_pose_, options_.gnss_pos_noise_, options_.gnss_ang_noise_);
-%	current_time_ = gnss.unix_time_;
-%	
-%	return true;
-%}
-%
-%template <typename S>
-%bool ESKF<S>::ObserveSE3(const SE3& pose, double trans_noise, double ang_noise) {
-%	/// 既有旋转，也有平移
-%	/// 观测状态变量中的p, V，H为6x18，其余为零
-%	Eigen::Matrix<S, 6, 18> H = Eigen::Matrix<S, 6, 18>::Zero();
-%	H.template block<3, 3>(0, 0) = Mat3T::Identity();  // P部分
-%	H.template block<3, 3>(3, 6) = Mat3T::Identity();  // R部分（3.66)
-%	
-%	// 卡尔曼增益和更新过程
-%	Vec6d noise_vec;
-%	noise_vec << trans_noise, trans_noise, trans_noise, ang_noise, ang_noise, ang_noise;
-%	
-%	Mat6d V = noise_vec.asDiagonal();
-%	Eigen::Matrix<S, 18, 6> K = cov_ * H.transpose() * (H * cov_ * H.transpose() + V).inverse();
-%	
-%	// 更新x和cov
-%	Vec6d innov = Vec6d::Zero();
-%	innov.template head<3>() = (pose.translation() - p_);          // 平移部分
-%	innov.template tail<3>() = (R_.inverse() * pose.so3()).log();  // 旋转部分(3.67)
-%	
-%	dx_ = K * innov;
-%	cov_ = (Mat18T::Identity() - K * H) * cov_;
-%	
-%	UpdateAndReset();
-%	return true;
-%}
-%
-%void UpdateAndReset() {
-%	p_ += dx_.template block<3, 1>(0, 0);
-%	v_ += dx_.template block<3, 1>(3, 0);
-%	R_ = R_ * SO3::exp(dx_.template block<3, 1>(6, 0));
-%	
-%	if (options_.update_bias_gyro_) {
-%		bg_ += dx_.template block<3, 1>(9, 0);
-%	}
-%	
-%	if (options_.update_bias_acce_) {
-%		ba_ += dx_.template block<3, 1>(12, 0);
-%	}
-%	
-%	g_ += dx_.template block<3, 1>(15, 0);
-%	
-%	ProjectCov();
-%	dx_.setZero();
-%}
-%\end{lstlisting}
-%
-%读者可以对比本章的代码实现和推导部分的数学公式，它们是一致的。从直观上来看，RTK读数主要是在观测阶段通过卡尔曼增益作用于误差状态变量中。有些ESKF实现也允许对卡尔曼增益进行微调，以加快或减少RTK对状态的影响。
-%
-%\subsection{ESKF系统的初始化}
-%最后我们让整个ESKF跑起来。这里我们会遇到一些细节问题。例如，ESKF还需要知道一些初始条件，比如IMU的初始零偏、重力的
-%初始方向，RTK处理函数中，也需要等待一个有效的数值来确定初始的名义状态，等等。在传统组合导航系统中，最常见的是使用\textbf{静止初始化}方法。
-%
-%所谓静止初始化，就是把IMU放在某个地方静止一段时间。在静止时间内，由于物体本身没有任何运
-%动，可以简单地认为IMU的陀螺仪只测到零偏，而加速度计则测到零偏与重力之和。我们可以设置一个
-%静止初始化流程来获取这些变量：
-%
-%\begin{enumerate}
-%	\item 将IMU静止一段给定的时间（程序中设置为10秒）；静止检查由轮速计判定，当两轮的轮速
-%	均小于阈值时，认为车辆静止。在没有轮速测量的场合，也可以直接认为车辆静止，来测定相关变量；
-%	\item 统计静止时间内的陀螺仪与加计读数均值，记为$\bar{\bm{d}}_{\mathrm{gyr}}, \bar{\bm{d}}_{\mathrm{acc}}$；
-%	\item 由于车辆并未发生转动，这段时间的陀螺均值可以取$\bm{b}_{g} = \bar{\bm{d}}_{\mathrm{gyr}}$。
-%	\item 加速度计的测量方程为：
-%	\begin{equation}\label{key}
-%	\tilde{\bm{a}} = \bm{R}^\top (\bm{a} - \bm{g}) + \bm{b}_a + \boldsymbol{\eta}_a.
-%	\end{equation}
-%	当车辆实际加速度为零，旋转视为$\bm{R}=\bm{I}$时\footnote{注意在本书的系统里，我们会估计初始的重力方向，所以车辆姿态可以视 为$\bm{I}$，重力则不一定垂直指向$-Z$轴。在另一些材料里，也可以认为重力固定，而初始状态不确定。那样的推导会稍微麻烦一些。}，加计实际测到$\bm{b}_a - \bm{g}$，其中$\bm{b}_a$为小量，$\bm{g}$的长度可视为固定值。在这些前提下，我们取方向为$-\bar{\bm{d}}_{\mathrm{acc}}$，
-%	大小为9.8的矢量作为\textbf{重力矢量}。这一步确定了重力的朝向。
-%	\item 现在将这段时间的加计读数去掉重力，重新计算$\bar{\bm{d}}_{\mathrm{acc}}$；
-%	\item 取$\bm{b}_a = \bar{\bm{d}}_{\mathrm{acc}}$。
-%	\item 同时，认为零偏不动，估计陀螺仪和加计的测量方差。该方差可用于ESKF的噪声参数。
-%\end{enumerate}
-%
-%下面给出静止初始化的实现代码：
-%
-%\begin{lstlisting}[language=c++,caption=src/ch3/static\_imu\_init.cc]
-%class StaticIMUInit {
-%	public:
-%	struct Options {
-%		double init_time_seconds_ = 10.0;     // 静止时间
-%		int init_imu_queue_max_size_ = 2000;  // 初始化IMU队列最大长度
-%		int static_odom_pulse_ = 5;           // 静止时轮速计输出噪声
-%		double max_static_gyro_var = 0.2;     // 静态下陀螺测量方差
-%		double max_static_acce_var = 0.05;    // 静态下加计测量方差
-%		double gravity_norm_ = 9.81;          // 重力大小
-%		bool use_speed_for_static_checking_ = true;  // 是否使用odom来判断车辆静止（部分数据集没有odom选项）
-%	};
-%	
-%	/// 构造函数
-%	StaticIMUInit(Options options) : options_(options) {}
-%	
-%	/// 添加IMU数据
-%	bool AddIMU(const IMU& imu);
-%	/// 添加轮速数据
-%	bool AddOdom(const Odom& odom);
-%	
-%	/// 判定初始化是否成功
-%	bool InitSuccess() const { return init_success_; }
-%	
-%	/// 获取各Cov, bias, gravity
-%	Vec3d GetCovGyro() const { return cov_gyro_; }
-%	Vec3d GetCovAcce() const { return cov_acce_; }
-%	Vec3d GetInitBg() const { return init_bg_; }
-%	Vec3d GetInitBa() const { return init_ba_; }
-%	Vec3d GetGravity() const { return gravity_; }
-%	
-%	private:
-%	/// 尝试对系统初始化
-%	bool TryInit();
-%	
-%	Options options_;                 // 选项信息
-%	bool init_success_ = false;       // 初始化是否成功
-%	Vec3d cov_gyro_ = Vec3d::Zero();  // 陀螺测量噪声协方差（初始化时评估）
-%	Vec3d cov_acce_ = Vec3d::Zero();  // 加计测量噪声协方差（初始化时评估）
-%	Vec3d init_bg_ = Vec3d::Zero();   // 陀螺初始零偏
-%	Vec3d init_ba_ = Vec3d::Zero();   // 加计初始零偏
-%	Vec3d gravity_ = Vec3d::Zero();   // 重力
-%	bool is_static_ = false;          // 标志车辆是否静止
-%	std::deque<IMU> init_imu_deque_;  // 初始化用的数据
-%	double current_time_ = 0.0;       // 当前时间
-%	double init_start_time_ = 0.0;    // 静止的初始时间
-%};
-%
-%bool StaticIMUInit::TryInit() {
-%	if (init_imu_deque_.size() < 10) {
-%		return false;
-%	}
-%	
-%	// 计算均值和方差
-%	Vec3d mean_gyro, mean_acce;
-%	math::ComputeMeanAndCovDiag(init_imu_deque_, mean_gyro, cov_gyro_, [](const IMU& imu) { return imu.gyro_; });
-%	math::ComputeMeanAndCovDiag(init_imu_deque_, mean_acce, cov_acce_, [this](const IMU& imu) { return imu.acce_; });
-%	
-%	// 以acce均值为方向，取9.8长度为重力
-%	gravity_ = -mean_acce / mean_acce.norm() * options_.gravity_norm_;
-%	
-%	// 重新计算加计的协方差
-%	math::ComputeMeanAndCovDiag(init_imu_deque_, mean_acce, cov_acce_,
-%		[this](const IMU& imu) { return imu.acce_ + gravity_; });
-%	
-%	// 检查IMU噪声
-%	if (cov_gyro_.norm() > options_.max_static_gyro_var) {
-%		LOG(ERROR) << "陀螺仪测量噪声太大" << cov_gyro_.norm() << " > " << options_.max_static_gyro_var;
-%		return false;
-%	}
-%	
-%	if (cov_acce_.norm() > options_.max_static_acce_var) {
-%		LOG(ERROR) << "加计测量噪声太大" << cov_acce_.norm() << " > " << options_.max_static_acce_var;
-%		return false;
-%	}
-%	
-%	// 估计测量噪声和零偏
-%	init_bg_ = mean_gyro;
-%	init_ba_ = mean_acce;
-%	
-%	LOG(INFO) << "IMU 初始化成功，初始化时间= " << current_time_ - init_start_time_ << ", bg = " << init_bg_.transpose()
-%		<< ", ba = " << init_ba_.transpose() << ", gyro sq = " << cov_gyro_.transpose()
-%		<< ", acce sq = " << cov_acce_.transpose() << ", grav = " << gravity_.transpose()
-%		<< ", norm: " << gravity_.norm();
-%	LOG(INFO) << "mean gyro: " << mean_gyro.transpose() << " acce: " << mean_acce.transpose();
-%	init_success_ = true;
-%	return true;
-%}
-%\end{lstlisting}
-%
-%这里主要调用了数学库中的均值与协方差计算函数：
-%
-%\begin{lstlisting}[language=c++,caption=src/common/math\_utils.h]
-%/**
-%* 计算一个容器内数据的均值与对角形式协方差
-%* @tparam C    容器类型
-%* @tparam D    结果类型
-%* @tparam Getter   获取数据函数, 接收一个容器内数据类型，返回一个D类型
-%*/
-%template <typename C, typename D, typename Getter>
-%void ComputeMeanAndCovDiag(const C& data, D& mean, D& cov_diag, Getter&& getter) {
-%	size_t len = data.size();
-%	assert(len > 1);
-%	mean = std::accumulate(data.begin(), data.end(), D::Zero().eval(),
-%		[&getter](const D& sum, const auto& data) -> D { return sum + getter(data); }) / len;
-%	cov_diag = std::accumulate(data.begin(), data.end(), D::Zero().eval(),
-%		[&mean, &getter](const D& sum, const auto& data) -> D {
-%			return sum + (getter(data) - mean).cwiseAbs2().eval();
-%		}) / (len - 1);
-%}
-%\end{lstlisting}
-%
-%只要某个数据字段以Eigen形式存储，这段函数就可以对某个容器内的给定字段计算均值和对角线形式的协方差。这些都通过lambda函数来获取用户指定的字段，并使用模板类型让它们具有良好的兼容性，这样可以对各种存储形式（std::vector, std::deque等）和各种字段调用本函数。在这个例子中，我们对IMU数据队列的陀螺仪读数和加计读数调用了本函数，来估计它们的均值和方差。这些信息将被用于ESKF的初始化过程。
-%
-%\subsection{运行ESKF}
-%现在我们来运行ESKF。我们从文本文件中读取记录的传感器信息，以回调函数的方式对这些信息进
-%行处理，然后把ESKF在更新之后的状态输出到结果文件中去。这里有一部分逻辑关系需要处理一下：
-%
-%\begin{enumerate}
-%	\item 首先，静止初始化方法需要一段时间的IMU读数来估计零偏和重力方向。这个时间内不会让ESKF来观测RTK数据。如果初始化成功，我们将初始的零偏和噪声参数传递给ESKF。
-%	\item 另一方面，ESKF还需要首个有效的RTK来确定地图原点，以及名义状态的初始值。这是因为初始车辆的世界位置和姿态并不一定在原点。如果IMU已经初始化而首个RTK尚未确定，ESKF也不会继续处理IMU读数。
-%	\item 当ESKF正常运行时，我们将预测阶段的名义状态和观测之后的名义状态都写入文件并发送给图形界面。
-%\end{enumerate}
-%
-%\begin{lstlisting}[language=c++,caption=src/ch4/run\_eskf\_gins.cc]
-%/// 设置标志位和各类回调函数
-%bool first_gnss_set = false;
-%Vec3d origin = Vec3d::Zero();
-%
-%io.SetIMUProcessFunc([&](const sad::IMU& imu) {
-%	/// IMU 处理函数
-%	if (!imu_init.InitSuccess()) {
-%		imu_init.AddIMU(imu);
-%		return;
-%	}
-%	
-%	/// 需要IMU初始化
-%	if (!imu_inited) {
-%		// 读取初始零偏，设置ESKF
-%		sad::ESKFD::Options options;
-%		// 噪声由初始化器估计
-%		options.gyro_var_ = sqrt(imu_init.GetCovGyro()[0]);
-%		options.acce_var_ = sqrt(imu_init.GetCovAcce()[0]);
-%		eskf.SetInitialConditions(options, imu_init.GetInitBg(), imu_init.GetInitBa(), imu_init.GetGravity());
-%		imu_inited = true;
-%		return;
-%	}
-%	
-%	if (!gnss_inited) {
-%		/// 等待有效的RTK数据
-%		return;
-%	}
-%	
-%	/// GNSS 也接收到之后，再开始进行预测
-%	eskf.Predict(imu);
-%	
-%	/// predict就会更新ESKF，所以此时就可以发送数据
-%	auto state = eskf.GetNominalState();
-%	ui->UpdateNavState(state);
-%	
-%	/// 记录数据以供绘图
-%	save_result(fout, state);
-%	
-%	usleep(1e3);
-%})
-%.SetGNSSProcessFunc([&](const sad::GNSS& gnss) {
-%	/// GNSS 处理函数
-%	if (!imu_inited) {
-%		return;
-%	}
-%	
-%	sad::GNSS gnss_convert = gnss;
-%	if (!sad::ConvertGps2UTM(gnss_convert, antenna_pos, FLAGS_antenna_angle) || !gnss_convert.heading_valid_) {
-%		return;
-%	}
-%	
-%	/// 去掉原点
-%	if (!first_gnss_set) {
-%		origin = gnss_convert.utm_pose_.translation();
-%		first_gnss_set = true;
-%	}
-%	gnss_convert.utm_pose_.translation() -= origin;
-%	
-%	// 要求RTK heading有效，才能合入EKF
-%	eskf.ObserveGps(gnss_convert);
-%	
-%	auto state = eskf.GetNominalState();
-%	ui->UpdateNavState(state);
-%	save_result(fout, state);
-%	
-%	gnss_inited = true;
-%})
-%.SetOdomProcessFunc([&imu_init](const sad::Odom& odom) {
-%	/// Odom 处理函数，本章Odom只给初始化使用
-%	imu_init.AddOdom(odom);
-%})
-%.Go();
-%\end{lstlisting}
-%
-%现在请读者编译运行本程序。您可以通过gflags指定要运行的文本文件：
-%\begin{lstlisting}[language=c++,caption=终端输入：]
-%bin/run_eskf_gins --txt_path ./data/ch3/10.txt 
-%\end{lstlisting}
-%
-%该程序会显示实时的滤波器状态，如图~\ref{fig:ch3-eskf-gins-ui}~所示。在右侧面板我们还能观察ESKF实时估计的IMU零偏、车辆在世界系和车体系下的实时速度。读者应该能观察以下几个现象：
-%
-%\begin{enumerate}
-%	\item 首先，ESKF每次递推和观测都有先验信息，因此在有良好的RTK和IMU数据情况下，它的轨迹应该是比较平滑的。读者可以在UI中对轨迹进行放大，查看上面的数据点。
-%	\item 车体系下的速度以$X$轴正向为主，这与实际车辆在前进的状态是相符的。而世界系下的速度既有$X$的分量，也有$Y$的分量。
-%	\item 在一部分RTK不良的场合，ESKF会缺少观测，位移部分会呈快速发散状态。当RTK恢复以后，位移部分会收敛到RTK轨迹上。
-%	\item 本节程序在RTK航向有效时，选择无条件相信RTK。但实际RTK数据本身也会有抖动和不良的情况，这会导致ESKF输出轨迹也发生抖动。
-%\end{enumerate}
-%
-%程序运行完成后，ESKF的状态变量会输出到data/ch3/gins.txt文件中。我们可以通过绘制脚本来查看它的平面图，参见图~\ref{fig:eskf-traj}：
-%
-%\begin{lstlisting}[language=sh,caption=终端输出：]
-%python3 scripts/plot_ch3_state.py ./data/ch3/gins.txt
-%\end{lstlisting}
-%
-%\begin{figure}
-%	\centering
-%	\includegraphics[width=1.0\textwidth]{ins/ch3-eskf-gins-ui.png}
-%	\caption{ESKF组合导航的实时结果}
-%	\label{fig:ch3-eskf-gins-ui}
-%\end{figure}
-%
-%\begin{figure}
-%	\centering
-%	\includegraphics[width=1.0\textwidth]{ins/eskf-traj-out.pdf}
-%	\caption{ESKF估计得到的状态变量曲线图。左侧：2D轨迹图，右上：四元数状态；右下：世界系下速度状态；}
-%	\label{fig:eskf-traj}
-%\end{figure}
-%
-%对比图~\ref{fig:gnss-traj}~，我们发现它们大体形状是相似的，但个别RTK角度无效的地方，ESKF出现了发散。在实际系统中，如果RTK位置有效而航向无效，我们也可以使用ESKF的角度作为RTK角度，来推算车辆位置。我们把这部分工作留作习题。
-%
-%现在从实验方面给ESKF下一些评注：
-%\begin{enumerate}
-%	\item 本节的ESKF展示了如何将IMU观测与GNSS观测进行融合，融合结果整体与GNSS观测相当
-%	。如果ESKF能顺利递推，我们也可以将IMU的预测位姿向外输出，得到一个更高频率的定
-%	位信号。实际的ESKF也可以融合来自其他观测源的位姿数据。观测方程并不需要有统一的形式，
-%	只需要能够进行线性化即可。例如，我们后续会介绍将激光观测源的数据融合至ESKF
-%	中。它们的理论基本是一致的，只是观测源的噪声可能有所不同。这种融合的方法称为\textbf{松耦
-%	合}。我们也可以将激光点云本身的残差，或者视觉特征点、像素的重投影误差放入观测方程，那
-%	就构成了一个\textbf{紧耦合}系统。
-%	\item 为了让ESKF保持收敛，我们需要不断地往里加入GNSS的观测信息。如果一段区域内长时间
-%	没有GNSS观测，那么IMU递推也将和之前IMU积分一样逐渐\textbf{发散}。可以认为GNSS的观测
-%	使得系统的速度、零偏得以固定，或者学术地说，GNSS的观测使这些状态变量\textbf{能观}（observable）
-%	了\cite{Vidal-Calleja2007}。我们并不准备严格地讨论一个状态估计器的能观性，虽然那是一个很重要的理论问题。
-%	\item 本节我们也没有处理GNSS位姿可能存在的异常值。实际当中的GNSS可能存在无信号，也可
-%	能存在报告正常状态，但实际位姿有很大偏离的情况。ESKF的预测——更新模式可以一定程度地
-%	平滑IMU和GNSS的位姿，但如果我们不加异常检测，那么异常数据一旦被融入滤波器，很容易带歪整个滤波器，很难再
-%	让它返回正确的状态。在ESKF中，我们可以检查\textbf{更新量}(innovation)大小或者预测位置与观测位置之间的距离，来判定是否将这个
-%	观测融入滤波器，但这种检查相当依赖于当前时刻的状态估计值，并不好区分\textbf{RTK异常}还是\textbf{滤波器异常}。后面我们向大家介绍的图优化类
-%	方法可以更有效地识别并规避GNSS异常值的干扰。
-%	\item 接触过图优化的同学可以适当对比ESKF对运动、观测模型的处理方式与图优化具体有何异同
-%	。你应该有一种似曾相识的感觉——它们存在非常多的相似之处，但处理方法上也存在一些差异。
-%	后面我们会看到，ESKF的更新过程实际是\textbf{边缘化}的过程。它将历史的观测信息边缘化后，
-%	变成对当前时刻的一种\textbf{先验}。换句话说，ESKF得到的均值$\bm{x}$和方差$\bm{P}$实际上
-%	是下个时刻的先验信息。这个先验信息能够很好地平滑整个滤波器的迭代过程。相应的，通常的图
-%	优化方法并没有对整个状态变量的先验，如何处理这个先验信息就成为了算法的关键之处。下一章我们将从图优化角度来重新审视这个问题。
-%	相信读者在阅读下一章的内容之后，会对这段描述有更深入的理解。
-%\end{enumerate}
-%
-%
-%\subsection{速度观测量}
-%我们看到在GINS系统中，如果长时间缺少RTK观测数据，ESKF就变为纯靠IMU积分的递推模式。该模式下位移将很快发散。位移的发散主要原因是缺少速度观测。有没有什么方法可以限制速度的发散呢？最常见的方法是融入车辆的速度传感器。速度测量值主要来自车辆的\textbf{电机转速}或者\textbf{轮式编码器}。大部分轮式机器人会携带一个编码器以测定自身速度，进而推断自身的局部运动情况。有时候我们也可以使用电机转速、油门等底层测量值来测定机器人的速度值。这些速度观测与IMU结合，可以形成局部的\textbf{航迹推算}（Dead Reckoning）。或者，也可以简单地将它们融入ESKF，作为速度的观测量。下面我们来推导它的数学形式和代码实现。
-%
-%\begin{figure}
-%	\centering
-%	\includegraphics[width=0.7\textwidth]{ins/wheel-speed-encoder.pdf}
-%	\caption{一个轮式编码器以及它的安装方式案例}
-%	\label{fig:wheel-speed-encoder}
-%\end{figure}
-%
-%图~\ref{fig:wheel-speed-encoder}~展示了一个轮式编码器的案例。这种编码器大多呈圆盘形，边缘有规律的孔洞。在轮子转动时，我们在底盘上安装一个红外或激光的发送接收装置。这个发送接收的结构会穿过轮式编码器上面的孔洞部分。如果轮子转动，接收装置应该有规律地输出信号被阻挡或没有被阻挡两种状态。这种规律的输出反映了轮子转动的距离，结合轮子半径和安装位置信息，也可以进一步反映出车辆相对地面的运动距离。
-%
-%轮速编码器的特点可以概括如下：
-%\begin{enumerate}
-%	\item 单个轮式编码器只输出轮子转过的距离，我们可以对这个距离进行采样。如果每隔固定时间采样的话，也可以看成对速度的测量值。
-%	\item 如果轮子本身在底盘上的角度是固定不动的，可以通过编码器计算车辆位移。进而，如果使用三轮式的机器人底盘（就像许多扫地机器人和小型机器人一样），还可以通过两侧轮子的位移差异，计算车身的旋转。不过，IMU本身也可以测量车辆的旋转。
-%	\item 轮子本身只能测量车辆在\textbf{前进方向}上的速度和位移，但无法测量平行方向或高度方向上的速度和位移。对于一些大型的车辆在颠簸路面上行驶的情况，轮速编码器的结果很可能不符合实际。
-%	\item 在实际应用中，轮子很容易受到打滑影响。打滑时，轮子会发生空转，导致编码器虽然有输出，但车辆本身并没有前进的状态。因此，我们可以融入其他状态的观测，得到更好的定位效果。
-%\end{enumerate}
-%
-%本书中，我们将轮速观测作为\textbf{载体系下$X$方向速度}的观测，简而言之，设某两段时间间隔内，我们采样到的轮子转速为标量的$v_{\mathrm{wheel}}$，表示车辆在前进方向上的速度。我们取\textbf{前左上坐标系}，即车辆$X$轴向前，$Y$向左，$Z$向上，那么矢量形式的轮速观测可以记为：
-%\begin{equation}\label{key}
-%\bm{v}_{\mathrm{wheel}} = [v_{\mathrm{wheel}}, 0, 0]^\top.
-%\end{equation}
-%
-%对应的观测模型为：
-%\begin{equation}\label{key}
-%	\bm{v}_{\mathrm{wheel}} = \bm{R}^\top \bm{v},
-%\end{equation}
-%其中$\bm{R}, \bm{v}$为车辆当前的状态。于是，轮速可以看成对$\bm{R}^\top \bm{v}$的测量。但实际当中轮速计并\textbf{没有}对$\bm{R}$进行物理意义上的测量，所以更常用的做法是，先根据当前估计的$\bm{R}$，将$\bm{v}_{\mathrm{wheel}}$转到世界坐标系下，直接视为对$\bm{v}$的观测：
-%\begin{equation}\label{key}
-%	\bm{R} \bm{v}_\mathrm{wheel} = \bm{v}.
-%\end{equation}
-%
-%我们可以把该模型记为抽象的观测模型$\bm{h}(\bm{x})$。显然它对名义状态$\bm{x}$的雅可比矩阵为：
-%\begin{equation}\label{key}
-%\frac{\partial \bm{h} (\bm{x})}{\partial \bm{x}} = \left[\bm{0}_{3\times 3}, \bm{I}_{3 \times 3}, \bm{0}_{3\times 12} \right].
-%\end{equation}
-%
-%通过雅可比矩阵可也以看出，轮速计并没有对$\bm{v}$以外的状态量有观测效果。如果我们更严格一些，还应该认为$\bm{v}_{\mathrm{wheel}}$没有$Y$, $Z$两个轴上的速度测量。 不过，由于$\bm{v}$受到了观测，加上IMU测量值之后，递推出来的位姿并不会快速发散。轮速的观测函数实现如下：
-%
-%\begin{lstlisting}[language=c++, caption=src/ch3/eskf.hpp]
-%template <typename S>
-%bool ESKF<S>::ObserveWheelSpeed(const Odom& odom) {
-%	assert(odom.timestamp_ >= current_time_);
-%	// odom 修正以及雅可比
-%	// 使用三维的轮速观测，H为3x18，大部分为零
-%	Eigen::Matrix<S, 3, 18> H = Eigen::Matrix<S, 3, 18>::Zero();
-%	H.template block<3, 3>(0, 3) = Mat3T::Identity();
-%	
-%	// 卡尔曼增益
-%	Eigen::Matrix<S, 18, 3> K = cov_ * H.transpose() * (H * cov_ * H.transpose() + odom_noise_).inverse();
-%	
-%	// velocity obs
-%	double velo_l = options_.wheel_radius_ * odom.left_pulse_ / options_.circle_pulse_ * 2 * M_PI / options_.odom_span_;
-%	double velo_r =
-%		options_.wheel_radius_ * odom.right_pulse_ / options_.circle_pulse_ * 2 * M_PI / options_.odom_span_;
-%	double average_vel = 0.5 * (velo_l + velo_r);
-%	
-%	VecT vel_odom(average_vel, 0.0, 0.0);
-%	VecT vel_world = R_ * vel_odom;
-%	
-%	dx_ = K * (vel_world - v_);
-%	
-%	// update cov
-%	cov_ = (Mat18T::Identity() - K * H) * cov_;
-%	
-%	UpdateAndReset();
-%	return true;
-%}
-%\end{lstlisting}
-%
-%在代码实现中，我们能够获取固定时间间隔内左右轮子的转动脉冲数$p$。我们记轮子半径为$r$，每一圈总脉冲为$n$，轮速的测量间隔为$t$，那么速度值$v_{\mathrm{wheel}}$与这几个物理量之间的关系为：
-%\begin{equation}\label{key}
-%v_{\mathrm{wheel}} = \frac{2 \pi r p}{n t} .
-%\end{equation}
-%
-%在质量模型下，这个速度可以作为车辆线速度的观测值。我们取左右轮的平均值来观测它。当然这是一种粗略的估计，更细致的模型应该考虑到车辆本身的结构和安装参数，但本节主要用来演示它们在ESKF中的作用。我们依然使用轮速计算了误差状态$\delta \bm{x}$，然后合入名义状态中。
-%
-%要运行带有轮速的ESKF，使用：
-%\begin{lstlisting}[language=sh, caption=终端输入：]
-%bin/run_eskf_gins --with_odom=true
-%\end{lstlisting}
-%
-%然后按照上一节的方式绘制轨迹结果图。实时UI如图~\ref{fig:ch3-gins-odom}所示。对比图~\ref{fig:ch3-eskf-gins-ui}~可以发现，有几处因为缺少RTK观测而发散的位置明显得到了改善。速度观测对于组合导航是有积极作用的。
-%
-%\begin{figure}
-%	\centering
-%	\includegraphics[width=0.7\textwidth]{ins/ch3-gins-odom.png}
-%	\caption{添加轮速观测之后的实时轨迹结果}
-%	\label{fig:ch3-gins-odom}
-%\end{figure}
-%
-%\section{小结}
-%本章介绍了惯性导航系统的基本原理，以误差卡尔曼滤波器形式将IMU、卫星导航和轮速里程计进行了融合，组成了传统的组合导航方案。这种方案在车辆定位方案中是行之有效的。我们通过代码和图形界面演示了它们的工作过程。不过，目前我们还没有引入图像和激光传感器，只能看到车辆的位置和姿态数据，没有直观地描述场景结构。后面的激光章节还将以本节结果为基础，添加2D和3D激光数据，用于建图和定位。
-%
-%\section*{习题}
-%\begin{enumerate}
-%\item 证明任意零均值白噪声随机变量乘以任意旋转矩阵作为系数后，仍然是零均值的白噪声，且协
-%方差矩阵不变。
-%\item 推导以四元数为表示法的ESKF状态转移方程。
-%\item 在旋转部分的处理中，使用左乘或右乘的李代数并无本质区别。本书使用了右乘的习惯，请你
-%推导以左乘李代数为误差变量的ESKF状态方程。在形式上，左乘是否要比右乘更简单一些？
-%\item 如果在ESKF中对运动方程和观测方程稍加改变，很容易得到UKF和IEKF之类的变种。请根据
-%本书提供的代码，实现基于UKF或IEKF的组合导航。
-%\item 简化ESKF的运动递推过程，不要使用矩阵形式的$\bm{F}$矩阵，而是将各变量的运动过程分别
-%列写方程，看看是否有效率提升。有时候这种ESKF也称为\textbf{稀疏的ESKF}。
-%\item 尝试简化ESKF中的一些矩阵计算。把没必要计算的部分删掉，仅保留需要的部分，看看有没有
-%效率提升。
-%\item 对ESKF的更新量进行检查。这个更新量一般为多大？如何来确定异常值判定的阈值？
-%\item 设计检查机制，在ESKF中过滤一些RTK的异常观测。
-%\item 设计检查机制，让ESKF在长时间没有RTK观测时报告警报信息，并使用最近RTK观测来重置自己。
-%\end{enumerate}
+Different numerical integration methods vary, with the Euler method being the simplest. The rotation and translation of an object itself are continuous, while the IMU samples at fixed time intervals. During the sampling interval $\Delta t$, there are several approaches to handling the angular velocity and acceleration within this small time frame. The Euler method adopts the simplest approach: it assumes that during the time from $t$ to $t+\Delta t$, the object's angular velocity is entirely equal to $\boldsymbol{\omega}(t)$, and the acceleration is equal to $\bm{a}(t)$. This is equivalent to using the starting point of the interval as the function value for the integration rectangle in numerical integration. Other methods, such as the midpoint method, trapezoidal rule, and higher-order interpolation methods (most notably the Runge-Kutta method \cite{Liu2020}), can also be employed. These methods are not overly complex in practice—they simply replace the measurements in the above equations with interpolated values $\tilde{\boldsymbol{\omega}}, \tilde{\bm{a}}$ for the recursion. Theoretically, the midpoint and trapezoidal methods should be more accurate than the simplest Euler integration, while interpolation methods introduce additional computational overhead. Whether the improvement in accuracy justifies the increased computation depends on the specific application.
+
+The above equations can also be accumulated further, such as from time $i$ to time $j$. We only need to aggregate the IMU readings in between:
+
+\begin{subequations}\label{eq:imu-dead-reckoning}
+	\begin{align}
+		\bm{R}_j &= \bm{R}_i \prod_{k=i}^{j-1}\mathrm{Exp} \left(\left(\tilde{\boldsymbol{\omega}}_k - 
+		\bm{b}_{g,k}\right) \Delta t\right) \quad \text{or}\quad \bm{q}_j = \bm{q}_i \prod_{k=i}^{j-1} \left[1, 
+		\frac{1}{2} \left(\tilde{\boldsymbol{\omega}}_k - \bm{b}_{g,k}\right) \Delta t \right], \\
+		\bm{p}_j &= \bm{p}_k + \sum_{k=i}^{j-1} \left[\bm{v}_k \Delta t + \frac{1}{2} \bm{g} \Delta t^2\right] + 
+		\frac{1}{2} \sum_{k=i}^{j-1} \bm{R}_k \left(\tilde{\bm{a}}_k - \bm{b}_{a,k} \right) \Delta t^2, \\
+		\bm{v}_j &= \bm{v}_i + \sum_{k=i}^{j-1}\left[ \bm{R}_k\left(\tilde{\bm{a}}_k - \bm{b}_{a,k} \right) 
+		\Delta t+ \bm{g} \Delta t  \right].
+	\end{align}
+\end{subequations}
+
+Note that we have not yet considered the influence of noise. In Chapter~\ref{cpt:preinteg}, we will further examine the impact of measurement noise and bias noise on IMU integration. Here, we focus only on its recursive form. Observe that the above equations are essentially \textbf{incremental}: each $\bm{R}_k, \bm{v}_k$ can serve as the computation result for the next time step. Therefore, in code implementation, when an IMU frame arrives, we can use the result from the previous frame to compute the recursion for the next frame, without waiting for all data to arrive before performing the accumulation as per the formula. For rotation, there is no fundamental difference between using quaternions or rotation matrices, though the rotation matrix representation is more concise mathematically and does not require frequent normalization. In this chapter, we retain both notations for readers to compare. However, in subsequent chapters, we will primarily use the rotation matrix representation.
+
+\subsection{Code Experiment for IMU Recursion}
+Below, we conduct an experiment to demonstrate how to use IMU data for trajectory propagation. Without external observations, we can only use Equation (\ref{eq:imu-dead-reckoning}) to perform double integration and obtain the position and attitude information of the moving object. This integration typically diverges rapidly, making IMU unsuitable for standalone dead reckoning. Our experiment will illustrate this.
+
+\begin{lstlisting}[language=c++,caption=ch3/imu_integration.h]
+class IMUIntegration {
+	public:
+	IMUIntegration(const Vec3d& gravity, const Vec3d& init_bg, const Vec3d& init_ba)
+	: gravity_(gravity), bg_(init_bg), ba_(init_ba) {}
+	
+	text
+	// Add IMU reading
+	void AddIMU(const IMU& imu) {
+		double dt = imu.timestamp_ - timestamp_;
+		if (dt > 0 && dt < 0.1) {
+			// Assume IMU time interval is between 0 and 0.1
+			p_ = p_ + v_ * dt + 0.5 * gravity_ * dt * dt + 0.5 * (R_ * (imu.acce_ - ba_)) * dt * dt;
+			v_ = v_ + R_ * (imu.acce_ - ba_) * dt + gravity_ * dt;
+			R_ = R_ * Sophus::SO3d::exp((imu.gyro_ - bg_) * dt);
+		}
+		
+		// Update time
+		timestamp_ = imu.timestamp_;
+	}
+	
+	/// Compose NavState
+	NavStated GetNavState() const { return NavStated(timestamp_, R_, p_, v_, bg_, ba_); }
+	
+	SO3 GetR() const { return R_; }
+	Vec3d GetV() const { return v_; }
+	Vec3d GetP() const { return p_; }
+	
+	private:
+	// Accumulated quantities
+	SO3 R_;
+	Vec3d v_ = Vec3d::Zero();
+	Vec3d p_ = Vec3d::Zero();
+	
+	double timestamp_ = 0.0;
+	
+	// Biases, set externally
+	Vec3d bg_ = Vec3d::Zero();
+	Vec3d ba_ = Vec3d::Zero();
+	
+	Vec3d gravity_ = Vec3d(0, 0, -9.8);  // Gravity
+};
+\end{lstlisting}
+
+This function implements a simple IMU integrator that continuously reads IMU data and provides its integration results. We have prepared some sensor data for readers in data/ch3/ (which will also be used in later chapters). Readers can select any trajectory segment and run the following program to observe the IMU integration results.
+
+\begin{lstlisting}[language=c++,caption=ch3/run_imu_integration.cc]
+sad::TxtIO io(FLAGS_imu_txt_path);
+
+// In this experiment, we assume biases are known
+Vec3d gravity(0, 0, -9.8); // Gravity direction
+Vec3d init_bg(00.000224886, -7.61038e-05, -0.000742259);
+Vec3d init_ba(-0.165205, 0.0926887, 0.0058049);
+
+sad::IMUIntegration imu_integ(gravity, init_bg, init_ba);
+
+sad::ui::PangolinWindow ui;
+ui.Init();
+
+/// Record results
+auto save_result = [](std::ofstream& fout, double timestamp, const Sophus::SO3d& R, const Vec3d& v,
+const Vec3d& p) {
+	auto save_vec3 = [](std::ofstream& fout, const Vec3d& v) { fout << v[0] << " " << v[1] << " " << v[2] << " "; };
+	auto save_quat = [](std::ofstream& fout, const Quatd& q) {
+		fout << q.w() << " " << q.x() << " " << q.y() << " " << q.z() << " ";
+	};
+	
+	text
+	fout << std::setprecision(18) << timestamp << " " << std::setprecision(9);
+	save_vec3(fout, p);
+	save_quat(fout, R.unit_quaternion());
+	save_vec3(fout, v);
+	fout << std::endl;
+};
+
+std::ofstream fout("./data/ch3/state.txt");
+io.SetIMUProcessFunc([&imu_integ, &save_result, &fout, &ui](const sad::IMU& imu) {
+	imu_integ.AddIMU(imu);
+	save_result(fout, imu.timestamp_, imu_integ.GetR(), imu_integ.GetV(), imu_integ.GetP());
+	ui.UpdateNavState(imu_integ.GetNavState());
+	usleep(1e2);
+}).Go();
+
+ui.Quit();
+\end{lstlisting}
+
+This program stores the integration results in ch3/state.txt. Note that this book frequently uses C++ lambda functions for flexible function calls. Here, TxtIO reads and parses sensor data from text files, then executes callbacks for various sensors as predefined. Since programs in different chapters process this sensor data differently, the callback portion is implemented using lambda functions.
+
+Now, execute this program:
+\begin{lstlisting}[language=sh, caption=Terminal input:]
+bin/run_imu_integration
+\end{lstlisting}
+
+It will display the vehicle's real-time position in the UI. However, this program will quickly diverge, and the vehicle will disappear off the screen edge. After the program ends, we can run the plotting script to visualize the trajectory:
+\begin{lstlisting}[language=sh, caption=Terminal input:]
+python3 scripts/plot_ch3_state.py data/ch3/state.txt
+\end{lstlisting}
+
+\begin{figure}
+	\centering
+	\includegraphics[width=1\textwidth]{ins/ch3-imu-integ-ui.png}
+	\caption{IMU integration results displayed in the UI}
+	\label{fig:ch3-imu-integ-ui}
+\end{figure}
+
+The vehicle motion in the UI is shown in Figure~\ref{fig:ch3-imu-integ-ui}, and the trajectory plotting result is shown in Figure~\ref{fig:ch3-imu-integ}. We observe that the attitude, expressed in quaternions, remains relatively stable overall. The data source is an onboard IMU, with the $q_y, q_z$ components of the quaternion attitude remaining near zero. However, the displacement quickly diverges. Due to the lack of external observations, the velocity state soon becomes uncontrollable, far exceeding the vehicle's actual speed (this is a low-speed vehicle under 25 km/h), causing the position estimate to diverge to an extremely large value. Readers can also try other datasets, all of which will diverge rapidly.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=1\textwidth]{ins/ch3-imu-integ.pdf}
+	\caption{Results of IMU integration}
+	\label{fig:ch3-imu-integ}
+\end{figure}
+
+Later, we will discuss how to fuse IMU data with other sensor data to obtain more accurate state estimates. In traditional navigation, the primary fusion method for IMU is integration with satellite navigation, forming what is known as a GINS (GNSS-INS) system.
+
+\section{Satellite Navigation}
+Satellite navigation (Global Navigation Satellite System, GNSS) is another primary source of positioning information for outdoor vehicles. While the internal principles of satellite navigation are highly complex, its output is remarkably simple. That said, if we dissect practical systems down to their fundamental principles, we quickly become overwhelmed by engineering details. Even seemingly simple systems like microcontrollers can appear extremely intricate when explained at the circuit level. Therefore, we will not introduce GNSS systems starting from rocket or satellite launches but instead approach the topic from a more practical perspective: What information can satellite navigation provide to an autonomous vehicle?
+
+The answer to this question is straightforward. During normal operation, satellite navigation can provide all the positioning information a vehicle needs, including its position, attitude, velocity, and other physical quantities. Readers might then ask: Can autonomous driving be achieved using satellite positioning alone? To answer this, we must consider several factors:
+
+\begin{enumerate}
+	\item Does the positioning accuracy of GNSS meet the requirements?
+	
+	\item Is the positioning frequency of GNSS sufficient for downstream applications?
+	
+	\item How reliable is GNSS positioning? Can it be used in all weather conditions and locations?
+	
+\end{enumerate}
+
+In reality, GNSS encompasses many subtypes, and there is no uniform answer to these questions. Some GNSS methods offer high accuracy but require the object to remain stationary for a period (typically over ten minutes). Others provide better dynamic positioning but require the prior setup of one or more base stations. Almost all GNSS systems face the challenge of being "weather-dependent"—their stability is influenced by the environment, structures, obstructions, and even the day's weather. This makes satellite navigation in the autonomous driving industry often accurate enough but difficult to control in terms of reliability.
+
+Classification and Providers of GNSS
+Broadly speaking, GNSS systems determine their position by measuring the distance to satellites orbiting the Earth, primarily through time-of-flight calculations. A satellite signal carries a transmission timestamp when emitted, and the GNSS receiver records its arrival time. By comparing these timestamps, the distance to each satellite can be estimated. The main differences among GNSS systems and measurement methods lie in how they reduce timing errors. From this perspective, GNSS can essentially be viewed as a high-precision timekeeping system.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.7\textwidth]{ins/rtk-receivers.pdf}
+	\caption{Various GNSS/RTK receivers.}
+	\label{fig:rtk-receivers}
+\end{figure}
+
+Currently, satellite signals received worldwide primarily come from four systems:
+
+\begin{enumerate}
+	\item GPS (Global Positioning System, USA)
+	
+	\item BDS (Beidou Navigation Satellite System, China)
+	
+	\item GLONASS (Russia)
+	
+	\item GALILEO (European Union)
+\end{enumerate}
+
+
+Each system has deployed 20 to 30 satellites in space. Systems that directly use these satellites for positioning are typically called standalone GNSS\footnote{GNSS systems are continuously evolving. Due to historical reasons, the term "GPS" was commonly used in the past, but most literature now distinguishes between GPS and GNSS.}. Most ground-based GNSS receivers can access signals from multiple satellite systems, choosing either a single source or combining multiple sources. Standalone GNSS typically provides positioning accuracy within a few meters. Most mobile devices use standalone GNSS for navigation (Figure~\ref{fig:rtk-receivers}).
+
+The final accuracy of satellite positioning is affected by many factors, from the satellite's electromagnetic signals to transmission delays and receiver clock errors. Various correction techniques have been developed to mitigate these errors, such as PPP (Precise Point Positioning) and RTK (Real-Time Kinematic), which continue to improve positioning accuracy. These technologies are extensive, but this book focuses on the user perspective rather than the development side.
+
+By 2023, GNSS positioning has evolved from ~10-meter accuracy to real-time centimeter-level precision, becoming widely accessible. In China, providers like Qianxun, Hezhong, and Xunteng offer extensive and affordable satellite positioning services, increasingly integrated into consumer devices like smartphones and vehicles.
+
+For autonomous vehicles, the most commonly used satellite positioning technologies include:
+
+Standalone GNSS: Traditional meter-level satellite positioning, cost-effective and widely used in phones and car systems. While sufficient for road-level navigation\footnote{Autonomous driving typically requires lane-level navigation, which identifies the vehicle's specific lane, offering greater stability than road-level navigation.}, its accuracy struggles to distinguish between parallel roads (e.g., highways vs. service roads).
+
+RTK Positioning: To address signal transmission errors, differential positioning was developed, where a ground-based reference station with known coordinates corrects the vehicle's GNSS signals. RTK, based on carrier-phase differential technology, uses one or more base stations to provide real-time corrected positioning.
+
+Many companies now offer RTK services for autonomous driving, deploying extensive base station networks and using 4G/5G to deliver real-time vehicle positions. In favorable conditions, RTK alone can enable autonomous driving. Some providers combine RTK with inertial navigation for enhanced reliability.
+
+\subsection{Practical RTK Installation and Data Reception}
+As the saying goes, "seeing is believing." Below we present some actual RTK data (the same applies to GNSS data) used in autonomous driving applications.
+
+RTK receivers are typically installed on vehicle rooftops in disc-shaped configurations (often affectionately called "mushroom heads"). A single mushroom head can provide precise satellite positioning. When two receivers are configured in a \textbf{dual-antenna} setup, the vehicle's real-time heading can be calculated based on the positional difference between the two antennas.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.7\textwidth]{ins/apollo-rtk.pdf}
+	\caption{A dual-antenna RTK installation configuration from Baidu Apollo's development kit.}
+	\label{fig:apollo-rtk}
+\end{figure}
+
+Figure~\ref{fig:apollo-rtk} demonstrates a practical dual-antenna RTK installation on a vehicle. With the vehicle body removed, we can clearly observe the installation positions of various sensors. This vehicle features two RTK mushroom heads - one at the front and another at the rear - aligned along the vehicle's longitudinal axis. Other vehicles may employ horizontal or lateral dual-antenna configurations.
+
+In dual-antenna systems, we generally follow these conventions:
+\begin{enumerate}
+	\item One antenna is designated as the \textbf{primary} antenna, representing the vehicle's position.
+	\item The \textbf{secondary} antenna's position is subtracted from the primary's to obtain the directional vector between them, from which the vehicle's heading angle (primarily yaw) can be derived.
+	\item For left-right installations, the left antenna is typically designated as primary.
+	\item For front-rear installations, the rear antenna is usually primary.
+\end{enumerate}
+
+However, these are merely conventional designations - the two antennas are fundamentally identical and their roles could be reversed.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.7\textwidth]{ins/rtk-antenna.pdf}
+	\caption{Various dual-antenna RTK installation configurations: left-right, front-rear, and diagonal.}
+	\label{fig:rtk-antenna}
+\end{figure}
+
+Several key considerations for dual-antenna systems include:
+\begin{itemize}
+	\item To accurately measure vehicle angles, the two antennas should be placed as far apart as possible\footnote{Both antennas' positions are subject to measurement noise. Greater separation reduces the noise's impact on angle calculations.}.
+	\item The distance between dual antennas is called the RTK \textbf{baseline}\footnote{The term "baseline" is widely used across different sensors (e.g., RTK baseline, stereo camera baseline). Readers need not concern themselves with potential connections between these usages.}.
+	\item As a sensor system, the RTK's installation position on the vehicle can be described by extrinsic parameters represented by a transformation matrix.
+	\item Since dual antennas are typically coplanar, the rotational extrinsic parameters can be described by a single angle called the \textbf{installation yaw angle} (antenna angle), while the translational parameters are called \textbf{installation offset} (antenna position). These parameters are usually determined during structural design.
+\end{itemize}
+
+Satellite positioning systems universally output object positions in latitude and longitude coordinates. This output format is tied to Earth's fixed coordinate systems, unlike LiDAR or visual positioning systems where coordinate frames can be arbitrarily defined. Additionally, dual-antenna RTK angle measurements follow conventional definitions. We will first introduce common global coordinate systems before processing actual RTK data.
+\subsection{Common World Coordinate Systems}
+Various world coordinate systems are widely used in the physical world. Below we briefly introduce their definitions.
+
+\subsubsection{Geographic Coordinate System}
+\begin{figure}
+	\centering
+	\includegraphics[width=0.4\textwidth]{ins/latlon.pdf}
+	\caption{Schematic diagram of latitude-longitude coordinate system}
+	\label{fig:latlon}
+\end{figure}
+
+The most common coordinate system on Earth is the \textbf{latitude-longitude} coordinate system, also known as the \textbf{Geographic Coordinate System} (see Figure~\ref{fig:latlon}). Combined with altitude, it forms the latitude-longitude-altitude (LLA) coordinate system. Latitude and longitude divide the Earth's surface uniformly: longitude ranges 180 degrees east and west from the prime meridian, while latitude ranges 90 degrees north and south from the equator. Both values are expressed in degrees or radians. Altitude can be either elevation above sea level or geodetic height relative to a reference surface.
+
+While intuitive and globally applicable (being the default for many mapping systems), latitude-longitude coordinates become cumbersome for autonomous driving applications at city-scale or smaller areas. Building-level coordinates typically require 8-9 decimal places, and the nonlinear conversion to metric units (where 1 degree longitude corresponds to 0 meters at the poles but over 100 km at the equator) motivates the use of local coordinate systems.
+
+\subsubsection{UTM Coordinate System}
+The Universal Transverse Mercator (UTM) system projects the WGS84 ellipsoid Earth onto a transverse cylinder, divided into 60 longitudinal and 20 latitudinal zones with numeric and alphabetic labels respectively. While roughly uniform in angular distribution, metric distances vary due to Earth's curvature, with significant distortion excluding polar regions beyond 80° latitude.
+
+Within each zone:
+\begin{itemize}
+	\item Easting coordinates reference a central meridian (assigned x=500,000m), increasing eastward
+	\item Northing coordinates measure distance from the equator
+	\item The resulting \textbf{ENU} (East-North-Up) system follows right-hand convention
+	\item Alternative \textbf{NED} (North-East-Down) configurations also exist
+\end{itemize}
+
+UTM advantages include metric compatibility with sensors, though zone boundaries require special handling. Note:
+\begin{enumerate}
+	\item A 0.9996 scale factor corrects projection distortion
+	\item ENU/NED systems have opposite Z-axis orientations affecting angle definitions
+	\item Maximum easting span is ~667 km per zone
+\end{enumerate}
+
+This metric local frame facilitates autonomous vehicle operations while maintaining global reference.
+
+\subsection{Display of RTK Measurements}
+Many RTK and integrated navigation manufacturers can output coordinates in user-selected coordinate systems, with the most basic being the latitude-longitude coordinates measured by the RTK receiver. Below we demonstrate how to convert RTK's latitude-longitude coordinates to metric UTM coordinates while using a dual-antenna configuration to determine the vehicle's heading angle. Here we disregard the vehicle's pitch and roll, treating them as zero. Thus, although the vehicle outputs \textbf{4-DOF coordinates}, under the assumption of zero pitch and roll, the RTK output can also be considered as a 6-DOF pose transformation, i.e., an $\mathrm{SE}(3)$ pose.
+
+We continue using the data from the previous section. This data consists of IMU, RTK, and wheel speed measurements located in the `data/ch3/` directory. Readers can open these files with a text editor, with the format as follows:
+
+\begin{lstlisting}[language=sh, caption=Example data file]
+	GNSS 1571900872.47168827 30.0011840411666668 117.97859182983332 305.98748779296875 
+	330.047799999999995 1
+	ODOM 1571900872.50085688 0 0
+	IMU 1571900872.56527948 -0.000740019602845583204 -0.000471238898038460995 
+	6.98131700797720067e-06 0.362519161666666645 -0.0608012299999999908 
+	9.82135997500000002
+\end{lstlisting}
+
+Each line in the file represents a measurement, with the prefix "GNSS", "IMU", or "ODOM" indicating the record type. For GNSS measurements, each line contains: timestamp, latitude, longitude, altitude, heading angle, and heading validity flag. For IMU or wheel speed measurements, the readings from the accelerometer, gyroscope, and wheel speed sensors are provided. The GNSS positioning here is provided by the Qianxun FindCM solution, with a nominal accuracy of 2 cm in fixed solution mode.
+
+Since the algorithm for converting latitude-longitude to UTM coordinates is complex and not the focus of this book, we use an open-source conversion method from the `thirdparty/utm_convert` directory\footnote{See: \url{https://github.com/hobu/mgrs}}. We've added a wrapper function to conveniently compute the $\mathrm{SE}(3)$ pose corresponding to GNSS measurements. The conversion code is as follows:
+
+\begin{lstlisting}[language=c++,caption=ch3/utm\_convert.cc]
+bool LatLon2UTM(const Vec2d& latlon, UTMCoordinate& utm_coor) {
+	long zone = 0;
+	char char_north = 0;
+	long ret = Convert_Geodetic_To_UTM(latlon[0] * math::kDEG2RAD, latlon[1] * math::kDEG2RAD, &zone, &char_north,
+	&utm_coor.xy_[0], &utm_coor.xy_[1]);
+	utm_coor.zone_ = (int)zone;
+	utm_coor.north_ = char_north == 'N';
+	
+	return ret == 0;
+}
+
+bool ConvertGps2UTM(GNSS& gps_msg, const Vec2d& antenna_pos, const double& antenna_angle, const Vec3d& map_origin) {
+	/// Convert latitude-longitude-altitude to UTM
+	UTMCoordinate utm_rtk;
+	if (!LatLon2UTM(gps_msg.lat_lon_alt_.head<2>(), utm_rtk)) {
+		return false;
+	}
+	utm_rtk.z_ = gps_msg.lat_lon_alt_[2];
+	
+	/// Convert GPS heading to radians
+	double heading = 0;
+	if (gps_msg.heading_valid_) {
+		heading = (90 - gps_msg.heading_) * math::kDEG2RAD;  // Convert from NED to ENU
+	}
+	
+	/// Transform from TWG to TWB
+	SE3 TBG(SO3::rotZ(antenna_angle * math::kDEG2RAD), Vec3d(antenna_pos[0], antenna_pos[1], 0));
+	SE3 TGB = TBG.inverse();
+	
+	/// Subtract map origin if specified
+	double x = utm_rtk.xy_[0] - map_origin[0];
+	double y = utm_rtk.xy_[1] - map_origin[1];
+	double z = utm_rtk.z_ - map_origin[2];
+	SE3 TWG(SO3::rotZ(heading), Vec3d(x, y, z));
+	SE3 TWB = TWG * TGB;
+	
+	gps_msg.utm_valid_ = true;
+	gps_msg.utm_.xy_[0] = TWB.translation().x();
+	gps_msg.utm_.xy_[1] = TWB.translation().y();
+	gps_msg.utm_.z_ = TWB.translation().z();
+	
+	if (gps_msg.heading_valid_) {
+		// Construct pose with rotation
+		gps_msg.utm_pose_ = TWB;
+	} else {
+		// Construct SE3 with only translation
+		// Note: When installation offset exists, the actual vehicle pose cannot be derived
+		gps_msg.utm_pose_ = SE3(SO3(), TWB.translation());
+	}
+	
+	return true;
+}
+\end{lstlisting}
+
+The latitude-longitude to UTM conversion is handled by the library function, while we need to transform the UTM coordinates from the GNSS frame to the vehicle's observed pose, considering the RTK's extrinsic parameters. The dual-antenna RTK installation used in this section is shown in Figure~\ref{fig:dual-rtk-coor}, where the blue axes $x_B, y_B, O_B$ represent the vehicle body frame, and the red axes $x_G, y_G, O_G$ represent the GNSS receiver frame.
+
+Mathematically, we can treat the RTK's UTM coordinate reading as $\bm{T}_{WG}$, where $W$ represents the world frame and $G$ represents the GNSS receiver frame. To facilitate subsequent fusion localization, we transform it to $\bm{T}_{WB}$, where $B$ is the vehicle body frame. Thus, the extrinsic parameters between the GNSS receiver and the vehicle can be described by either $\bm{T}_{GB}$ or $\bm{T}_{BG}$.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.3\textwidth]{ins/dual-rtk-coor.pdf}
+	\caption{RTK installation configuration used in this book's example. Subscript $G$ denotes the GNSS receiver frame, while $B$ denotes the vehicle body frame. The primary antenna is located at the right rear of the vehicle, and the secondary antenna at the front left.}
+	\label{fig:dual-rtk-coor}
+\end{figure}
+
+In the calibration parameters, we specify the installation offset $\bm{a}_t$ as the vector from $O_B$ to $O_G$ expressed in the $B$ frame, which essentially corresponds to the translational component of $\bm{T}_{BG}$. Simultaneously, the installation angle $a_{\theta}$ is defined as the rotation angle from the $x$-axis of the $B$ frame to the $x$-axis of the $G$ frame. Substituting $\bm{a}_t$ and $a_{\theta}$ into $\bm{T}_{BG}$, we obtain:
+
+\begin{equation}\label{key}
+	\bm{T}_{BG} = \begin{bmatrix}
+		\bm{R}_Z (a_{\theta}) & \bm{a}_t \\
+		\bm{0}^\top & 1
+	\end{bmatrix},
+\end{equation}
+
+where $\bm{R}_Z$ represents the rotation matrix about the $Z$-axis.
+
+It's important to note that this definition of \textbf{installation angle} and \textbf{installation offset} is intuitive but not unique. The specific definition should prioritize operational convenience. These parameters could alternatively be defined in the opposite direction, as long as calibration personnel can measure them easily. We typically align mathematical notation with practical conventions rather than forcing real-world operations to conform to mathematical definitions. While calibration personnel might struggle to directly measure $\bm{R}_{BG}$ or $\bm{t}_{BG}$, they can easily measure the connection between two points or the angle between two lines.
+
+The transformation matrix $\bm{T}_{WB}$ from the vehicle body frame to the world frame can be derived from RTK measurements and its extrinsic parameters:
+
+\begin{equation}\label{key}
+	\bm{T}_{WB} = \bm{T}_{WG} \bm{T}_{GB}.
+\end{equation}
+
+Expanding the rotation and translation components yields:
+
+\begin{equation}\label{key}
+	\bm{R}_{WB} = \bm{R}_{WG} \bm{R}_{GB}, \quad \bm{t}_{WB} = \bm{R}_{WG} \bm{t}_{GB} + \bm{t}_{WG}.
+\end{equation}
+
+An important consideration: even with known RTK extrinsic parameters $\bm{t}_{GB}$, determining the vehicle coordinates $\bm{t}_{WB}$ requires knowledge of the RTK orientation $\bm{R}_{WG}$. In a single-antenna configuration with non-zero installation offset $\bm{t}_{GB}$, \textbf{the vehicle's world coordinates cannot be precisely determined when the vehicle orientation is unknown}. However, in state estimation algorithms where the vehicle attitude $\bm{R}_{WB}$ is estimated, we can use $\bm{R}_{WB} \bm{R}_{BG}$ as the current $\bm{R}_{WG}$.
+
+Additionally, the conversion program handles the transformation between \textbf{ENU} (East-North-Up) and \textbf{NED} (North-East-Down) coordinate systems. Different RTK manufacturers may output angles according to their predefined schemes, potentially causing inconsistencies in angle definitions. This book uses UTM coordinates with east and north as $XY$ axes (ENU frame), while the RTK manufacturer outputs NED coordinates. The former uses east as zero degrees, while the latter uses north as zero degrees with opposite rotation direction. Therefore, an azimuth angle $h$ in the NED frame converts to angle $h'$ in the ENU frame as:
+
+\begin{equation}\label{key}
+	h' = \pi/2 - h.
+\end{equation}
+
+The code above implements this angle conversion.
+
+We then write a program to convert GNSS readings from the data file into poses and write them to an output file. Readers can use Python scripts to plot the entire GNSS trajectory. Simultaneously, we display the RTK poses in real-time graphical interfaces, allowing immediate visualization of current position and orientation.
+
+\subsection{RTK Measurement Visualization}
+Many RTK and integrated navigation manufacturers can output coordinates in user-selected coordinate systems, with the most basic output being the latitude-longitude coordinates measured by the RTK receiver. Below we demonstrate how to convert RTK's latitude-longitude coordinates to metric UTM coordinates while using a dual-antenna configuration to determine the vehicle's heading angle.
+
+\begin{lstlisting}[language=c++,caption=ch3/process\_gnss.cc]
+DEFINE_string(txt_path, "./data/ch3/10.txt", "Input data file path");
+
+// Parameters specific to the provided dataset
+DEFINE_double(antenna_angle, 12.06, "RTK antenna installation angle (degrees)");
+DEFINE_double(antenna_pox_x, -0.17, "RTK antenna installation offset X");
+DEFINE_double(antenna_pox_y, -0.20, "RTK antenna installation offset Y");
+
+/**
+* This program demonstrates GNSS data processing
+* We convert raw GNSS readings into 6-DOF poses for subsequent processing
+* Requires UTM conversion, RTK antenna extrinsics, and coordinate transformation
+*
+* Results are saved to file and visualized using Python scripts
+*/
+
+int main(int argc, char** argv) {
+	sad::TxtIO io(fLS::FLAGS_txt_path);
+	
+	std::ofstream fout("./data/ch3/gnss_output.txt");
+	Vec2d antenna_pos(FLAGS_antenna_pox_x, FLAGS_antenna_pox_y);
+	
+	auto save_result = [](std::ofstream& fout, double timestamp, const SE3& pose) {
+		auto save_vec3 = [](std::ofstream& fout, const Vec3d& v) { 
+			fout << v[0] << " " << v[1] << " " << v[2] << " "; 
+		};
+		auto save_quat = [](std::ofstream& fout, const Quatd& q) {
+			fout << q.w() << " " << q.x() << " " << q.y() << " " << q.z() << " ";
+		};
+		
+		fout << std::setprecision(18) << timestamp << " " << std::setprecision(9);
+		save_vec3(fout, pose.translation());
+		save_quat(fout, pose.unit_quaternion());
+		fout << std::endl;
+	};
+	
+	std::shared_ptr<sad::ui::PangolinWindow> ui = nullptr;
+	if (FLAGS_with_ui) {
+		ui = std::make_shared<sad::ui::PangolinWindow>();
+		ui->Init();
+	}
+	
+	bool first_gnss_set = false;
+	Vec3d origin = Vec3d::Zero();
+	io.SetGNSSProcessFunc([&](const sad::GNSS& gnss) {
+		sad::GNSS gnss_out = gnss;
+		if (sad::ConvertGps2UTM(gnss_out, antenna_pos, FLAGS_antenna_angle)) {
+			if (first_gnss_set == false) {
+				origin = gnss_out.utm_pose_.translation();
+				first_gnss_set = true;
+			}
+			gnss_out.utm_pose_.translation() -= origin;
+			
+			save_result(fout, gnss_out.unix_time_, gnss_out.utm_pose_);
+			ui->UpdateNavState(
+			sad::NavStated(gnss_out.unix_time_, gnss_out.utm_pose_.so3(), 
+			gnss_out.utm_pose_.translation()));
+			
+			usleep(1e4);
+		}
+	}).Go();
+	
+	if (ui) {
+		while (!ui->ShouldQuit()) {
+			usleep(1e5);
+		}
+		ui->Quit();
+	}
+	
+	return 0;
+}
+\end{lstlisting}
+
+The program converts RTK readings to UTM poses, removes the origin offset, writes to a text file, and displays in UI. To run:
+
+\begin{lstlisting}[language=sh, caption=Terminal command:]
+	bin/process_gnss --txt_path ./data/ch3/10.txt
+\end{lstlisting}
+
+The converted 6-DOF coordinates are saved in data/ch3/gnss_output.txt. Visualization scripts:
+
+\begin{lstlisting}[language=sh, caption=Terminal command:]
+	python3 scripts/plot_ch3_gnss_2d.py ./data/ch3/gnss_output.txt 
+\end{lstlisting}
+
+Figure~\ref{fig:gnss-traj} shows 2D and 3D trajectory plots. Observations:
+\begin{itemize}
+	\item RTK provides excellent horizontal trajectory accuracy
+	\item Vertical measurements show noticeable noise and errors
+	\item The example shows good GNSS conditions; other datasets include challenging segments
+\end{itemize}
+
+\begin{figure}
+	\centering
+	\includegraphics[width=1.0\textwidth]{ins/gnss-traj.pdf}
+	\caption{2D and 3D views of GNSS trajectory}
+	\label{fig:gnss-traj}
+\end{figure}
+
+The real-time display (Figure~\ref{fig:process-gnss}) shows:
+\begin{itemize}
+	\item Proper vehicle orientation (X-forward, Y-left, Z-up) when RTK heading is valid
+	\item Noticeable instability in angle measurements compared to position
+	\item Position jitter during heading outages due to incomplete pose solution
+\end{itemize}
+
+\begin{figure}
+	\centering
+	\includegraphics[width=1.0\textwidth]{ins/ch3-process-gnss.png}
+	\caption{Real-time GNSS trajectory visualization}
+	\label{fig:process-gnss}
+\end{figure}
+
+Note: This section only uses RTK-provided position and heading. Some RTK/INS systems output additional IMU data (angular/linear velocity), but we focus on fundamental principles here.
+
+\section{Implementing Integrated Navigation Using Error-State Kalman Filter}
+The RTK device provides us with a somewhat unstable pose observation source. We can directly treat it as an observation input for a positioning filter. In this section, we will combine RTK with IMU using an extended Kalman filter to form a traditional integrated navigation algorithm for subsequent algorithm comparisons. Strictly speaking, what we present to readers is the \textbf{Error-State Kalman Filter} (ESKF). The ESKF finds extensive applications ranging from GINS integrated navigation to visual SLAM\cite{Kleinert2010,Li2013,Davison2003} and extrinsic calibration\cite{Kelly2011,Mirzaei2008}. 
+
+Why do we need ESKF? What's the difference between ESKF and EKF? We'll start from the motivation level. This progressive approach from simple to complex can also help readers better understand the development process of various algorithms.
+
+\subsection{Mathematical Derivation of ESKF}
+We have previously introduced the observation model of IMU devices. Now we need to treat IMU as the motion model and GNSS observations as the measurement model to derive the complete filter. This is not particularly difficult.
+
+We define the state variables as:
+\begin{equation}\label{key}
+	\bm{x} = [\bm{p}, \bm{v}, \bm{R}, \bm{b}_g, \bm{b}_a, \bm{g}]^\top,
+\end{equation}
+where all variables default to subscript $()_{WB}$, with $\bm{p}$ representing translation, $\bm{v}$ velocity, $\bm{R}$ rotation, $\bm{b}_g, \bm{b}_a$ biases, and $\bm{g}$ gravity. According to the kinematic equations \eqref{eq:motion-equation} we introduced earlier and substituting IMU measurements, the continuous-time motion equations for the state variables are:
+\begin{subequations}\label{eq:ekf-continous}
+	\begin{align}
+		\dot{\bm{p}} &= \bm{v}, \\
+		\dot{\bm{v}} &= \bm{R} (\tilde{\bm{a}} - \bm{b}_{a} - \boldsymbol{\eta}_a) + \bm{g}, \\
+		\dot{\bm{R}} &= \bm{R} \left( \tilde{\boldsymbol{\omega}} - \bm{b}_{g} - \boldsymbol{\eta}_g 
+		\right)^\wedge, \\
+		\dot{\bm{b}}_{g} & = \boldsymbol{\eta}_{bg}, \\
+		\dot{\bm{b}}_{a} & = \boldsymbol{\eta}_{ba}, \\ 
+		\dot{\bm{g}} &= \bm{0}.
+	\end{align}
+\end{subequations}
+
+To predict the covariance in the EKF prediction step, we need to linearize these equations. Theoretically, the discrete-time linearized form is:
+\begin{equation}\label{key}
+	\bm{x}_{k+1} = \bm{f} (\bm{x}_k) + \bm{F} \mathrm{d} \bm{x} + \bm{w},
+\end{equation}
+where $\bm{F} = \left. \frac{\partial \bm{f}}{\partial \bm{x}} \right|_{\bm{x}_{k}}$ is the coefficient matrix. However, we encounter a practical problem: on one hand, $\bm{F}$ needs to compute the derivative of the rotation matrix $\bm{R}$ relative to some perturbation, and without introducing tensors, we cannot express the derivative of a matrix with respect to a vector. Traditional algorithms often compromise by using Euler angles or four scalars of quaternions as state variables\cite{crassidis2006sigma}, but this approach cannot elegantly utilize methods on manifolds. On the other hand, if we consider integrating inertial navigation systems with satellite navigation systems, the translation variables in $\bm{x}$ should use a global coordinate system. This makes the numerical values in $\bm{x}$ very large, potentially exceeding the effective digit range of floating-point numbers in some scenarios, leading to common computational failures like "large number swallowing small number" in numerical calculations\cite{bonnans2006numerical}.
+
+This leads us to consider: can we avoid directly using $\bm{x}$ and $\bm{P}$ to express the mean and covariance of the state when deriving the motion and observation equations? Can we use the \textbf{update quantity} from the original Kalman filter to derive these two equations? Recall the observation part of the Kalman filter:
+\begin{equation}\label{key}
+	\bm{x}_k = \bm{x}_{k, \text{pred}} + \bm{K}_k \underbrace{(\bm{z}_k - \bm{H}_k \bm{x}_{k, \text{pred}})}_{\text{update quantity}}.
+\end{equation}
+
+In the context of manifolds, the update quantity on the right side should be a vector in the tangent space, and the addition in the middle should be the generalized addition of the manifold and the exponential map of the tangent space. However, we can also treat the update quantity (or error state) as the state variable of the filter to derive the motion and observation models. This leads to the \textbf{Error-State Kalman Filter}. Furthermore, not just for translation and rotation, we express all states in terms of error states, which is the typical approach of ESKF.
+
+The ESKF is widely used in many traditional and modern systems, serving both as a filter for integrated navigation and for implementing complex systems like LIO and VIO\cite{Xu2021,xu2021fast, Bloesch2017}. Compared to traditional KF, the advantages of ESKF can be summarized as follows\cite{Madyastha2011}:
+\begin{enumerate}
+	\item In handling rotation, ESKF state variables can use minimal parameter representation, i.e., using three-dimensional variables to express rotation increments. These variables lie in the tangent space, which is a vector space. Traditional KF requires quaternions (4D) or higher-dimensional variables (rotation matrices, 9D) to express the state, or must use representations with singularities (Euler angles).
+	\item ESKF always operates near the origin, far from singular points, making it more numerically stable and avoiding issues where linearization approximations become inadequate due to operating too far from the working point.
+	\item The ESKF state quantities are small, making their second-order variables relatively negligible. Most Jacobian matrices become very simple under small quantities, sometimes even replaceable by identity matrices.
+	\item The kinematics of error states are also smaller compared to the original state variables (kinematics of small quantities), allowing us to return the update part to the original state variables.
+\end{enumerate}
+In ESKF, we typically refer to the original state variables as \textbf{nominal state variables} and the state variables in ESKF as \textbf{error state variables}. The sum of nominal and error state variables is called the \textbf{true value}. By handling noise in the error state variables, we can consider the equations for nominal state variables as noise-free. This approach may seem complex initially, but separating the noise makes the nominal state equations more concise. The filter itself primarily needs to consider how the error state evolves, is observed, and finally filtered, with minimal relation to the nominal state.
+
+The ESKF workflow is as follows: When IMU measurement data arrives, we integrate it into the nominal state variables. Since this approach doesn't account for noise, the results naturally drift quickly, so we treat the error component as error variables. During motion, the nominal state propagates with IMU data, while the error state grows due to Gaussian noise. At this point, the mean and covariance of ESKF's error state describe the specific magnitude of error state expansion (treated as a Gaussian distribution)\footnote{However, as we'll see later, since all noise terms are zero-mean white noise, the mean of the error state remains zero in the motion equations, only the covariance increases.}. Additionally, ESKF's update process relies on sensor observations beyond IMU. During updates, we use sensor data to update the \textbf{posterior} mean and covariance of the error state. We can then \textbf{merge} this error into the nominal state variables and reset ESKF to zero, completing one predict-update cycle.
+
+Let's derive the two processes of ESKF. We define the true state of ESKF as: $\bm{x}_t = [\bm{p}_t, \bm{v}_t, \bm{R}_t, \bm{b}_{at}, \bm{b}_{gt}, \bm{g}_t]^\top$. The subscript $t$ denotes $\text{true}$, i.e., the true state. This state changes over time and can be denoted as $\bm{x}_t(t)$. In continuous time, we record IMU readings as $\tilde{\boldsymbol{\omega}}, \tilde{\bm{a}}$, allowing us to write the relationship between state variable derivatives and observations:
+
+\begin{subequations}\label{eq:eskf-true-state}
+	\begin{align}
+		\dot{\bm{p}}_t &= \bm{v}_t, \\
+		\dot{\bm{v}}_t &= \bm{R}_t (\tilde{\bm{a}} - \bm{b}_{at} - \boldsymbol{\eta}_a) + \bm{g}_t, \\
+		\dot{\bm{R}}_t &= \bm{R}_t \left( \tilde{\boldsymbol{\omega}} - \bm{b}_{gt} - \boldsymbol{\eta}_g \right)^\wedge, \\
+		\dot{\bm{b}}_{gt} &= \boldsymbol{\eta}_{bg}, \\
+		\dot{\bm{b}}_{at} &= \boldsymbol{\eta}_{ba}, \\ 
+		\dot{\bm{g}}_t &= \bm{0}.
+	\end{align}
+\end{subequations}
+
+This is consistent with Equation \eqref{eq:ekf-continous} mentioned earlier. Note that including gravity $\bm{g}$ mainly facilitates determining the IMU's initial attitude. If we don't express gravity in the state equation, we must determine the IMU's initial orientation $\bm{R}(0)$ beforehand to perform subsequent calculations. In this case, the IMU's attitude is described relative to the initial horizontal plane. By explicitly expressing gravity, we can set the IMU's initial attitude as the identity matrix $\bm{R}=\bm{I}$, treating the gravity direction as a measure of the IMU's current attitude relative to the horizontal plane. Both methods are feasible, but separately expressing gravity makes initial attitude representation simpler and increases some linearity\cite{Lupton2009}.
+
+If we organize observations and noise into a vector, we can express the above in matrix form. However, such a matrix would contain many zero entries without significant simplification over the current form, so we'll continue using these expanded equations. Next, we derive the error state equations. First, define the error state variables as:
+
+\begin{subequations}\label{eq:eskf-true-to-error}
+	\begin{align}
+		\bm{p}_t &= \bm{p} + \delta \bm{p}, \\
+		\bm{v}_t &= \bm{v} + \delta \bm{v}, \\
+		\bm{R}_t &= \bm{R} \delta \bm{R} \quad \text{or} \ \bm{q}_t = \bm{q} \delta \bm{q}, \\
+		\bm{b}_{gt} &= \bm{b}_g + \delta \bm{b}_g, \\
+		\bm{b}_{at} &= \bm{b}_a + \delta \bm{b}_a, \\
+		\bm{g}_t &= \bm{g} + \delta \bm{g}.
+	\end{align}
+\end{subequations}
+
+The terms without subscripts are the \textbf{nominal state variables} in Equation (\ref{eq:eskf-true-state}). The kinematic equations for nominal state variables are identical to the true values, except they \textbf{ignore noise} (since noise is considered in the error state equations). For the rotation part, $\delta \bm{R}$ can be represented by its Lie algebra $\mathrm{Exp}(\delta \boldsymbol{\theta})$, requiring Equation (c) to be expressed in exponential form.
+
+For error state Equations (a,d,e,f), taking time derivatives on both sides easily yields corresponding derivative expressions:
+
+\begin{subequations}
+	\begin{align}
+		\delta \dot{\bm{p}} &= \delta \bm{v}, \\
+		\delta \dot{\bm{b}_g} &= \boldsymbol{\eta}_{bg}, \\
+		\delta \dot{\bm{b}_a} &= \boldsymbol{\eta}_{ba}, \\
+		\delta \dot{\bm{g}} &= \bm{0}.
+	\end{align}
+\end{subequations}
+
+Equations (b) and (c) are slightly more complex due to their relationship with $\delta \bm{R}$, and we provide their separate derivation below.
+
+\subsubsection{Error State Rotation Term}
+Taking the time derivative of both sides of Equation (\ref{eq:eskf-true-to-error})(c) yields:
+
+\begin{equation}\label{eq:eskf-3.19}
+	\begin{aligned}
+		\dot{\bm{R}}_t &= \dot{\bm{R}} \mathrm{Exp} (\delta \boldsymbol{\theta}) + \bm{R} 
+		\dot{\mathrm{Exp}(\delta \boldsymbol{\theta})},  \\
+		&\buildrel{\ref{eq:eskf-true-state}(c)}\over=  \bm{R}_t \left( \tilde{\boldsymbol{\omega}} - 
+		\bm{b}_{gt} - \boldsymbol{\eta}_g \right) ^\wedge.
+	\end{aligned}
+\end{equation}
+
+Note that the term $\dot{\mathrm{Exp}(\delta \boldsymbol{\theta})}$ on the right side satisfies:
+\begin{equation}
+	\dot{\mathrm{Exp}(\delta \boldsymbol{\theta})} = \mathrm{Exp}(\delta \boldsymbol{\theta}) \delta 
+	\dot{\boldsymbol{\theta}}^\wedge.
+\end{equation} 
+
+Thus, the first expression in \eqref{eq:eskf-3.19} can be written as:
+\begin{equation}\label{key}
+	\dot{\bm{R}} \mathrm{Exp} (\delta \boldsymbol{\theta}) + \bm{R} \dot{\mathrm{Exp}(\delta 
+		\boldsymbol{\theta})} = \bm{R} (\tilde{\boldsymbol{\omega}}-\bm{b}_g)^\wedge 
+	\mathrm{Exp}(\delta \boldsymbol{\theta}) + \bm{R} \mathrm{Exp}(\delta \boldsymbol{\theta} ) 
+	\delta \dot{\boldsymbol{\theta}}^\wedge.
+\end{equation}
+
+While the second expression becomes:
+\begin{equation}\label{key}
+	\begin{aligned}
+		\bm{R}_t \left( \tilde{\boldsymbol{\omega}} - \bm{b}_{gt} - \boldsymbol{\eta}_g \right)^\wedge 
+		&= \bm{R}  \mathrm{Exp} (\delta \boldsymbol{\theta}) \left( \tilde{\boldsymbol{\omega}} - 
+		\bm{b}_{gt} - \boldsymbol{\eta}_g \right)^\wedge.
+	\end{aligned}
+\end{equation}
+
+By comparing these two expressions, moving $\delta \dot{\boldsymbol{\theta}}^\wedge$ to one side, canceling $\bm{R}$ on both sides, and organizing similar terms, we obtain:
+\begin{equation}
+	\begin{aligned}
+		\mathrm{Exp} (\delta \boldsymbol{\theta}) \delta \dot{\boldsymbol{\theta}}^\wedge &= 
+		\mathrm{Exp} (\delta \boldsymbol{\theta}) \left( \tilde{\boldsymbol{\omega}} - \bm{b}_{gt} - 
+		\boldsymbol{\eta}_g \right)^\wedge - (\tilde{\boldsymbol{\omega}}-\bm{b}_g)^\wedge 
+		\mathrm{Exp}(\delta \boldsymbol{\theta}).
+	\end{aligned}
+\end{equation}
+
+Noting that $\mathrm{Exp}(\delta \boldsymbol{\theta})$ itself is an $\mathrm{SO}(3)$ matrix, we utilize the adjoint property of $\mathrm{SO}(3)$:
+\begin{equation}\label{key}
+	\boldsymbol{\phi}^\wedge \bm{R} = \bm{R} (\bm{R}^\top \boldsymbol{\phi})^\wedge
+\end{equation}
+to interchange $\mathrm{Exp}(\delta \boldsymbol{\theta})$ above:
+\begin{equation}\label{key}
+	\begin{aligned}
+		\mathrm{Exp} (\delta \boldsymbol{\theta}) \delta \dot{\boldsymbol{\theta}}^\wedge &= 
+		\mathrm{Exp} (\delta \boldsymbol{\theta}) \left( \tilde{\boldsymbol{\omega}} - \bm{b}_{gt} - 
+		\boldsymbol{\eta}_g \right)^\wedge - \mathrm{Exp} (\delta \boldsymbol{\theta})  \left( 
+		\mathrm{Exp} (-\delta \boldsymbol{\theta})  (\tilde{\boldsymbol{\omega}}-\bm{b}_g) 
+		\right)^\wedge \\
+		&=  \mathrm{Exp} (\delta \boldsymbol{\theta}) \left[ (\tilde{\boldsymbol{\omega}} - \bm{b}_{gt} - 
+		\boldsymbol{\eta}_g)^\wedge - (\mathrm{Exp} (-\delta \boldsymbol{\theta})  
+		(\tilde{\boldsymbol{\omega}}-\bm{b}_g) )^\wedge \right] \\
+		&\approx \mathrm{Exp} (\delta \boldsymbol{\theta}) \left[ (\tilde{\boldsymbol{\omega}} - 
+		\bm{b}_{gt} - \boldsymbol{\eta}_g)^\wedge - \left((\bm{I} - \delta 
+		\boldsymbol{\theta}^\wedge)(\tilde{\boldsymbol{\omega}}-\bm{b}_g )\right)^\wedge \right] \\
+		&=  \mathrm{Exp} (\delta \boldsymbol{\theta}) \left[ \bm{b}_g - \bm{b}_{gt} -\boldsymbol{\eta}_g 
+		+ \delta \boldsymbol{\theta}^\wedge \tilde{\boldsymbol{\omega}} - \delta 
+		\boldsymbol{\theta}^\wedge \bm{b}_{g} \right]^\wedge \\
+		&= \mathrm{Exp} (\delta \boldsymbol{\theta}) \left[ 
+		(-\tilde{\boldsymbol{\omega}}+\bm{b}_g)^\wedge \delta \boldsymbol{\theta} - \delta \bm{b}_g - 
+		\boldsymbol{\eta}_g \right]^\wedge.
+	\end{aligned}
+\end{equation}
+
+After canceling the coefficients on the left side, we get:
+\begin{equation}\label{key}
+	\delta \dot{\boldsymbol{\theta}} \approx -(\tilde{\boldsymbol{\omega}} - \bm{b}_g)^\wedge \delta 
+	\boldsymbol{\theta} - \delta \bm{b}_g - \boldsymbol{\eta}_g. 
+\end{equation}
+
+The $\approx$ in this equation comes from the expansion of $\mathrm{Exp}(-\delta \boldsymbol{\theta})$. If we ignore second-order small quantities of $\delta \boldsymbol{\theta}$, the equation can also be written with an equality sign.
+
+\subsubsection{Velocity Term of the Error State}
+Next, we consider the error form of Equation (\ref{eq:eskf-true-to-error})(b). Similarly, by taking the time derivative of both sides, we can obtain the expression for $\delta \dot{\bm{v}}$. The left-hand side of the equation is:
+\begin{equation}
+	\begin{aligned}
+		\dot{\bm{v}}_t &= \bm{R}_t(\tilde{\bm{a}} - \bm{b}_{at} - \boldsymbol{\eta}_a) + \bm{g}_t \\
+		&= \bm{R} \mathrm{Exp}(\delta \boldsymbol{\theta}) (\tilde{\bm{a}} - \bm{b}_a - \delta \bm{b}_a 
+		- \boldsymbol{\eta}_a ) + \bm{g} + \delta \bm{g} \\
+		&\approx \bm{R} (\bm{I} + \delta \boldsymbol{\theta}^\wedge ) (\tilde{\bm{a}} - \bm{b}_a - \delta 
+		\bm{b}_a - \boldsymbol{\eta}_a) + \bm{g} + \delta \bm{g} \\
+		&\approx \bm{R} \tilde{\bm{a}} - \bm{R} \bm{b}_a - \bm{R} \delta \bm{b}_a - \bm{R} 
+		\boldsymbol{\eta}_a + \bm{R} \delta \boldsymbol{\theta}^\wedge \tilde{\bm{a}} - \bm{R} \delta 
+		\boldsymbol{\theta}^\wedge \bm{b}_a + \bm{g} + \delta \bm{g} \\
+		&= \bm{R} \tilde{\bm{a}} - \bm{R} \bm{b}_a - \bm{R} \delta \bm{b}_a - \bm{R} 
+		\boldsymbol{\eta}_a - \bm{R} \tilde{\bm{a}}^\wedge \delta \boldsymbol{\theta}  + \bm{R} 
+		\bm{b}_a^\wedge  \delta\boldsymbol{\theta}  + \bm{g} + \delta \bm{g}.
+	\end{aligned}
+\end{equation}
+When moving from the third line to the fourth line, it is necessary to neglect the second-order small quantities resulting from the multiplication of $\delta \boldsymbol{\theta}^\wedge$ with $\delta \bm{b}_a$ and $\boldsymbol{\eta}_a$. The transition from the fourth line to the fifth line utilizes the property that the cross-product symbol changes sign when the order is swapped. On the other hand, the right-hand side of the equation is:
+
+\begin{equation}\label{key}
+	\dot{\bm{v}} + \delta \dot{\bm{v}} = \bm{R}(\tilde{\bm{a}} - \bm{b}_a) + \bm{g} + \delta \dot{\bm{v}}.
+\end{equation}
+
+Since the two expressions above are equal, we obtain:
+\begin{equation}\label{key}
+	\delta \dot{\bm{v}} = - \bm{R}(\tilde{\bm{a}} - \bm{b}_a)^\wedge \delta \boldsymbol{\theta} - 
+	\bm{R} \delta \bm{b}_a  - \bm{R} \boldsymbol{\eta}_a + \delta \bm{g}.
+\end{equation}
+
+Thus, we have derived the kinematic model for $\delta \bm{v}$. It is worth noting that since $\boldsymbol{\eta}_a$ is a zero-mean white noise, multiplying it by any rotation matrix still results in a zero-mean white noise. Moreover, because $\bm{R}^\top \bm{R} = \bm{I}$, it is straightforward to show that its covariance matrix remains unchanged (left as an exercise). Therefore, the above equation can also be simplified as:
+\begin{equation}\label{key}
+	\delta \dot{\bm{v}} = - \bm{R}(\tilde{\bm{a}} - \bm{b}_a)^\wedge \delta \boldsymbol{\theta} - 
+	\bm{R} \delta \bm{b}_a  - \boldsymbol{\eta}_a + \delta \bm{g}.
+\end{equation}
+
+At this point, we can summarize the kinematic equations for the error variables as follows:
+\begin{subequations}\label{eq:eskf-error-state-continuous-time}
+	\begin{align}
+		\delta \dot{\bm{p}} &= \delta \bm{v}, \\
+		\delta \dot{\bm{v}} &= - \bm{R}(\tilde{\bm{a}} - \bm{b}_a)^\wedge \delta \boldsymbol{\theta} - 
+		\bm{R} \delta \bm{b}_a  - \boldsymbol{\eta}_a + \delta \bm{g}, \\
+		\delta \dot{\boldsymbol{\theta}} &= -(\tilde{\boldsymbol{\omega}} - \bm{b}_g)^\wedge \delta 
+		\boldsymbol{\theta} - \delta \bm{b}_g - \boldsymbol{\eta}_g, \\
+		\delta \dot{\bm{b}_g} &= \boldsymbol{\eta}_{bg}, \\
+		\delta \dot{\bm{b}_a} &= \boldsymbol{\eta}_{ba}, \\
+		\delta \dot{\bm{g}} &= \bm{0} .
+	\end{align}
+\end{subequations}
+\subsection{Discrete-Time ESKF Kinematic Equations}  
+Deriving the discrete-time state equations from the continuous-time state equations is straightforward. Let us directly present them. The discrete-time kinematic equations for the \textbf{nominal state variables} can be written as:  
+\begin{subequations}\label{key}  
+	\begin{align}  
+		\bm{p}(t+\Delta t) &= \bm{p}(t) + \bm{v} \Delta t + \frac{1}{2}   
+		\left(\bm{R}(\tilde{\bm{a}}-\bm{b}_a) \right) \Delta t^2 + \frac{1}{2} \bm{g} \Delta t^2, \\  
+		\bm{v}(t+\Delta t) &= \bm{v}(t) + \bm{R} (\tilde{\bm{a}} - \bm{b}_a) \Delta t + \bm{g} \Delta t,	\\  
+		\bm{R}(t+\Delta t) &= \bm{R}(t) \mathrm{Exp} \left( (\tilde{\boldsymbol{\omega}}-\bm{b}_g)   
+		\Delta t \right),\\  
+		\bm{b}_g(t+\Delta t) &= \bm{b}_g(t), \\  
+		\bm{b}_a(t+\Delta t) &= \bm{b}_a(t), \\  
+		\bm{g}(t+\Delta t) &= \bm{g}(t) .  
+	\end{align}  
+\end{subequations}  
+This equation is obtained by simply adding the bias terms and gravity term to Equation \eqref{eq:3.14}. Note that the third line is essentially the integration formula for angular velocity. The discrete form of the \textbf{error state} is very similar to that of the \textbf{nominal state}, but special attention must be paid to the angular velocity part:  
+
+\begin{subequations}\label{eq:eskf-motion-equation}  
+	\begin{align}  
+		\delta \bm{p}(t+\Delta t) &= \delta \bm{p} + \delta \bm{v} \Delta t, \\  
+		\delta \bm{v}(t+\Delta t) &= \delta \bm{v} + \left( - \bm{R}(\tilde{\bm{a}} - \bm{b}_a)^\wedge   
+		\delta \boldsymbol{\theta} - \bm{R} \delta \bm{b}_a  + \delta \bm{g} \right) \Delta t -  
+		\boldsymbol{\eta}_{v}, \\  
+		\delta \boldsymbol{\theta} (t+\Delta t) &= \mathrm{Exp}\left( -(\tilde{\boldsymbol{\omega}} -   
+		\bm{b}_g) \Delta t \right) \delta \boldsymbol{\theta} - \delta \bm{b}_g \Delta t -   
+		\boldsymbol{\eta}_{\theta}, \\  
+		\delta \bm{b}_g (t+\Delta t) &= \delta \bm{b}_g + \boldsymbol{\eta}_{bg}, \\  
+		\delta \bm{b}_a (t+\Delta t)&= \delta \bm{b}_a + \boldsymbol{\eta}_{ba}, \\  
+		\delta \bm{g} (t+\Delta t) &= \delta \bm{g}.  
+	\end{align}  
+\end{subequations}  
+
+Notes:  
+\begin{enumerate}  
+	\item For simplicity, we omit the $(t)$ in parentheses on the right-hand side of the equations.  
+	\item For the integration of the rotation part, we can treat Equation \eqref{eq:eskf-error-state-continuous-time}(c) as a differential equation for $\delta \boldsymbol{\theta}$ and solve it. The solution process is similar to integrating angular velocity.  
+	\item The noise terms do not participate in the recursion and must be treated separately as part of the noise. Continuous-time noise terms can be regarded as the power spectral density of a random process, while discrete-time noise variables are the random variables we commonly encounter. The standard deviations of these noise random variables can be written as follows:  
+	\begin{equation}\label{key}  
+		\sigma(\boldsymbol{\eta}_v) = \Delta t \sigma_a(k), \quad \sigma(\boldsymbol{\eta}_{\theta}) =   
+		\Delta t \sigma_{g}(k), \quad \sigma(\boldsymbol{\eta}_{bg}) = \sqrt{\Delta t} \sigma_{bg}, \quad   
+		\sigma(\boldsymbol{\eta}_{ba}) = \sqrt{\Delta t} \sigma_{ba},  
+	\end{equation}  
+	where the $\Delta t$ in the first two equations arises from the integration relationship, and the last two equations are consistent with \eqref{eq:imu-noise-relationship}.  
+\end{enumerate}  
+
+At this point, we have described the process of IMU propagation in the ESKF, corresponding to the state equation in the Kalman filter. To ensure the convergence of the filter, external observations are needed to correct the Kalman filter, which is the so-called integrated navigation. Of course, there are many methods for integrated navigation, ranging from traditional EKF to the ESKF introduced in this section, as well as the pre-integration and graph optimization techniques to be discussed in later chapters, all of which can be applied to integrated navigation \cite{Wen2021}. In this section, we take the fusion of GNSS observations as an example to demonstrate how to integrate these observation data into the ESKF to form a convergent Kalman filter. In the application chapters at the end of this book, we will also introduce filter solutions that fuse LiDAR point clouds or LiDAR positioning data.
+\subsection{Motion Process of ESKF}
+Based on the above discussion, we can formulate the motion process of ESKF. The discrete-time motion equation for the error state variable $\delta \bm{x}$ has been given in Eq. \eqref{eq:eskf-motion-equation}, which can be expressed as:
+\begin{equation}\label{eq:eskf-motion-process}
+	\delta \bm{x}_{k+1} = \bm{f} (\delta \bm{x}_{k}) + \bm{w}, \quad \bm{w} \sim \mathcal{N}(\bm{0}, \bm{Q}),
+\end{equation}
+where $\bm{w}$ is the noise term. According to the previous definition, the noise covariance matrix $\bm{Q}$ should be:
+\begin{equation}\label{eq:eskf-Q-matrix}
+	\bm{Q} = \mathrm{diag}\left(\bm{0}_3, \mathrm{Cov}(\boldsymbol{\eta}_v), \mathrm{Cov}(\boldsymbol{\eta}_{\theta}), \mathrm{Cov}(\boldsymbol{\eta}_{bg}), \mathrm{Cov}(\boldsymbol{\eta}_{ba}), \bm{0}_3\right),
+\end{equation}
+where the zero matrices at the beginning and end are due to the fact that the position and gravity error equations themselves contain no noise.
+
+To maintain consistency with EKF notation, we compute the linearized form of the motion equation:
+\begin{equation}\label{eq:eskf-linearized}
+	\delta \bm{x}(t+\Delta t) = \underbrace{\bm{f}(\delta \bm{x}(t))}_{=\bm{0}} + \bm{F} \delta \bm{x} + \bm{w},
+\end{equation}
+where $\bm{F}$ is the state transition Jacobian matrix. Since Eq. \eqref{eq:eskf-motion-equation} is already explicitly linearized, we can directly extract the coefficient matrix (note the variable order):
+\begin{equation}\label{eq:eskf-F-matrix}
+	\bm{F} = \begin{bmatrix}
+		\bm{I} & \bm{I} \Delta t & \bm{0} & \bm{0} & \bm{0} & \bm{0} \\
+		\bm{0} & \bm{I} & - \bm{R}(\tilde{\bm{a}} - \bm{b}_a)^\wedge \Delta t & \bm{0} & -\bm{R} \Delta t & \bm{I} \Delta t \\
+		\bm{0} & \bm{0} & \mathrm{Exp}\left( -(\tilde{\boldsymbol{\omega}} - \bm{b}_g) \Delta t \right) &  -\bm{I} \Delta t & \bm{0} & \bm{0} \\
+		\bm{0} & \bm{0} & \bm{0} & \bm{I} & \bm{0} & \bm{0} \\
+		\bm{0} & \bm{0} & \bm{0} & \bm{0} & \bm{I} & \bm{0} \\
+		\bm{0} & \bm{0} & \bm{0} & \bm{0} & \bm{0} & \bm{I} 
+	\end{bmatrix}.
+\end{equation}
+
+On this basis, we implement the prediction process of ESKF. The prediction process includes:
+\begin{itemize}
+	\item Prediction of the nominal state (IMU integration)
+	\item Prediction of the error state
+\end{itemize}
+\begin{subequations}\label{eq:motion-eskf}
+	\begin{align}
+		\delta \bm{x}_{\mathrm{pred}} &= \bm{F} \delta \bm{x}, \\
+		\bm{P}_{\mathrm{pred}} &= \bm{F} \bm{P} \bm{F}^\top + \bm{Q}.
+	\end{align}
+\end{subequations}
+
+However, since the error state of ESKF is reset to $\delta \bm{x} = \bm{0}$ after each update, the mean part of the motion equation (i.e., Eq. \eqref{eq:motion-eskf}(a)) is not particularly meaningful. The covariance part describes the distribution of the entire error estimate. Intuitively, the noise covariance $\bm{Q}$ added in the motion equation can be interpreted as an \textbf{increase} in uncertainty during the prediction process.
+
+\subsection{Update Process of ESKF}
+\label{subsec:3.4.4}
+The previous section described the motion process of ESKF. Now we consider the update process. Assuming an abstract sensor can generate observations of the state variables with an observation equation $\bm{h}$, we can write:
+
+\begin{equation}\label{eq:observation-model}
+	\bm{z} = \bm{h}(\bm{x}) + \bm{v}, \quad \bm{v} \sim \mathcal{N}(\bm{0}, \bm{V}),
+\end{equation}
+where $\bm{z}$ is the observation data, $\bm{v}$ is the observation noise, and $\bm{V}$ is the noise covariance matrix\footnote{We use a different symbol here since $\bm{R}$ is already used in the state variables.}.
+
+In traditional EKF, we can directly linearize the observation equation to compute the Jacobian matrix of the observation equation with respect to the state variables, then update the Kalman filter. In ESKF, since we have estimates of both the nominal state $\bm{x}$ and the error state $\delta \bm{x}$, and we want to update the error state, we need to compute the Jacobian matrix of the observation equation with respect to the error state:
+
+\begin{equation}\label{eq:H-definition}
+	\bm{H} = \left. \frac{\partial \bm{h}}{\partial \delta \bm{x}} \right|_{\bm{x}_{\text{pred}}},
+\end{equation}
+
+We then compute the Kalman gain and perform the error state update:
+
+\begin{subequations}\label{eq:eskf-update}
+	\begin{align}
+		\bm{K} &= \bm{P}_{\mathrm{pred}} \bm{H}^\top(\bm{H} \bm{P}_{\mathrm{pred}} \bm{H}^\top + \bm{V})^{-1}, \\
+		\delta \bm{x} &= \bm{K} (\bm{z} - \bm{h}(\bm{x}_{\mathrm{pred}})), \\
+		\bm{x} &= \bm{x}_{\text{pred}} + \delta \bm{x}, \\
+		\bm{P} &= (\bm{I} - \bm{K} \bm{H}) \bm{P}_{\mathrm{pred}}.
+	\end{align}
+\end{subequations}
+
+Here $\bm{K}$ is the Kalman gain, $\bm{P}_{\mathrm{pred}}$ is the predicted covariance matrix, and $\bm{P}$ is the updated covariance matrix.
+
+Most observation data are measurements of the nominal state\footnote{However, in some cases we can directly derive observations of the error state, which would simplify the subsequent derivation. Both GNSS and LiDAR observations discussed later will use direct observation of error states.}. In this case, $\bm{H}$ can be computed using the chain rule:
+
+\begin{equation}\label{eq:H-chain-rule}
+	\bm{H} = \frac{\partial \bm{h}}{\partial \bm{x}} \frac{\partial \bm{x}}{\partial \delta \bm{x}},
+\end{equation}
+
+The first term requires linearization of the observation equation. For the second term, based on our definition of state variables, we obtain:
+
+\begin{equation}\label{eq:state-derivative}
+	\frac{\partial \bm{x}}{\partial \delta \bm{x}} = \mathrm{diag}\left(\bm{I}_3, \bm{I}_3, \frac{\partial \mathrm{Log} (\bm{R}(\mathrm{Exp}(\delta \boldsymbol{\theta})))}{\partial \delta \boldsymbol{\theta}}, \bm{I}_3, \bm{I}_3, \bm{I}_3\right).
+\end{equation}
+
+While other terms are straightforward, the rotation part requires special attention since $\delta \boldsymbol{\theta}$ is defined as right multiplication of $\bm{R}$. Using the right BCH formula:
+
+\begin{equation}\label{eq:rotation-derivative}
+	\frac{\partial \mathrm{Log} (\bm{R}(\mathrm{Exp}(\delta \boldsymbol{\theta})))}{\partial \delta \boldsymbol{\theta}} = \bm{J}_r^{-1} (\bm{R}).
+\end{equation}
+
+Finally, we could add subscript $k$ to each variable to indicate the time step, but this is unnecessary as the above equations already clearly express their meanings. These formulas can also be derived using quaternion representation, with similar forms but more complex details (see \cite{Sola2017}). This book presents only the derivation using $\mathrm{SO}(3)$ and its Lie algebra.
+\subsection{Post-Processing of ESKF Error State}
+After completing the prediction and update processes, we have corrected the estimation of the error state. The next step is to incorporate the error state into the nominal state and then reset the ESKF. The incorporation can be simply expressed as:
+
+\begin{subequations}\label{eq:error-state-incorporation}
+	\begin{align}
+		\bm{p}_{k+1} &= \bm{p}_k + \delta \bm{p}_k, \\
+		\bm{v}_{k+1} &= \bm{v}_k + \delta \bm{v}_k, \\
+		\bm{R}_{k+1} &= \bm{R}_k \mathrm{Exp}(\delta \boldsymbol{\theta}_k), \\
+		\bm{b}_{g, k+1} &= \bm{b}_{g,k} + \delta \bm{b}_{g,k}, \\
+		\bm{b}_{a, k+1} &= \bm{b}_{a,k} + \delta \bm{b}_{a,k}, \\
+		\bm{g}_{k+1} &= \bm{g}_{k} + \delta \bm{g}_{k}.
+	\end{align}
+\end{subequations}
+
+Some literature defines this computation as a generalized state variable addition operation:
+\begin{equation}\label{eq:generalized-addition}
+	\bm{x}_{k+1} = \bm{x}_k \oplus \delta \bm{x}_{k},
+\end{equation}
+This notation can simplify the overall expression but sacrifices some readability. When formulas contain too many generalized addition/subtraction operations (especially different definitions like $\oplus$, $\boxplus$, $\ominus$, $\boxminus$, etc.), it becomes difficult for readers to quickly recognize their specific meanings. Therefore, this book prefers to explicitly write out each state component using standard addition rather than generalized addition symbols.
+
+The ESKF reset consists of two parts: mean reset and covariance reset. The mean part can be simply implemented as:
+\begin{equation}\label{eq:mean-reset}
+	\delta \bm{x} = \bm{0}.
+\end{equation}
+
+Since the mean has been reset, the covariance we previously described was in the tangent space of $\bm{x}_k$, but now needs to describe the covariance in $\bm{x}_{k+1}$. This reset introduces some subtle differences, primarily affecting the rotation component. In fact, before resetting, the Kalman filter characterized a Gaussian distribution $\mathcal{N}(\delta \bm{x}, \bm{P})$ in the tangent space of $\bm{x}_{\mathrm{pred}}$, while after resetting, it should characterize $\mathcal{N}(0, \bm{P}_{\mathrm{reset}})$ at $\bm{x}_{\mathrm{pred}} + \delta \bm{x}$. This is identical for vector states, but for rotation variables, the zero point of their tangent space has changed, requiring mathematical distinction.
+
+Let the nominal rotation estimate before reset be $\bm{R}_k$, the error state be $\delta \boldsymbol{\theta}$, and the Kalman filter's incremental result be $\delta \boldsymbol{\theta}_k$\footnote{Note that here $\delta \boldsymbol{\theta}_k$ is known, while $\delta \boldsymbol{\theta}$ is a random variable.}. After reset, the nominal rotation becomes $\bm{R}_k \mathrm{Exp}(\delta \boldsymbol{\theta}_k)=\bm{R}^+$, and the error state becomes $\delta \boldsymbol{\theta}^+$. Since the error state is reset, clearly $\delta \boldsymbol{\theta}^+ = \bm{0}$. However, what we care about is not their direct values but the linearized relationship between $\delta \boldsymbol{\theta}^+$ and $\delta \boldsymbol{\theta}$. Writing out the actual reset process:
+
+\begin{equation}\label{eq:reset-process}
+	\bm{R}^+ \mathrm{Exp}(\delta \boldsymbol{\theta}^+) = \bm{R}_k \mathrm{Exp}(\delta \boldsymbol{\theta}_k) \mathrm{Exp}(\delta \boldsymbol{\theta}^+) = \bm{R}_k \mathrm{Exp}(\delta \boldsymbol{\theta}).
+\end{equation}
+
+We can obtain:
+\begin{equation}\label{eq:reset-relation}
+	\mathrm{Exp}(\delta \boldsymbol{\theta}^+) = \mathrm{Exp}(-\delta \boldsymbol{\theta}_k) \mathrm{Exp}(\delta \boldsymbol{\theta}),
+\end{equation}
+
+Here $\delta \boldsymbol{\theta}$ is small. Using the linearized BCH formula, we get:
+\begin{equation}\label{eq:linearized-reset}
+	\delta \boldsymbol{\theta}^+ = -\delta \boldsymbol{\theta}_k + \delta \boldsymbol{\theta} - \frac{1}{2} \delta \boldsymbol{\theta}_k^\wedge \delta \boldsymbol{\theta} + o((\delta \boldsymbol{\theta})^2) .
+\end{equation}
+
+Thus:
+\begin{equation}\label{eq:jacobian-derivation}
+	\frac{\partial \delta \boldsymbol{\theta}^+}{\partial \delta \boldsymbol{\theta}} \approx \bm{I} - \frac{1}{2} \delta \boldsymbol{\theta}_k^\wedge .
+\end{equation}
+
+This shows that the error states before and after reset differ by a small Jacobian matrix in rotation, which we denote as $\bm{J}_{\boldsymbol{\theta}} = \bm{I} - \frac{1}{2} \delta \boldsymbol{\theta}_k^\wedge $. Extending this small Jacobian to the full state dimension while keeping other parts as identity matrices gives the complete Jacobian:
+
+\begin{equation}\label{eq:full-jacobian}
+	\bm{J}_k = \mathrm{diag}(\bm{I}_3, \bm{I}_3, \bm{J}_{\boldsymbol{\theta}}, \bm{I}_3, \bm{I}_3, \bm{I}_3),
+\end{equation}
+
+Therefore, while resetting the error state mean to zero, their covariance matrix should also undergo linear transformation:
+\begin{equation}\label{eq:tangent-space-projection}
+	\bm{P}_{\mathrm{reset}} = \bm{J}_k \bm{P} \bm{J}_k^\top.
+\end{equation}
+
+However, since $\delta \boldsymbol{\theta}_k$ is not large, $\bm{J}_k$ remains very close to the identity matrix. Therefore, most materials do not handle this term but directly use the previously estimated $\bm{P}$ matrix as the starting point for the next time step. Nevertheless, this book still introduces this concept and will further discuss it in Chapter~\ref{cpt:tightly-lio}. The practical significance of this issue is performing a \textbf{tangent space projection}, i.e., projecting a Gaussian distribution from one tangent space to another. In ESKF, the difference is not significant, but the later Iterated Extended Kalman Filter (IESKF) will involve multiple tangent space transformations during the observation process. In comparison, ESKF only has a single transformation during reset, making its principle simpler.
+\section{Implementation of ESKF-based Integrated Navigation}
+
+Below we implement an ESKF that fuses IMU and GNSS observations. The code in this section will output results to text files for subsequent visualization. During the ESKF implementation, we will encounter some practical details that will be discussed here.
+
+\subsection{Implementation of the ESKF Filter}
+
+First, we define the ESKF class. Its member variables should include the nominal state, error state, covariance matrix, and various sensor noise parameters.
+
+\begin{lstlisting}[language=c++,caption=src/ch3/eskf.hpp]
+template <typename S = double>
+class ESKF {
+	/// Type definitions
+	using SO3 = Sophus::SO3<S>;                     // Rotation type
+	using VecT = Eigen::Matrix<S, 3, 1>;            // Vector type
+	using Vec18T = Eigen::Matrix<S, 18, 1>;         // 18-dimensional vector
+	using Mat3T = Eigen::Matrix<S, 3, 3>;           // 3x3 matrix
+	using MotionNoiseT = Eigen::Matrix<S, 18, 18>;  // Motion noise type
+	using OdomNoiseT = Eigen::Matrix<S, 3, 3>;      // Odometry noise type
+	using GnssNoiseT = Eigen::Matrix<S, 6, 6>;      // GNSS noise type
+	using Mat18T = Eigen::Matrix<S, 18, 18>;        // 18-dimensional covariance
+	using NavStateT = NavState<S>;                  // Complete nominal state type
+	
+	/// Other constructors and member functions omitted
+	private:
+	/// Member variables
+	double current_time_ = 0.0;  // Current timestamp
+	
+	/// Nominal state
+	VecT p_ = VecT::Zero();
+	VecT v_ = VecT::Zero();
+	SO3 R_;
+	VecT bg_ = VecT::Zero();
+	VecT ba_ = VecT::Zero();
+	VecT g_{0, 0, -9.8};
+	
+	/// Error state
+	Vec18T dx_ = Vec18T::Zero();
+	
+	/// Covariance matrix
+	Mat18T cov_ = Mat18T::Identity();
+	
+	/// Noise matrices
+	MotionNoiseT Q_ = MotionNoiseT::Zero();
+	OdomNoiseT odom_noise_ = OdomNoiseT::Zero();
+	GnssNoiseT gnss_noise_ = GnssNoiseT::Zero();
+	
+	/// Flags
+	bool first_gnss_ = true;  // Whether it's the first GNSS data
+	
+	/// Configuration options
+	Options options_;
+};
+
+using ESKFD = ESKF<double>;
+using ESKFF = ESKF<float>;
+\end{lstlisting}
+
+According to previous derivations, the nominal state includes position, velocity, rotation, biases, and gravity, while the error state corresponds to their vector forms. The error state vector should be 18-dimensional (3×6), with a corresponding 18×18 covariance matrix. We allow users to choose between single-precision or double-precision ESKF implementations, which have minor performance differences. The floating-point precision can be specified through template parameters, making our ESKF class a template class. Some ESKF implementations also allow users to define custom variable dimensions and ordering, which would make the class more complex when templated, as seen in \cite{Hertzberg2013}. This book only defines float and double ESKF classes, with internal types specified using 'using' declarations.
+\subsection{Implementing the Prediction Process}  
+
+Next, we implement the `Predict` function, which propagates the current state based on IMU measurements. The prediction process involves updating the nominal state variables and propagating the covariance matrix. The implementation is as follows:  
+
+\begin{lstlisting}[language=c++,caption=src/ch3/eskf.hpp]
+template <typename S>
+bool ESKF<S>::Predict(const IMU& imu) {
+	assert(imu.timestamp_ >= current_time_);
+	
+	double dt = imu.timestamp_ - current_time_;
+	if (dt > (5 * options_.imu_dt_) || dt < 0) {
+		// Invalid time interval, possibly the first IMU measurement with no prior information
+		LOG(INFO) << "skip this imu because dt_ = " << dt;
+		current_time_ = imu.timestamp_;
+		return false;
+	}
+	
+	// Propagate the nominal state
+	VecT new_p = p_ + v_ * dt + 0.5 * (R_ * (imu.acce_ - ba_)) * dt * dt + 0.5 * g_ * dt * dt;
+	VecT new_v = v_ + R_ * (imu.acce_ - ba_) * dt + g_ * dt;
+	SO3 new_R = R_ * SO3::exp((imu.gyro_ - bg_) * dt);
+	
+	R_ = new_R;
+	v_ = new_v;
+	p_ = new_p;
+	// Other state dimensions remain unchanged
+	
+	// Propagate the error state
+	// Compute the Jacobian matrix F for the motion process (see Eq. 3.47)
+	// F is a sparse matrix, but we use matrix form for clarity (scattered computation is also possible for efficiency)
+	Mat18T F = Mat18T::Identity();                                                 // Main diagonal
+	F.template block<3, 3>(0, 3) = Mat3T::Identity() * dt;                         // p wrt v
+	F.template block<3, 3>(3, 6) = -R_.matrix() * SO3::hat(imu.acce_ - ba_) * dt;  // v wrt theta
+	F.template block<3, 3>(3, 12) = -R_.matrix() * dt;                             // v wrt ba
+	F.template block<3, 3>(3, 15) = Mat3T::Identity() * dt;                        // v wrt g
+	F.template block<3, 3>(6, 6) = SO3::exp(-(imu.gyro_ - bg_) * dt).matrix();     // theta wrt theta
+	F.template block<3, 3>(6, 9) = -Mat3T::Identity() * dt;                        // theta wrt bg
+	
+	// Mean and covariance prediction
+	dx_ = F * dx_;  // This line is technically unnecessary since dx_ is reset to zero after updates, but F is needed for covariance propagation
+	cov_ = F * cov_.eval() * F.transpose() + Q_;
+	current_time_ = imu.timestamp_;
+	return true;
+}
+\end{lstlisting}  
+
+Here, we explicitly construct the full $\bm{F}$ matrix and update the covariance matrix using matrix operations. Alternatively, one could compute sparse matrix blocks separately for each state variable to improve computational efficiency.  
+
+The prediction process essentially propagates the nominal state using IMU measurements. Simultaneously, it incorporates motion noise into the covariance matrix, causing it to **expand** intuitively. The error state update can be skipped here because the observation step resets the error state to zero, making $\bm{F} \delta \bm{x}$ naturally zero regardless of $\bm{F}$'s values.  
+
+The motion process is triggered by IMU measurements and can be called at high frequencies, providing high-frequency predicted pose updates.
+
+\subsection{Implementing RTK Observation Process}
+Next, we consider how to implement the GNSS observation equation. Here we assume RTK can provide 6-DoF observations, including both position and orientation. Note that single-antenna solutions cannot be processed this way - they should use 3-DoF observation information.
+
+The abstract form of the observation equation is $\bm{y} = \bm{h}(\bm{x})$. In Section~\ref{subsec:3.4.4}, we introduced the general observation model. For GNSS observations converted to vehicle UTM coordinates, they can be directly treated as observations of current $\bm{R}$ and $\bm{p}$. Let $\bm{R}_{\mathrm{gnss}}, \bm{p}_{\mathrm{gnss}}$ denote observations at a certain time, from which we derive the observation equation and Kalman gain. Key points include:
+
+\begin{enumerate}
+	\item In dual-antenna setups, vehicle orientation is determined by two GNSS receivers. However, there may be cases where one GNSS is valid while the other fails - making position observations valid but heading invalid. Here we only use observations where both position and orientation are valid.
+	
+	\item GNSS observations of $\bm{R}$ can be directly expressed as observations of error state $\delta \boldsymbol{\theta}$, simplifying the linearization process by avoiding chain rule derivation.
+	
+	\item Since UTM coordinates from GNSS are typically large, we subtract the first valid GNSS observation as origin to maintain numerical precision. This keeps ESKF and visualization coordinates near zero, avoiding potential issues with excessive significant digits in plotting/visualization software.
+\end{enumerate}
+
+Let's elaborate point 2. The GNSS rotation observation equation is:
+\begin{equation}\label{eq:obs-gnss}
+	\bm{R}_{\mathrm{gnss}} = \bm{R} \mathrm{Exp}(\delta \boldsymbol{\theta}),
+\end{equation}
+where $\bm{R}$ is the nominal state and $\delta \boldsymbol{\theta}$ the error state. Since $\bm{R}$ is fixed during observation, we can treat $\bm{R}_{\mathrm{gnss}}$ as direct observation of $\delta \boldsymbol{\theta}$. Transforming the equation:
+\begin{equation}
+\bm{z}_{\delta \boldsymbol{\theta}} = \bm{h}(\delta \boldsymbol{\theta}) = \mathrm{Log} 
+\left(\bm{R}^\top \bm{R}_{\mathrm{gnss}} \right).
+\end{equation}
+	
+Here $\bm{z}_{\delta \boldsymbol{\theta}}$ directly observes $\delta \boldsymbol{\theta}$, so its Jacobian is identity:
+\begin{equation}\label{eq:error-jacobian}
+\frac{\partial \bm{z}_{\delta \boldsymbol{\theta}}}{\partial \delta \boldsymbol{\theta}} = \bm{I}.
+\end{equation}
+This avoids nominal-to-error state conversion. Note the ESKF innovation term $\bm{z}-\bm{h}(\bm{x})$ should then use manifold form:
+\begin{equation}\label{eq:manifold-innovation}
+\bm{z} - \bm{h}(\bm{x}) = [\bm{p}_{\mathrm{gnss}} - \bm{p}, 
+\mathrm{Log}(\bm{R}^\top \bm{R}_{\mathrm{gnss}})]^\top.
+\end{equation}
+
+Since $\delta \boldsymbol{\theta}$ remains zero after prediction, $\bm{h} (\bm{x})$'s rotation part is treated as zero while translation follows standard definition. This 6D innovation updates system state:
+\begin{equation}\label{eq:state-update}
+\bm{x} = \bm{x}_{\text{pred}} + \bm{K} (\bm{z} - \bm{h}(\bm{x})).
+\end{equation}
+Note the rotation update should use manifold methods.
+
+The translation part is straightforward:
+\begin{equation}\label{eq:translation-update}
+\bm{p}_{\mathrm{gnss}} = \bm{p} + \delta \bm{p}.
+\end{equation}
+Thus its Jacobian is identity:
+\begin{equation}\label{eq:trans-jacobian}
+\frac{\partial \bm{p}_{\mathrm{gnss}}}{\partial \delta \bm{p}} = \bm{I}_{3 \times 3}.
+\end{equation}
+
+In the ESKF class, we define $\mathrm{SE}(3)$ observations (reused later) and convert GNSS readings to $\mathrm{SE}(3)$ observations:
+\begin{lstlisting}[language=c++, caption=src/ch3/eskf.hpp]
+template <typename S>
+bool ESKF<S>::ObserveGps(const GNSS& gnss) {
+	/// GNSS observation correction
+	assert(gnss.unix_time_ >= current_time_);
+	
+	if (first_gnss_) {
+		R_ = gnss.utm_pose_.so3();
+		p_ = gnss.utm_pose_.translation();
+		first_gnss_ = false;
+		current_time_ = gnss.unix_time_;
+		return true;
+	}
+	
+	assert(gnss.heading_valid_);
+	ObserveSE3(gnss.utm_pose_, options_.gnss_pos_noise_, options_.gnss_ang_noise_);
+	current_time_ = gnss.unix_time_;
+	
+	return true;
+}
+
+template <typename S>
+bool ESKF<S>::ObserveSE3(const SE3& pose, double trans_noise, double ang_noise) {
+	/// SE(3) observation with both rotation and translation
+	/// Observe p and R, H is 6x18 (zeros elsewhere)
+	Eigen::Matrix<S, 6, 18> H = Eigen::Matrix<S, 6, 18>::Zero();
+	H.template block<3, 3>(0, 0) = Mat3T::Identity();  // Position part
+	H.template block<3, 3>(3, 6) = Mat3T::Identity();  // Rotation part (Eq.3.66)
+	
+	// Kalman gain and update
+	Vec6d noise_vec;
+	noise_vec << trans_noise, trans_noise, trans_noise, ang_noise, ang_noise, ang_noise;
+	
+	Mat6d V = noise_vec.asDiagonal();
+	Eigen::Matrix<S, 18, 6> K = cov_ * H.transpose() * (H * cov_ * H.transpose() + V).inverse();
+	
+	// State and covariance update
+	Vec6d innov = Vec6d::Zero();
+	innov.template head<3>() = (pose.translation() - p_);          // Translation
+	innov.template tail<3>() = (R_.inverse() * pose.so3()).log();  // Rotation (Eq.3.67)
+	
+	dx_ = K * innov;
+	cov_ = (Mat18T::Identity() - K * H) * cov_;
+	
+	UpdateAndReset();
+	return true;
+}
+
+void UpdateAndReset() {
+	p_ += dx_.template block<3, 1>(0, 0);
+	v_ += dx_.template block<3, 1>(3, 0);
+	R_ = R_ * SO3::exp(dx_.template block<3, 1>(6, 0));
+	
+	if (options_.update_bias_gyro_) {
+		bg_ += dx_.template block<3, 1>(9, 0);
+	}
+	
+	if (options_.update_bias_acce_) {
+		ba_ += dx_.template block<3, 1>(12, 0);
+	}
+	
+	g_ += dx_.template block<3, 1>(15, 0);
+	
+	ProjectCov();
+	dx_.setZero();
+}
+\end{lstlisting}
+
+Readers can verify consistency between code implementation and mathematical derivation. Visually, RTK readings primarily affect error states through Kalman gain during observation. Some ESKF implementations allow tuning Kalman gain to adjust RTK's influence on state updates.
+
+\subsection{Initialization of the ESKF System}
+Finally, we bring the entire ESKF into operation. Here we encounter several implementation details. For instance, the ESKF requires knowledge of initial conditions such as IMU biases, initial gravity direction, and the RTK processing function needs to wait for valid measurements to determine the initial nominal state. In traditional integrated navigation systems, the most common approach is the \textbf{static initialization} method.
+
+Static initialization involves placing the IMU stationary for a period of time. During this static period, since the object undergoes no motion, we can reasonably assume:
+- The gyroscope measurements reflect only bias
+- The accelerometer measurements reflect bias plus gravity
+
+We implement a static initialization procedure to estimate these parameters:
+
+\begin{enumerate}
+\item Keep the IMU stationary for a predetermined duration (set to 10 seconds in the program). Stationarity is verified when wheel speeds (if available) from both wheels are below a threshold. In absence of wheel speed measurements, we can directly assume the vehicle is stationary to estimate the relevant variables.
+
+\item Compute the mean values of gyroscope and accelerometer readings during the static period, denoted as $\bar{\bm{d}}_{\mathrm{gyr}}, \bar{\bm{d}}_{\mathrm{acc}}$;
+
+\item Since no rotation occurs, the gyroscope bias can be estimated as $\bm{b}_{g} = \bar{\bm{d}}_{\mathrm{gyr}}$.
+
+\item The accelerometer measurement model is:
+\begin{equation}\label{key}
+\tilde{\bm{a}} = \bm{R}^\top (\bm{a} - \bm{g}) + \bm{b}_a + \boldsymbol{\eta}_a.
+\end{equation}
+When the actual acceleration is zero and the rotation is considered as $\bm{R}=\bm{I}$\footnote{Note that in our system, we estimate the initial gravity direction, so the vehicle attitude can be treated as $\bm{I}$ while gravity may not necessarily point vertically along the -Z axis. Some references assume fixed gravity direction with uncertain initial state, which makes the derivation slightly more complicated.}, the accelerometer actually measures $\bm{b}_a - \bm{g}$, where $\bm{b}_a$ is small and the magnitude of $\bm{g}$ can be considered constant. Under these assumptions, we take the vector with direction $-\bar{\bm{d}}_{\mathrm{acc}}$ and magnitude 9.8 as the \textbf{gravity vector}. This step determines the gravity direction.
+
+\item Now remove gravity from the accelerometer readings during this period and recalculate $\bar{\bm{d}}_{\mathrm{acc}}$;
+
+\item Take $\bm{b}_a = \bar{\bm{d}}_{\mathrm{acc}}$.
+
+\item Simultaneously, assuming constant biases, estimate the measurement variances of the gyroscope and accelerometer. These variances can be used as noise parameters for the ESKF.
+\end{enumerate}
+Here is the translation of the provided content while preserving the LaTeX format:
+
+\subsection{Implementation of Static Initialization}
+Below is the implementation code for static initialization:
+
+\begin{lstlisting}[language=c++,caption=src/ch3/static\_imu\_init.cc]
+class StaticIMUInit {
+public:
+struct Options {
+	double init_time_seconds_ = 10.0;     // Static duration
+	int init_imu_queue_max_size_ = 2000;  // Max size of initialization IMU queue
+	int static_odom_pulse_ = 5;           // Wheel speed noise when static
+	double max_static_gyro_var = 0.2;     // Gyro measurement variance when static
+	double max_static_acce_var = 0.05;    // Accelerometer measurement variance when static
+	double gravity_norm_ = 9.81;          // Gravity magnitude
+	bool use_speed_for_static_checking_ = true;  // Whether to use odom for static checking (some datasets don't have odom)
+};
+
+/// Constructor
+StaticIMUInit(Options options) : options_(options) {}
+
+/// Add IMU data
+bool AddIMU(const IMU& imu);
+/// Add wheel speed data
+bool AddOdom(const Odom& odom);
+
+/// Check if initialization succeeded
+bool InitSuccess() const { return init_success_; }
+
+/// Get Cov, bias, gravity
+Vec3d GetCovGyro() const { return cov_gyro_; }
+Vec3d GetCovAcce() const { return cov_acce_; }
+Vec3d GetInitBg() const { return init_bg_; }
+Vec3d GetInitBa() const { return init_ba_; }
+Vec3d GetGravity() const { return gravity_; }
+
+private:
+/// Attempt system initialization
+bool TryInit();
+
+Options options_;                 // Configuration options
+bool init_success_ = false;       // Whether initialization succeeded
+Vec3d cov_gyro_ = Vec3d::Zero();  // Gyro measurement noise covariance (evaluated during init)
+Vec3d cov_acce_ = Vec3d::Zero();  // Accelerometer measurement noise covariance (evaluated during init)
+Vec3d init_bg_ = Vec3d::Zero();   // Initial gyro bias
+Vec3d init_ba_ = Vec3d::Zero();   // Initial accelerometer bias
+Vec3d gravity_ = Vec3d::Zero();   // Gravity
+bool is_static_ = false;          // Flag indicating if vehicle is static
+std::deque<IMU> init_imu_deque_;  // Data for initialization
+double current_time_ = 0.0;       // Current time
+double init_start_time_ = 0.0;    // Initial static time
+};
+
+bool StaticIMUInit::TryInit() {
+if (init_imu_deque_.size() < 10) {
+	return false;
+}
+
+// Compute mean and variance
+Vec3d mean_gyro, mean_acce;
+math::ComputeMeanAndCovDiag(init_imu_deque_, mean_gyro, cov_gyro_, [](const IMU& imu) { return imu.gyro_; });
+math::ComputeMeanAndCovDiag(init_imu_deque_, mean_acce, cov_acce_, [this](const IMU& imu) { return imu.acce_; });
+
+// Use accelerometer mean direction with 9.8 magnitude as gravity
+gravity_ = -mean_acce / mean_acce.norm() * options_.gravity_norm_;
+
+// Recompute accelerometer covariance
+math::ComputeMeanAndCovDiag(init_imu_deque_, mean_acce, cov_acce_,
+[this](const IMU& imu) { return imu.acce_ + gravity_; });
+
+// Check IMU noise
+if (cov_gyro_.norm() > options_.max_static_gyro_var) {
+	LOG(ERROR) << "Gyro measurement noise too large" << cov_gyro_.norm() << " > " << options_.max_static_gyro_var;
+	return false;
+}
+
+if (cov_acce_.norm() > options_.max_static_acce_var) {
+	LOG(ERROR) << "Accelerometer measurement noise too large" << cov_acce_.norm() << " > " << options_.max_static_acce_var;
+	return false;
+}
+
+// Estimate measurement noise and bias
+init_bg_ = mean_gyro;
+init_ba_ = mean_acce;
+
+LOG(INFO) << "IMU initialization successful, init time= " << current_time_ - init_start_time_ << ", bg = " << init_bg_.transpose()
+<< ", ba = " << init_ba_.transpose() << ", gyro sq = " << cov_gyro_.transpose()
+<< ", acce sq = " << cov_acce_.transpose() << ", grav = " << gravity_.transpose()
+<< ", norm: " << gravity_.norm();
+LOG(INFO) << "mean gyro: " << mean_gyro.transpose() << " acce: " << mean_acce.transpose();
+init_success_ = true;
+return true;
+}
+\end{lstlisting}
+
+This primarily calls the mean and covariance computation functions from the math library:
+
+\begin{lstlisting}[language=c++,caption=src/common/math\_utils.h]
+/**
+* Compute mean and diagonal covariance for data in a container
+* @tparam C    Container type
+* @tparam D    Result type
+* @tparam Getter   Data accessor function that takes container element type and returns D type
+*/
+template <typename C, typename D, typename Getter>
+void ComputeMeanAndCovDiag(const C& data, D& mean, D& cov_diag, Getter&& getter) {
+	size_t len = data.size();
+	assert(len > 1);
+	mean = std::accumulate(data.begin(), data.end(), D::Zero().eval(),
+		[&getter](const D& sum, const auto& data) -> D { return sum + getter(data); }) / len;
+	cov_diag = std::accumulate(data.begin(), data.end(), D::Zero().eval(),
+		[&mean, &getter](const D& sum, const auto& data) -> D {
+			return sum + (getter(data) - mean).cwiseAbs2().eval();
+		}) / (len - 1);
+}
+\end{lstlisting}
+
+As long as the data fields are stored in Eigen format, this function can compute the mean and diagonal covariance for specified fields in any container. It uses lambda functions to access user-specified fields and template types for good compatibility, allowing it to work with various storage forms (std::vector, std::deque, etc.) and different field types. In this example, we call this function on the gyroscope and accelerometer readings from the IMU data queue to estimate their means and variances. This information will be used in the ESKF initialization process.
+
+\subsection{Running the ESKF}
+Now we proceed to run the ESKF. We read recorded sensor data from text files, process this information through callback functions, and then output the ESKF's post-update states to result files. Several logical relationships need to be handled:
+
+\begin{enumerate}
+\item First, the static initialization method requires a period of IMU readings to estimate biases and gravity direction. During this period, the ESKF will not process RTK data. If initialization succeeds, we pass the initial biases and noise parameters to the ESKF.
+
+\item On the other hand, the ESKF also requires the first valid RTK measurement to determine the map origin and initial nominal state values. This is because the vehicle's initial world position and attitude may not be at the origin. If IMU initialization is complete but the first RTK hasn't been acquired, the ESKF won't process subsequent IMU readings.
+
+\item When the ESKF operates normally, we write both the predicted nominal state and post-observation nominal state to files and send them to the graphical interface.
+\end{enumerate}
+
+\begin{lstlisting}[language=c++,caption=src/ch4/run\_eskf\_gins.cc]
+/// Set flags and callback functions
+bool first_gnss_set = false;
+Vec3d origin = Vec3d::Zero();
+
+io.SetIMUProcessFunc([&](const sad::IMU& imu) {
+	/// IMU processing function
+	if (!imu_init.InitSuccess()) {
+		imu_init.AddIMU(imu);
+		return;
+	}
+	
+	/// IMU initialization required
+	if (!imu_inited) {
+		// Read initial biases and configure ESKF
+		sad::ESKFD::Options options;
+		// Noise estimated by initializer
+		options.gyro_var_ = sqrt(imu_init.GetCovGyro()[0]);
+		options.acce_var_ = sqrt(imu_init.GetCovAcce()[0]);
+		eskf.SetInitialConditions(options, imu_init.GetInitBg(), imu_init.GetInitBa(), imu_init.GetGravity());
+		imu_inited = true;
+		return;
+	}
+	
+	if (!gnss_inited) {
+		/// Wait for valid RTK data
+		return;
+	}
+	
+	/// Start prediction after receiving GNSS
+	eskf.Predict(imu);
+	
+	/// Predict updates ESKF, so we can send data now
+	auto state = eskf.GetNominalState();
+	ui->UpdateNavState(state);
+	
+	/// Record data for plotting
+	save_result(fout, state);
+	
+	usleep(1e3);
+})
+.SetGNSSProcessFunc([&](const sad::GNSS& gnss) {
+	/// GNSS processing function
+	if (!imu_inited) {
+		return;
+	}
+	
+	sad::GNSS gnss_convert = gnss;
+	if (!sad::ConvertGps2UTM(gnss_convert, antenna_pos, FLAGS_antenna_angle) || !gnss_convert.heading_valid_) {
+		return;
+	}
+	
+	/// Remove origin offset
+	if (!first_gnss_set) {
+		origin = gnss_convert.utm_pose_.translation();
+		first_gnss_set = true;
+	}
+	gnss_convert.utm_pose_.translation() -= origin;
+	
+	// Require valid RTK heading for EKF integration
+	eskf.ObserveGps(gnss_convert);
+	
+	auto state = eskf.GetNominalState();
+	ui->UpdateNavState(state);
+	save_result(fout, state);
+	
+	gnss_inited = true;
+})
+.SetOdomProcessFunc([&imu_init](const sad::Odom& odom) {
+	/// Odom processing function (used only for initialization in this chapter)
+	imu_init.AddOdom(odom);
+})
+.Go();
+\end{lstlisting}
+Now please compile and run this program. You can specify the text file to run using gflags:
+\begin{lstlisting}[language=c++,caption=Terminal input:]
+bin/run_eskf_gins --txt_path ./data/ch3/10.txt 
+\end{lstlisting}
+
+The program will display real-time filter states as shown in Figure~\ref{fig:ch3-eskf-gins-ui}. On the right panel, we can also observe the ESKF's real-time estimates of IMU biases and vehicle velocities in both world and body frames. Readers should observe the following phenomena:
+
+\begin{enumerate}
+\item First, the ESKF incorporates prior information in each prediction and update, resulting in relatively smooth trajectories when good RTK and IMU data are available. Readers can zoom in on the trajectory in the UI to examine individual data points.
+\item The body-frame velocity is primarily along the positive X-axis, consistent with actual forward vehicle motion. World-frame velocity has both X and Y components.
+\item During periods of poor RTK quality, the ESKF lacks observations and the position estimates diverge rapidly. When RTK recovers, the position converges back to the RTK trajectory.
+\item This implementation unconditionally trusts RTK when heading is valid. However, actual RTK data may contain jitter and outliers, causing corresponding jitter in ESKF output trajectories.
+\end{enumerate}
+
+After program execution, ESKF state variables are saved to data/ch3/gins.txt. We can visualize the 2D trajectory using a plotting script, as shown in Figure~\ref{fig:eskf-traj}:
+
+\begin{lstlisting}[language=sh,caption=Terminal command:]
+python3 scripts/plot_ch3_state.py ./data/ch3/gins.txt
+\end{lstlisting}
+
+\begin{figure}
+\centering
+\includegraphics[width=1.0\textwidth]{ins/ch3-eskf-gins-ui.png}
+\caption{Real-time results of ESKF integrated navigation}
+\label{fig:ch3-eskf-gins-ui}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=1.0\textwidth]{ins/eskf-traj-out.pdf}
+\caption{ESKF estimated state variables. Left: 2D trajectory; Top-right: Quaternion states; Bottom-right: Velocity states in world frame}
+\label{fig:eskf-traj}
+\end{figure}
+
+Comparing with Figure~\ref{fig:gnss-traj}, we see generally similar shapes but observe divergence in areas where RTK angles were invalid. In practical systems, when RTK position is valid but heading is invalid, we could use ESKF-estimated angles to compute vehicle position. We leave this as an exercise.
+
+Some experimental observations about ESKF:
+\begin{enumerate}
+\item This ESKF implementation demonstrates IMU-GNSS fusion, with results comparable to GNSS observations. When ESKF runs properly, we can output IMU-predicted poses at higher frequencies. The ESKF framework can incorporate other observation sources - observation models need not be uniform, only linearizable. For example, we'll later integrate LiDAR observations using similar theoretical foundations but different noise characteristics (loose coupling). Alternatively, directly incorporating LiDAR point cloud residuals or visual feature reprojection errors would constitute tight coupling.
+
+\item Maintaining ESKF convergence requires continuous GNSS observations. Prolonged GNSS outages cause IMU predictions to diverge like standalone IMU integration. GNSS observations essentially fix velocity and bias states, making them observable \cite{Vidal-Calleja2007}. We won't rigorously discuss estimator observability despite its theoretical importance.
+
+\item We haven't handled GNSS outliers. Practical GNSS may lose signal or report plausible but erroneous positions. While ESKF's predict-update cycle can smooth IMU-GNSS integration, uncorrected outliers can severely corrupt filter states. Innovation checks or position residuals could reject outliers, but distinguishing RTK errors from filter errors remains challenging. Later graph optimization methods will better handle outlier rejection.
+
+\item Readers familiar with graph optimization may compare ESKF's motion/observation models with optimization approaches. They share similarities but differ in implementation. ESKF updates essentially marginalize past observations into priors for the current state - the mean $\bm{x}$ and covariance $\bm{P}$ become prior information for the next step, smoothing the filtering process. Conventional graph optimization lacks such explicit priors - handling this difference becomes algorithmically crucial. The next chapter will revisit this from a graph optimization perspective for deeper understanding.
+\end{enumerate}
+\subsection{Velocity Observations}
+We observe that in the GINS system, when RTK observations are unavailable for extended periods, the ESKF degenerates into pure IMU integration mode, where position estimates rapidly diverge. This divergence primarily stems from the lack of velocity observations. Are there methods to constrain velocity divergence? The most common approach incorporates vehicle speed sensors. Velocity measurements primarily come from \textbf{motor RPM} or \textbf{wheel encoders}. Most wheeled robots carry encoders to measure their own speed and infer local motion. Sometimes, we can also use underlying measurements like motor RPM or throttle to determine robot speed. These velocity observations, when combined with IMU, enable local \textbf{dead reckoning}. Alternatively, they can be directly integrated into ESKF as velocity observations. Below we derive the mathematical formulation and code implementation.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.7\textwidth]{ins/wheel-speed-encoder.pdf}
+\caption{A wheel encoder and its installation example}
+\label{fig:wheel-speed-encoder}
+\end{figure}
+
+Figure~\ref{fig:wheel-speed-encoder} illustrates a typical wheel encoder. These encoders usually feature a disk shape with regularly spaced holes along the perimeter. During wheel rotation, an infrared or laser transmitter-receiver pair mounted on the chassis detects these holes. The receiver outputs alternating signals (blocked/unblocked) corresponding to wheel rotation. This periodic output reflects the wheel's angular displacement, which combined with wheel radius and mounting position, can determine the vehicle's relative ground motion.
+
+The characteristics of wheel encoders can be summarized as:
+\begin{enumerate}
+\item A single wheel encoder only outputs angular displacement. By sampling this displacement at fixed intervals, we effectively obtain velocity measurements.
+
+\item For fixed-angle wheel installations (non-steering), encoder readings can compute vehicle displacement. With three-wheeled chassis (common in cleaning robots and small platforms), differential measurements between left/right wheels can additionally compute body rotation - though IMU inherently measures rotation.
+
+\item Wheels only measure \textbf{forward-direction} velocity/displacement, unable to detect lateral or vertical motion. For large vehicles on uneven terrain, encoder results may significantly deviate from actual motion.
+
+\item In practice, wheels are prone to slippage. During slippage, wheels spin without actual vehicle movement, causing encoder outputs to misrepresent true motion. Incorporating additional observations can improve localization accuracy.
+\end{enumerate}
+In this book, we treat wheel speed observations as measurements of the \textbf{forward velocity (X-axis) in the body frame}. Specifically, let the scalar wheel speed measurement over a time interval be $v_{\mathrm{wheel}}$, representing the vehicle's forward speed. Using the \textbf{front-left-up coordinate convention} (X forward, Y left, Z up), the vector form of wheel speed observation is:
+\begin{equation}\label{eq:wheel-speed-vec}
+\bm{v}_{\mathrm{wheel}} = [v_{\mathrm{wheel}}, 0, 0]^\top.
+\end{equation}
+
+The corresponding observation model is:
+\begin{equation}\label{eq:wheel-obs-model}
+\bm{v}_{\mathrm{wheel}} = \bm{R}^\top \bm{v},
+\end{equation}
+where $\bm{R}, \bm{v}$ are the current vehicle states. While wheel encoders don't physically measure $\bm{R}$, common practice transforms $\bm{v}_{\mathrm{wheel}}$ to world coordinates using the estimated $\bm{R}$:
+\begin{equation}\label{eq:world-vel-obs}
+\bm{R} \bm{v}_{\mathrm{wheel}} = \bm{v}.
+\end{equation}
+
+We formulate this as abstract observation model $\bm{h}(\bm{x})$. Its Jacobian w.r.t. nominal state $\bm{x}$ is:
+\begin{equation}\label{eq:wheel-jacobian}
+\frac{\partial \bm{h} (\bm{x})}{\partial \bm{x}} = \left[\bm{0}_{3\times 3}, \bm{I}_{3 \times 3}, \bm{0}_{3\times 12} \right].
+\end{equation}
+
+The Jacobian shows wheel speed only observes $\bm{v}$ without affecting other states. More strictly, $\bm{v}_{\mathrm{wheel}}$ lacks Y/Z-axis measurements. However, combined with IMU, observed $\bm{v}$ prevents rapid divergence. The implementation:
+
+\begin{lstlisting}[language=c++, caption=src/ch3/eskf.hpp]
+template <typename S>
+bool ESKF<S>::ObserveWheelSpeed(const Odom& odom) {
+assert(odom.timestamp_ >= current_time_);
+// Odom correction and Jacobian
+// 3D wheel speed observation, H is 3x18 (mostly zeros)
+Eigen::Matrix<S, 3, 18> H = Eigen::Matrix<S, 3, 18>::Zero();
+H.template block<3, 3>(0, 3) = Mat3T::Identity();
+
+// Kalman gain
+Eigen::Matrix<S, 18, 3> K = cov_ * H.transpose() * (H * cov_ * H.transpose() + odom_noise_).inverse();
+
+// Convert pulse to velocity
+double velo_l = options_.wheel_radius_ * odom.left_pulse_ / options_.circle_pulse_ * 2 * M_PI / options_.odom_span_;
+double velo_r = options_.wheel_radius_ * odom.right_pulse_ / options_.circle_pulse_ * 2 * M_PI / options_.odom_span_;
+double average_vel = 0.5 * (velo_l + velo_r);
+
+VecT vel_odom(average_vel, 0.0, 0.0);
+VecT vel_world = R_ * vel_odom;
+
+dx_ = K * (vel_world - v_);
+
+// Update covariance
+cov_ = (Mat18T::Identity() - K * H) * cov_;
+
+UpdateAndReset();
+return true;
+}
+\end{lstlisting}
+
+The implementation converts wheel encoder pulses $p$ (measured over interval $t$) to linear velocity using wheel radius $r$ and pulses per revolution $n$:
+\begin{equation}\label{eq:pulse-to-vel}
+v_{\mathrm{wheel}} = \frac{2 \pi r p}{n t} .
+\end{equation}
+
+Under ideal conditions, this provides velocity observations. We average left/right wheels for robustness. While simplified (ignoring vehicle kinematics), this demonstrates ESKF integration. The error state $\delta \bm{x}$ updates the nominal state.
+
+To run ESKF with wheel speed:
+\begin{lstlisting}[language=sh, caption=Terminal command:]
+bin/run_eskf_gins --with_odom=true
+\end{lstlisting}
+
+Plot results as before. The real-time UI (Fig.~\ref{fig:ch3-gins-odom}) shows improved trajectory stability during RTK outages compared to Fig.~\ref{fig:ch3-eskf-gins-ui}, demonstrating wheel speed's benefits.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.7\textwidth]{ins/ch3-gins-odom.png}
+\caption{Real-time trajectory with wheel speed observations}
+\label{fig:ch3-gins-odom}
+\end{figure}
+
+\section{Summary}
+This chapter introduced the fundamental principles of inertial navigation systems, presenting a traditional integrated navigation solution that combines IMU, GNSS, and wheel odometry through an error-state Kalman filter framework. This approach proves effective for vehicle localization. We demonstrated its operation through code implementation and graphical interfaces. However, the current implementation doesn't incorporate visual or LiDAR sensors, limiting our observation to vehicle position and attitude data without scene structure representation. Subsequent chapters on LiDAR will build upon these results by integrating 2D/3D LiDAR data for mapping and localization.
+
+\section*{Exercises}
+\begin{enumerate}
+\item Prove that any zero-mean white noise random variable remains zero-mean white noise with unchanged covariance matrix when multiplied by an arbitrary rotation matrix coefficient.
+
+\item Derive the ESKF state transition equations using quaternion representation.
+
+\item In rotational component processing, left-multiplication and right-multiplication Lie algebras are fundamentally equivalent. This book adopts right-multiplication convention - derive the ESKF state equations using left-multiplication Lie algebra as error variables. Does left-multiplication offer simpler formulation?
+
+\item By slightly modifying the ESKF's motion and observation equations, variants like UKF and IEKF can be obtained. Implement UKF or IEKF-based integrated navigation using the provided codebase.
+
+\item Simplify the ESKF prediction process by avoiding matrix-form $\bm{F}$ and instead writing separate equations for each variable's motion process. Evaluate potential efficiency gains. This approach is sometimes called \textbf{Sparse ESKF}.
+
+\item Attempt to simplify matrix computations in ESKF by eliminating unnecessary calculations while preserving essential operations. Assess efficiency improvements.
+
+\item Analyze the ESKF's innovation vector. What are typical magnitudes? How to determine appropriate outlier detection thresholds?
+
+\item Design a checking mechanism to filter anomalous RTK observations in ESKF.
+
+\item Develop a monitoring system that triggers alerts when ESKF operates without RTK observations for extended periods, automatically resetting using the most recent valid RTK observation.
+\end{enumerate}
