@@ -829,4 +829,654 @@ The Jacobian matrix here is consistent with our previous derivation, except that
 
 This implements the g2o-based 2D scan matching algorithm. By adding --method=g2o to the test program in Section~\ref{sec:likelihood-field}, you can test the optimizer version of likelihood field matching. Since the results are similar, we won't include result images in this section. Readers can also implement versions based on Ceres or other optimizers following similar principles. Additionally, we can perform linear interpolation on the likelihood field image (Figure~\ref{fig:scan-and-field}) to obtain more accurate error functions. We leave these two aspects as exercises.
 
+\section{Occupancy Grid Map}  
+\subsection{Principle of Occupancy Grid Map}  
+After performing scan matching, we obtain the relative motion between two sets of scan data. This process is equivalent to the **localization** problem in SLAM. Now, let us examine the **mapping** component.  
 
+If we use the scan-to-map approach for scan matching, we can derive its pose relative to the map. Naturally, we can merge this scan data into the map to form a local map. However, there are some considerations in the actual map-building process. For example, should the map be constructed all at once or piece by piece? Should all scan points be combined into a single map, or should strategies like overlapping and refreshing be implemented? Early 2D SLAM solutions often adopted a simpler, monolithic map-building approach, but this method has many limitations. Therefore, this book introduces a more flexible management model based on **grid maps** and **submaps**.  
+
+First, let us discuss the **occupancy grid map**. An occupancy grid is a map format that stores occupancy probabilities in a grid-like (or image-like) structure. A grid is a very simple form of a 2D map. It divides the map into many small planar cells, each storing custom information. The organization of this information is highly flexible. If obstacle information is stored, it is called an obstacle grid map, which can be used for path planning \cite{Tsardoulias2016}. In some applications, semantic information is also stored in grids, known as semantic grids \cite{Qi2020}. Grid maps are often associated with images, where each grid cell corresponds to a pixel. The storage and visualization of grid maps can be implemented using image libraries like OpenCV. Overall, grid maps are a widely used method for representing dense information on a 2D plane.  
+
+In many robotic applications, people are only concerned with the **traversability** of each grid cell and not more complex semantic information (though passenger vehicles are an exception, which is why grid maps are rarely used in outdoor vehicles). Therefore, we only need to indicate whether a grid cell is occupied by an obstacle. The presence of an obstacle is probabilistic. Before scanning the map, we have no knowledge of whether obstacles exist, so the occupancy probability should initially be set to 0.5. If a grid cell is observed multiple times to contain an obstacle, its occupancy probability gradually increases to 1. Conversely, if a grid cell is repeatedly observed to be traversable, its probability decreases to 0. The endpoint measured by a 2D laser sensor indicates that the grid is occupied, while the line connecting the sensor to the endpoint indicates that the grid is traversable. Thus, 2D laser scan data can be easily converted into a grid format.  
+
+It is worth noting that some applications use **occupancy** grids to represent obstacles, while others use **traversability** probability to indicate whether a grid is passable. These two probabilities are inversely related but functionally equivalent. In an occupancy grid, a probability of 1 means the grid contains an obstacle, whereas in a traversability grid, a probability of 1 means the grid is obstacle-free. In practice, both approaches can be used freely.  
+
+On the other hand, grid maps can be dynamically updated, and not every grid cell's probability converges to 0 or 1. If a robot observes a grid cell as an obstacle multiple times, its occupancy probability will continuously rise. If a cell is repeatedly observed as empty, its occupancy probability should decrease. If an obstacle initially exists but later moves away, the grid cell's probability will first increase and then decrease. In summary, an occupancy grid map should satisfy the following descriptions:  
+
+\begin{enumerate}  
+	\item It stores the probability of each grid cell being occupied by an obstacle in a grid-like format. This probability should be a floating-point number between 0 and 1.  
+	\item The grid has a certain resolution and is typically dense.  
+	\item The occupancy probability changes with observations. Mathematically, the update logic for occupancy probability should comply with probabilistic principles. However, from an engineering perspective, simpler metrics like observation counts can also be used.  
+\end{enumerate}  
+
+\begin{figure}[!htp]  
+	\centering  
+	\includegraphics[width=0.8\textwidth]{resources/2d-lidar-mapping/grid-and-casting.pdf}  
+	\caption{Occupancy grid and ray casting process for 2D LiDAR}  
+	\label{fig:grid-and-casting}  
+\end{figure}  
+
+Figure~\ref{fig:grid-and-casting}~shows an example of a 2D LiDAR scan being converted into grid cells. When a laser beam is emitted from the sensor, the endpoint corresponds to an occupied grid cell, while the path from the sensor center to the endpoint is considered traversable. Note that this geometric model is only valid for **2D** robots. If the robot has significant height or the laser beams are tilted, this model no longer applies. In such cases, the 2D LiDAR occupancy grid can only indicate whether obstacles exist **at this specific height**. Obstacles at other heights, such as low steps, tables, or hanging objects, may still render the robot unable to pass. Therefore, if the robot's motion cannot be simplified to 2D, the map must account for the influence of obstacles at other heights.  
+
+Due to the resolution limitations of grid maps, converting continuous laser beams into probability updates for each grid cell involves a **rasterization** process, as illustrated on the right side of Figure~\ref{fig:grid-and-casting}~. Rasterization is a concept in computer graphics that describes the conversion of geometric shapes into grid-based outputs. In 2D grid maps, we can choose to compute the rasterization result for each laser beam. However, if the LiDAR's angular resolution is high or the measurement range is long, this process can be time-consuming. Alternatively, we can precompute a fixed-size template region. The former requires rasterizing each laser scan line, while the latter involves rasterizing each template point. We will implement both algorithms and compare their performance.
+
+\subsection{Map Generation Based on Bresenham's Algorithm}  
+Bresenham's algorithm is a rasterization method for straight lines, commonly used for vectorization of geometric lines \cite{Cohen-Or1997}. It can be implemented entirely with integer operations, making it highly efficient. Since grid map coordinates are inherently integer-based, Bresenham's algorithm is well-suited for updating grid maps.  
+
+Let the robot's origin in the map coordinate system be $\bm{p}_1$, and an endpoint be $\bm{p}_2$, both with integer coordinates. We aim to fill a straight line from $\bm{p}_1$ to $\bm{p}_2$ in the map, marking these cells as traversable. The Bresenham algorithm proceeds as follows:  
+
+\begin{enumerate}  
+	\item Compute $[dx, dy] = p2 - p1$, representing the direction of coordinate growth.  
+	\item Compare $|dx|$ and $|dy|$, selecting the larger one as the primary growth axis (assume the $x$-axis for now).  
+	\item Initialize $(x, y)$ at $\bm{p}_1$. Since the line's slope is $dy/dx$, each time $x$ increments by 1, the error between the discrete point and the true line increases by $dy/dx$. When this error exceeds 0.5, increment $y$ by 1 and decrease the error by 1.  
+	\item Repeat until $(x, y)$ reaches $\bm{p}_2$.  
+\end{enumerate}  
+
+Step 3 involves floating-point operations, but we prefer integer-only computation. Thus, we multiply all terms and conditions in Step 3 by $2dx$ and subtract $dx$, transforming it into:  
+
+\begin{enumerate}  
+	\item Compute $[dx, dy] = p2 - p1$, representing the direction of coordinate growth.  
+	\item Compare $|dx|$ and $|dy|$, selecting the larger one as the primary growth axis (assume the $x$-axis for now).  
+	\item Initialize $(x, y)$ at $\bm{p}_1$ and set the initial error $e = -dx$. Each time $x$ increments by 1, $e$ increases by $2dy$. If $e > 0$, increment $y$ by 1 and subtract $2dx$ from $e$.  
+	\item Repeat until $(x, y)$ reaches $\bm{p}_2$.  
+\end{enumerate}  
+
+This avoids floating-point and division operations, using only additions and multiplications. Similarly, if the $y$-axis is the primary growth direction, swap the roles of $x$ and $y$.  
+
+The implementation of Bresenham's algorithm in the grid map is as follows:  
+
+\begin{lstlisting}[language=c++,caption=src/ch6/occupancy\_map.cc]  
+void OccupancyMap::BresenhamFilling(const Vec2i& p1, const Vec2i& p2) {  
+	int dx = p2.x() - p1.x();  
+	int dy = p2.y() - p1.y();  
+	int ux = dx > 0 ? 1 : -1;  
+	int uy = dy > 0 ? 1 : -1;  
+	
+	dx = abs(dx);  
+	dy = abs(dy);  
+	int x = p1.x();  
+	int y = p1.y();  
+	
+	if (dx > dy) {  
+		// Increment along x  
+		int e = -dx;  
+		for (int i = 0; i < dx; ++i) {  
+			x += ux;  
+			e += 2 * dy;  
+			if (e >= 0) {  
+				y += uy;  
+				e -= 2 * dx;  
+			}  
+			
+			if (Vec2i(x, y) != p2) {  
+				SetPoint(Vec2i(x, y), false);  
+			}  
+		}  
+	} else {  
+		int e = -dy;  
+		for (int i = 0; i < dy; ++i) {  
+			y += uy;  
+			e += 2 * dx;  
+			if (e >= 0) {  
+				x += ux;  
+				e -= 2 * dy;  
+			}  
+			if (Vec2i(x, y) != p2) {  
+				SetPoint(Vec2i(x, y), false);  
+			}  
+		}  
+	}  
+}  
+
+/// Set whether a grid cell is occupied  
+void OccupancyMap::SetPoint(const Vec2i& pt, bool occupy) {  
+	int x = pt[0], y = pt[1];  
+	if (x < 0 || y < 0 || x >= occupancy_grid_.cols || y >= occupancy_grid_.rows) {  
+		if (occupy) {  
+			has_outside_pts_ = true;  
+		}  
+		return;  
+	}  
+	
+	/// Apply upper and lower bounds  
+	uchar value = occupancy_grid_.at<uchar>(y, x);  
+	if (occupy) {  
+		if (value > 117) {  
+			occupancy_grid_.ptr<uchar>(y)[x] -= 1;  
+		}  
+	} else {  
+		if (value < 137) {  
+			occupancy_grid_.ptr<uchar>(y)[x] += 1;  
+		}  
+	}  
+}  
+\end{lstlisting}
+
+Now, readers are invited to compile and run the `test_occupancy_grid` program:
+\begin{lstlisting}[language=sh,caption=Terminal input:]
+	bin/test_occupancy_grid --bag_path ./dataset/sad/2dmapping/floor1.bag 
+\end{lstlisting}
+
+You can specify different filling methods using the `--method` option. The program will display the grid map results generated from a single scan, as shown in Figure~\ref{fig:oc-grid-one-scan}~. The final grid map is the superposition of these individual grid maps. As can be observed, the obstacles and traversable areas obtained from 2D LiDAR scans match our intuitive expectations.
+
+The LiDAR used in our experiments does not have 360-degree coverage, leaving a blind spot behind the robot. For most robots with substantial height, it's impossible to completely suspend sensors in midair, inevitably causing partial occlusion of sensor data.
+
+In this chapter's test program, we can observe that the template-based algorithm requires approximately 10-20ms to complete template filling, while the line-based method takes less than 1 millisecond - a significant difference. This is because the template method processes significantly more points than the line method (hundreds of thousands versus hundreds). If the LiDAR's angular resolution increases or the detection range extends, the template method can limit its computation range to save processing time.
+
+\begin{figure}[!t]
+	\centering
+	\includegraphics[width=0.4\textwidth]{resources/2d-lidar-mapping/oc-grid-one-scan.png}
+	\caption{Grid map generated from a single scan}
+	\label{fig:oc-grid-one-scan}
+\end{figure}
+
+In template-based grid map updating, the sizes of submaps and templates should be set according to the actual sensor range. If the template is too small, distant scan data may not be fully utilized; if submap size is insufficient, frequent submap expansion may occur, introducing unnecessary computations. Here we've used parameters suitable for a 20m LiDAR range, with both grid template and submap sizes configured accordingly. For readers using longer-range LiDARs, these parameters should be appropriately increased. Note that algorithm efficiency will change noticeably with parameter adjustments - readers are encouraged to experiment with different settings.
+
+\section{Submaps}  
+\subsection{Principle of Submaps}  
+Next, we integrate the matching algorithm with grid maps, utilizing the grid map update mechanism to combine matched data.  
+
+Furthermore, we can group several matched results together to form \textbf{submaps}. Submaps serve as an intermediate data organization level between individual scan data and the global map. They flexibly aggregate multiple scans in chronological order and can be used in both 2D LiDAR SLAM and 3D LiDAR SLAM systems.  
+
+Each submap is assigned an adjustable pose denoted by $\bm{T}_{WS} \in \mathrm{SE}(2)$, where $W$ represents the world coordinate system and $S$ represents the submap coordinate system. During scan matching, the scan-to-map algorithm essentially computes the pose relationship $\bm{T}_{SC}$ between the current LiDAR scan and the submap, where $C$ denotes the current scan coordinate system. Thus, the world coordinate of each scan can be expressed as:  
+\begin{equation}\label{key}  
+\bm{T}_{WC} = \bm{T}_{WS} \bm{T}_{SC}.  
+\end{equation}  
+
+This approach decouples the \textbf{submap pose} variable $\bm{T}_{WS}$. During scan matching, we compute $\bm{T}_{SC}$ for the current LiDAR scan, which remains fixed once determined. When adjusting the overall map shape, we only need to modify each submap's $\bm{T}_{WS}$ without altering internal submap contents (i.e., per-scan $\bm{T}_{SC}$). Consequently, loop closure detection can treat submaps as fundamental units without considering individual keyframe poses in the world coordinate system.  
+
+We implement a submap-based 2D LiDAR SLAM system following this logic:  
+\begin{enumerate}  
+	\item Each submap is associated with a likelihood field and a grid map.  
+	\item The current scan is always matched against the current submap to determine its pose within the submap\footnote{This step is flexible in implementation. With sufficient computational resources, matching against historical submaps is also feasible.}.  
+	\item Keyframes are selected based on travel distance or rotation thresholds.  
+	\item If the robot moves beyond the current submap's bounds or the submap contains excessive keyframes, a new submap is created. The new submap centers on the current frame with $\bm{T}_{WS} = \bm{T}_{WC}$, initially empty. For matching convenience, recent keyframes from the old submap are copied to the new one.  
+	\item Merging all submaps' grid maps yields the global map.  
+\end{enumerate}  
+
+This workflow is not limited to 2D LiDAR SLAM. The submap paradigm can also be applied to 3D LiDAR or visual SLAM systems, though implementation becomes more complex than single-map approaches.
+
+\subsection{Implementation of Submaps}  
+At the implementation level, we encapsulate both grid map and likelihood field objects within the `Submap` class, while placing the mapping algorithm workflow in the `mapping_2d` class.  
+
+The core structure of the `Submap` class is as follows:  
+\begin{lstlisting}[language=c++,caption=src/ch6/submap.h]
+class Submap {
+	public:
+	Submap(const SE2& pose) : pose_(pose) {
+		Vec2f center = pose_.translation().cast<float>();
+		occu_map_.SetCenter(center);
+		field_.SetCenter(center);
+	}
+	
+	/// Match frame against this submap to compute frame->pose
+	bool MatchScan(std::shared_ptr<Frame> frame);
+	
+	/// Add a frame to the occupancy grid
+	void AddScanInOccupancyMap(std::shared_ptr<Frame> frame);
+	
+	void AddKeyFrame(std::shared_ptr<Frame> frame) { frames_.emplace_back(frame); }
+	
+	private:
+	SE2 pose_;  // submap pose, Tws
+	size_t id_ = 0;
+	
+	std::vector<std::shared_ptr<Frame>> frames_;  // keyframes in this submap
+	LikelihoodField field_;                       // for scan matching
+	OccupancyMap occu_map_;                       // for grid map generation
+};
+\end{lstlisting}
+
+The submap's primary functions are scan matching and grid map updates, implemented through internal object calls:  
+
+\begin{lstlisting}[language=c++,caption=src/ch6/submap.cc]
+bool Submap::MatchScan(std::shared_ptr<Frame> frame) {
+	field_.SetSourceScan(frame->scan_);
+	field_.AlignG2O(frame->pose_submap_);
+	frame->pose_ = pose_ * frame->pose_submap_;  // T_w_c = T_w_s * T_s_c
+	
+	return true;
+}
+
+void Submap::AddScanInOccupancyMap(std::shared_ptr<Frame> frame) {
+	occu_map_.AddLidarFrame(frame, OccupancyMap::GridMethod::MODEL_POINTS);  // update grid cells
+	field_.SetFieldImageFromOccuMap(occu_map_.GetOccupancyGrid());           // update likelihood field
+}
+\end{lstlisting}
+
+We employ g2o-based likelihood field methods for registration, incorporating boundary checks and robust kernels to mitigate moving object interference. Readers may refer to the source code for implementation details. The outer mapping workflow proceeds as follows:  
+
+\begin{lstlisting}[language=c++,caption=src/ch6/mapping\_2d.cc]
+bool Mapping2D::ProcessScan(Scan2d::Ptr scan) {
+	current_frame_ = std::make_shared<Frame>(scan);
+	current_frame_->id_ = frame_id_++;
+	
+	LOG(INFO) << "processing frame " << current_frame_->id_;
+	if (last_frame_) {
+		// initialize pose from last frame
+		current_frame_->pose_ = last_frame_->pose_;
+	}
+	
+	// perform scan-to-map matching
+	if (!first_scan_) {
+		// skip matching for first scan (directly add to occupancy map)
+		current_submap_->MatchScan(current_frame_);
+	}
+	
+	first_scan_ = false;
+	current_submap_->AddScanInOccupancyMap(current_frame_);
+	
+	if (IsKeyFrame()) {
+		AddKeyFrame();
+		
+		if (current_submap_->HasOutsidePoints() || (current_submap_->NumFrames()) > 50) {
+			/// Trigger new submap when leaving current bounds or exceeding keyframe limit
+			ExpandSubmap();
+		}
+	}
+	
+	last_frame_ = current_frame_;
+	
+	return true;
+}
+
+bool Mapping2D::IsKeyFrame() {
+	if (last_keyframe_ == nullptr) {
+		return true;
+	}
+	
+	SE2 delta_pose = last_keyframe_->pose_.inverse() * current_frame_->pose_;
+	if (delta_pose.translation().norm() > keyframe_pos_th_ || 
+	fabs(delta_pose.so2().log()) > keyframe_ang_th_) {
+		return true;
+	}
+	
+	return false;
+}
+
+void Mapping2D::AddKeyFrame() {
+	LOG(INFO) << "add keyframe " << keyframe_id_;
+	current_frame_->keyframe_id_ = keyframe_id_++;
+	
+	current_submap_->AddKeyFrame(current_frame_);
+	last_keyframe_ = current_frame_;
+}
+
+void Mapping2D::ExpandSubmap() {
+	// archive current submap and create new one
+	all_submaps_.emplace_back(current_submap_);
+	
+	current_submap_ = std::make_shared<Submap>(current_frame_->pose_);
+	current_submap_->SetId(submap_id_++);
+	current_submap_->AddKeyFrame(current_frame_);
+	current_submap_->AddScanInOccupancyMap(current_frame_);
+	
+	LOG(INFO) << "create submap " << current_submap_->GetId();
+}
+\end{lstlisting}
+
+The system continuously matches current scans against the active submap. When the robot moves beyond threshold distances, new keyframes are created and added to the current submap. Excessive keyframes trigger new submap creation, with old submaps archived for global mapping.
+
+The test program for this section only needs to read LiDAR data from ROS bags, requiring no additional inputs. This completes our pure LiDAR-based 2D SLAM system:
+\begin{lstlisting}[language=c++,caption=src/ch6/test_2d_mapping.cc]
+	sad::RosbagIO rosbag_io(fLS::FLAGS_bag_path);
+	sad::Mapping2D mapping;
+	
+	if (mapping.Init(FLAGS_with_loop_closing) == false) {
+		return -1;
+	}
+	
+	rosbag_io.AddScan2DHandle("/pavo_scan_bottom", [&](Scan2d::Ptr scan) { return mapping.ProcessScan(scan); }).Go();
+	cv::imwrite("./data/ch6/global_map.png", mapping.ShowGlobalMap(1000));
+	return 0;
+\end{lstlisting}
+
+Readers can run the \texttt{test\_2d\_mapping} program to observe the submap switching process along with each submap's grid and likelihood field visualization. By default, loop closure detection is disabled in this section. The next section will use the same test program with loop closure enabled to demonstrate its effects.
+
+\begin{figure}[!htp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{resources/2d-lidar-mapping/submap-and-field.png}
+	\caption{A single submap and its corresponding likelihood field in 2D LiDAR SLAM}
+	\label{fig:submap-and-field}
+\end{figure}
+
+Figure~\ref{fig:submap-and-field}~shows an active submap and its likelihood field during operation. During testing, these visualizations update dynamically, allowing readers to observe both scan matching and submap transitions. The current LiDAR pose and scan data are overlaid in contrasting colors for clearer real-time localization and mapping visualization.
+
+In addition to the active submap, the program outputs a global map image for debugging purposes (Figure~\ref{fig:global-map-without-loop-closing}). The actual image dimensions are configurable - readers may specify larger sizes for higher-resolution outputs. Since we haven't yet implemented loop closure, accumulated drift creates visible ghosting effects when the robot revisits areas. The next section will address this through loop detection algorithms to eliminate such cumulative errors.
+
+\begin{figure}[!t]
+	\centering
+	\includegraphics[width=0.4\textwidth]{resources/2d-lidar-mapping/global-map-without-loop-closing.png}
+	\caption{Global map without loop closure. When the robot returns from upper regions to the central area, noticeable ghosting appears between submaps.}
+	\label{fig:global-map-without-loop-closing}
+\end{figure}
+
+\section{Loop Closure Detection and Correction}
+Loop closure detection constitutes a critical component in SLAM systems. Without it, both LiDAR odometry and wheel-inertial odometry methods inevitably accumulate drift over time. The previous section's example clearly demonstrates this issue - when the robot completes a loop and returns to previously mapped areas, new submaps exhibit noticeable misalignment with historical ones. This naturally suggests that aligning current scans/submaps with historical maps and adjusting inter-submap pose relationships could effectively eliminate accumulated errors. While theoretically sound, several practical challenges emerge:
+
+\begin{enumerate}
+	\item \textbf{Detection Scope}: Which historical submaps should be examined? This defines the loop \textbf{detection} problem. Intuitively, submaps spatially proximate to current scans should undergo alignment. However, spatial relationships rely on estimated trajectories that may contain significant drift, potentially causing missed detections. Effective implementation requires approximate bounds on accumulated error magnitude.
+	
+	\item \textbf{Registration Methods}: Loop closure registration differs fundamentally from odometric alignment. Odometry assumes \textbf{continuous motion} with small displacements between optimizations. Loop closure initial guesses, however, depend on \textbf{accumulated error magnitude} and may deviate significantly from optimal alignments. Standard ICP and likelihood field methods suffer from strong initial value dependence. Practical solutions incorporate:
+	\begin{itemize}
+		\item Grid searching \cite{Scherer2013}
+		\item Particle filters \cite{Stachniss2005} 
+		\item Branch-and-bound (BAB) \cite{Hess2016}
+		\item Image pyramids \cite{Qianhao2018}
+	\end{itemize}
+	Among these, branch-and-bound and pyramid approaches offer particularly robust performance with similar underlying principles.
+	
+	\item \textbf{Map Correction}: Upon loop detection, global pose adjustment can operate on either keyframes or submaps. Submap-based optimization benefits from significantly smaller problem dimensions (fewer submaps than keyframes), making it ideal when the frontend already employs submap management. However, submap-level correction cannot address intra-submap distortions, motivating some systems to retain keyframe-level optimization.
+\end{enumerate}
+
+\subsection{Multi-Resolution Loop Closure Detection}  
+We now introduce the pyramid-based loop closure detection method, also known as \textbf{coarse-to-fine} or multi-resolution registration. Rather than being a single algorithm, this represents a general strategy for addressing initialization problems - an approach widely applicable beyond point cloud registration. For instance:  
+- Branch-and-bound serves both as a coarse registration method and a fundamental technique in integer programming  
+- Pyramid methods are equally vital for likelihood field registration and optical flow computation \cite{Fortun2015}  
+
+From a search perspective, these methods efficiently explore solution spaces while maintaining optimality. Since both branch-and-bound and coarse-to-fine approaches utilize multi-resolution grid maps, we classify them collectively as multi-resolution loop closure techniques.  
+
+This section focuses on multi-resolution likelihood field matching. While fundamentally still a scan matching problem, it specifically addresses scenarios with poor initial pose estimates. Our implementation extends the standard likelihood field (20 pixels/meter resolution) with additional lower-resolution fields. As shown in Figure~\ref{fig:multi-level-search}, we employ four field layers where each higher level halves the image dimensions. The coarsest level's blurred obstacle representations permit larger initial pose errors while maintaining discriminative power.  
+
+\begin{figure}[!t]  
+	\centering  
+	\includegraphics[width=0.8\textwidth]{resources/2d-lidar-mapping/multi-level-search.png}  
+	\caption{Multi-resolution registration visualization. Left: Original resolution field; Right: Downsampled fields. Red: Unaligned scans; Green: Registered scans.}  
+	\label{fig:multi-level-search}  
+\end{figure}  
+
+The implementation (src/ch6/multi\_resolution\_likelihood\_field.cc) follows standard frame-to-frame matching but with adjusted parameters and multiple field layers:  
+
+\begin{lstlisting}[language=c++,caption=src/ch6/multi_resolution_likelihood_field.cc]
+	void MRLikelihoodField::BuildModel() {
+		const int range = 20;  // Template pixel radius
+		
+		/// Pyramid field construction
+		field_ = {
+			cv::Mat(125, 125, CV_32F, 30.0),  // Level 0 (coarsest)
+			cv::Mat(250, 250, CV_32F, 30.0),
+			cv::Mat(500, 500, CV_32F, 30.0),
+			cv::Mat(1000, 1000, CV_32F, 30.0), // Level 3 (finest)
+		};
+		
+		// Template generation
+		for (int x = -range; x <= range; ++x) {
+			for (int y = -range; y <= range; ++y) {
+				model_.emplace_back(x, y, std::sqrt((x * x) + (y * y)));
+			}
+		}
+	}
+	
+	bool MRLikelihoodField::AlignG2O(SE2& init_pose) {
+		num_inliers_.clear();
+		inlier_ratio_.clear();
+		
+		// Hierarchical registration
+		for (int l = 0; l < levels_; ++l) {
+			if (!AlignInLevel(l, init_pose)) {
+				return false;  // Abort if any level fails
+			}
+		}
+		return true;
+	}
+	
+	bool MRLikelihoodField::AlignInLevel(int level, SE2& init_pose) {
+		// G2O optimization setup (omitted for brevity)
+		...
+		
+		// Adaptive parameters
+		const double rk_delta[] = {0.2, 0.3, 0.6, 0.8}; // Robust kernel thresholds
+		const float inlier_ratio_th = 0.4;  // Minimum inlier percentage
+		
+		// Edge construction and optimization
+		...
+		
+		// Validation
+		if (num_inliers > 100 && inlier_ratio > inlier_ratio_th) {
+			init_pose = v->estimate();
+			return true;
+		}
+		return false;
+	}
+\end{lstlisting}
+
+The pyramid matching proceeds sequentially - failure at any level terminates the process. Notably, loop closure scenarios often exhibit partial matches due to:  
+
+\begin{enumerate}
+\item  Significant initial pose errors  
+\item  Limited LiDAR FOV (270° in our experiments)  
+\item  Non-identical revisit poses 
+\end{enumerate}
+ 
+
+We therefore set a conservative inlier threshold (40\%) to balance sensitivity and robustness. This critical parameter trades off between:  
+- \textbf{Strictness}: Higher thresholds require precise pose recurrence  
+- \textbf{Sensitivity}: Lower thresholds permit more detections but increase false positives  
+
+While we demonstrate coarse-to-fine registration, other methods like branch-and-bound \cite{Hess2016} similarly leverage multi-resolution maps. Both approaches share core principles but differ in implementation details - the former performs full optimization at each level, while the latter evaluates discrete candidates. Given their conceptual similarity, we focus on one representative implementation.
+
+\subsection{Submap-Based Loop Closure Correction}  
+If loop closure detection successfully establishes the registration relationship between the current frame and a historical submap, we initiate a loop closure correction. This problem can again be modeled as a pose graph problem on $\mathrm{SE}(2)$. Moreover, since we have already constructed submaps earlier, the pose graph problem can utilize only submap poses as optimization nodes.
+
+Consider the relationship between the current frame and a historical submap. We compute the pose of the current frame within the historical submap through multi-resolution matching. Let the pose of the historical submap $S_1$ itself be $\bm{T}_{W S_1}$, the pose of the current frame be $\bm{T}_{WC}$, and the pose of the submap $S_2$ containing the current frame be $\bm{T}_{W S_2}$. The multi-resolution matching actually computes the relative pose $\bm{T}_{S_1 C}$. Thus, we can convert this result into the pose transformation between the historical submap and the current submap:
+
+\begin{equation}\label{key}
+	\bm{T}_{S_1 S_2} = \bm{T}_{S_1 C} \bm{T}_{WC}^{-1} \bm{T}_{W S_2}
+\end{equation}
+Thereby obtaining the relative pose relationship between $S_1$ and $S_2$. This process is illustrated in Figure~\ref{fig:submap-pose-graph}.
+
+\begin{figure}[!htp]
+	\centering
+	\includegraphics[width=0.5\textwidth]{resources/2d-lidar-mapping/submap-pose-graph.pdf}
+	\caption{Schematic diagram of submap pose graph optimization.}
+	\label{fig:submap-pose-graph}
+\end{figure}
+
+In loop closure optimization, we treat each submap pose as an optimization variable and construct a pose graph for optimization. The observations in this pose graph primarily come from two sources: first, the relative pose observations between adjacent submaps, and second, the relative pose relationships between two submaps computed by loop closure detection. Again considering the relative pose between submap 1 and submap 2, assuming the relative pose observation computed by loop closure detection is $\bm{T}_{S_1 S_2}$, its residual term is:
+\begin{equation}\label{key}
+	\bm{e} = \mathrm{Log}( \bm{T}_{W S_1}^{-1} \bm{T}_{W S_2} \bm{T}_{S_1 S_2}^{-1}) \in \mathbb{R}^3.
+\end{equation}
+
+Its Jacobian matrix is rather cumbersome, so we leave it to automatic differentiation. To prevent incorrect loop closures, we also add a loop closure verification process: the accumulated error after correction should not be too large, otherwise the loop closure will be rejected as an outlier. The implementation code for loop closure detection is as follows:
+
+\begin{lstlisting}[language=c++,caption=src/ch6/loop_closing.cc]
+class LoopClosing {
+	public:
+	/// A loop closure constraint
+	struct LoopConstraints {
+		LoopConstraints(size_t id1, size_t id2, const SE2& T12) : id_submap1_(id1), id_submap2_(id2), T12_(T12) {}
+		size_t id_submap1_ = 0;
+		size_t id_submap2_ = 0;
+		SE2 T12_;  //  Relative pose
+		bool valid_ = true;
+	};
+	
+	/// Add the most recent submap, which may still be under construction
+	void AddNewSubmap(std::shared_ptr<Submap> submap);
+	
+	/// Add a completed submap
+	void AddFinishedSubmap(std::shared_ptr<Submap> submap);
+	
+	/// Perform loop closure detection for a new frame and update its pose and submap poses
+	void AddNewFrame(std::shared_ptr<Frame> frame);
+	
+	private:
+	/// Detect possible loop closures between the current frame and historical maps
+	bool DetectLoopCandidates();
+	
+	/// Match the current frame with historical submaps
+	void MatchInHistorySubmaps();
+	
+	/// Perform pose graph optimization between submaps
+	void Optimize();
+	
+	std::shared_ptr<Frame> current_frame_ = nullptr;
+	size_t last_submap_id_ = 0;  // ID of the most recent submap
+	
+	std::map<size_t, std::shared_ptr<Submap>> submaps_;  // All submaps
+	
+	// Mapping between submaps and their multi-resolution fields
+	std::map<std::shared_ptr<Submap>, std::shared_ptr<MRLikelihoodField>> submap_to_field_;
+	
+	std::vector<size_t> current_candidates_;                                 // Potential loop closure candidates
+	std::map<std::pair<size_t, size_t>, LoopConstraints> loop_constraints_;  // Loop constraints indexed by constrained submap pairs
+	
+	/// Parameters
+	inline static constexpr float candidate_distance_th_ = 15.0;  // Distance threshold between candidate frame and submap center
+	inline static constexpr int submap_gap_ = 1;                  // Minimum submap index difference for loop closure
+	inline static constexpr double loop_rk_delta_ = 1.0;          // Robust kernel threshold for loop closure
+};
+
+void LoopClosing::AddFinishedSubmap(std::shared_ptr<Submap> submap) {
+	auto mr_field = std::make_shared<MRLikelihoodField>();
+	mr_field->SetPose(submap->GetPose());
+	mr_field->SetFieldImageFromOccuMap(submap->GetOccuMap().GetOccupancyGrid());
+	submap_to_field_.emplace(submap, mr_field);
+}
+
+void LoopClosing::AddNewSubmap(std::shared_ptr<Submap> submap) {
+	submaps_.emplace(submap->GetId(), submap);
+	last_submap_id_ = submap->GetId();
+}
+
+void LoopClosing::AddNewFrame(std::shared_ptr<Frame> frame) {
+	current_frame_ = frame;
+	if (!DetectLoopCandidates()) {
+		return;
+	}
+	
+	MatchInHistorySubmaps();
+	
+	if (has_new_loops_) {
+		Optimize();
+	}
+}
+
+bool LoopClosing::DetectLoopCandidates() {
+	// Require sufficient separation between current frame and historical submaps
+	has_new_loops_ = false;
+	if (last_submap_id_ < submap_gap_) {
+		return false;
+	}
+	
+	current_candidates_.clear();
+	
+	for (auto& sp : submaps_) {
+		if ((last_submap_id_ - sp.first) <= submap_gap_) {
+			// Skip recently created submaps
+			continue;
+		}
+		
+		// Skip if valid constraint already exists between these submaps
+		auto hist_iter = loop_constraints_.find(std::pair<size_t, size_t>(sp.first, last_submap_id_));
+		if (hist_iter != loop_constraints_.end() && hist_iter->second.valid_) {
+			continue;
+		}
+		
+		Vec2d center = sp.second->GetPose().translation();
+		Vec2d frame_pos = current_frame_->pose_.translation();
+		double dis = (center - frame_pos).norm();
+		if (dis < candidate_distance_th_) {
+			current_candidates_.emplace_back(sp.first);
+		}
+	}
+	
+	return !current_candidates_.empty();
+}
+
+void LoopClosing::MatchInHistorySubmaps() {
+	// First save the scan, pose and submap to offline files for MR matching
+	// current_frame_->Dump("./data/ch6/frame_" + std::to_string(current_frame_->id_) + ".txt");
+	
+	for (const size_t& can : current_candidates_) {
+		auto mr = submap_to_field_.at(submaps_[can]);
+		mr->SetSourceScan(current_frame_->scan_);
+		
+		auto submap = submaps_[can];
+		SE2 pose_in_target_submap = submap->GetPose().inverse() * current_frame_->pose_;  // T_S1_C
+		SE2 init_guess = pose_in_target_submap;
+		
+		if (mr->AlignG2O(pose_in_target_submap)) {
+			// Set constraints from current submap to target submap
+			// T_S1_S2 = T_S1_C * T_C_W * T_W_S2
+			SE2 T_this_cur =
+			pose_in_target_submap * current_frame_->pose_.inverse() * submaps_[last_submap_id_]->GetPose();
+			loop_constraints_.emplace(std::pair<size_t, size_t>(can, last_submap_id_),
+			LoopConstraints(can, last_submap_id_, T_this_cur));
+			has_new_loops_ = true;
+		}
+	}
+	
+	current_candidates_.clear();
+}
+\end{lstlisting}
+
+This code constructs a multi-resolution likelihood field for each submap upon completion, then matches recent scans with completed submaps. If multi-resolution matching succeeds, it calls the Optimize function to perform loop closure correction. The correction results directly affect each submap's pose. The Optimize function implements g2o graph optimization setup, which is similar to previously listed g2o programs and thus omitted here. To simplify the implementation, we do not run loop closure detection as a separate thread (which would require lock management for many data structures), but instead execute it sequentially in the main 2D mapping function. Meanwhile, we display submap coordinate systems and their loop closure relationships on the global map. Running the test\_2d\_mapping program with --with\_loop\_closing=true shows this process in real-time. The global map after loop closure correction is shown in Figure~\ref{fig:global-map}, where compared with the earlier Figure~\ref{fig:global-map-without-loop-closing}, clear improvements can be seen in the central section.
+
+\begin{figure}[!t]
+	\centering
+	\includegraphics[width=0.5\textwidth]{resources/2d-lidar-mapping/global-map.png}
+	\caption{Global map with loop closure detection and inter-submap loop constraints.}
+	\label{fig:global-map}
+\end{figure}
+
+Thus, we have completed a relatively comprehensive 2D LiDAR-only SLAM program based on a submap management framework. Such grid maps can be directly used for localization and navigation if saved. Many real-world robots or functionally simple autonomous vehicles achieve self-localization and navigation through similar approaches. However, for brevity, this implementation omits many engineering details that readers may further refine.
+
+\subsection{Discussion}  
+Below we present several potential improvements to the programs in this section. As this book primarily focuses on algorithmic principles and aims to avoid excessive engineering details that could complicate the code, the following content is mainly narrative in nature.
+
+\subsubsection{Laser Motion Compensation, Reflectivity Issues, etc.}  
+First, let us examine the laser sensor itself. A laser sensor rotates periodically and is not designed to account for the simultaneous rotation of the robot's chassis. If the chassis is stationary, the laser sensor should physically rotate 360 degrees when completing a full scan. However, if the robot itself is also rotating, the actual rotation angle when the laser completes a scan may be slightly more or less than 360 degrees. This deviation depends on the speed and direction of the chassis's rotation. Similarly, translational motion of the chassis affects the actual measured distance of each laser point. This phenomenon is referred to as \textbf{motion distortion}.
+
+\begin{figure}[!t]
+	\centering
+	\includegraphics[width=0.7\textwidth]{resources/2d-lidar-mapping/lidar-problems.pdf}
+	\caption{Common issues in 2D LiDAR SLAM. Top-left: Without motion compensation, the laser scan covers slightly less than the actual scene; Top-right: When observing glass surfaces, perspective effects may incorrectly mark glass walls as passable areas; Bottom-left: Reflective artifacts at the end of a left wall create a phantom wall segment beyond the actual corridor; Bottom-right: Robot vibrations cause the laser to hit the ground, creating non-existent obstacles.}
+	\label{fig:lidar-problems}
+\end{figure}
+
+Motion distortion can be mitigated using motion compensation algorithms. The basic idea is to acquire the robot's pose at the start and end of each laser scan cycle. Most laser sensors complete a full rotation in 100 milliseconds, so the robot's motion during this period must be accounted for by compensating each laser point. The same issue arises with 3D LiDAR sensors, which will be discussed in the next chapter. However, how do we obtain the poses at the start and end of the scan? After all, when the laser data is first received, the robot's pose has not yet been estimated, while motion compensation relies on this very estimate. In scenarios with an IMU, we can use its data to predict the robot's motion within the 100-millisecond window and thereby compensate for the distortion.
+
+Motion compensation improves the accuracy of submap registration. We will detail the motion compensation algorithm in the chapter on 3D LiDAR SLAM (see Section~\ref{sec:motion-compensation}), as modern 3D LiDARs typically provide timestamps for each point, whereas 2D LiDARs often do not, requiring manual estimation based on the scanning process. This involves additional sensor-specific parameters, complicating the implementation.
+
+On the other hand, LiDAR sensors measure distance based on the time difference between emitted and reflected light. If the target object absorbs, transmits, or specularly reflects the laser beam, the measured distance may be affected. A typical example is glass surfaces, which may partially reflect or transmit the laser, resulting in intermittent obstacles or walls on the map. Mirrors represent another extreme case, where the laser beam is reflected to another area, causing the measured distance in that direction to appear much longer and making the mirror itself undetectable on the map.
+
+If the robot vibrates during motion, the LiDAR sensor may deviate from the horizontal plane, reducing measurement consistency. The laser may also hit the ground or slopes, violating the assumptions of the grid map model. Many robots require manual annotation of sloped areas in 2D SLAM. With an IMU, the robot's 3D orientation can be estimated to determine whether the laser is tilted.
+
+The aforementioned issues can all be observed in the experiments of this section, as shown in Figure~\ref{fig:lidar-problems}. Therefore, real-world SLAM systems must address significantly more challenges than those covered in theoretical discussions.
+
+\subsubsection{IMU and Robot Odometry Fusion}
+
+\begin{figure}[!htp]
+	\centering
+	\includegraphics[width=0.7\textwidth]{resources/2d-lidar-mapping/bad-cases.pdf}
+	\caption{Degeneration issues in 2D LiDAR under degenerate and open scenarios.}
+	\label{fig:bad-cases}
+\end{figure}
+
+The 2D SLAM introduced in this section is a pure LiDAR solution. Although LiDAR offers high measurement accuracy, single-line LiDAR has limited observation modes and typically narrow field of view, making pure LiDAR solutions susceptible to various environmental structures. Typical examples include open areas and corridor scenarios. In these environments, 2D scan matching algorithms fundamentally cannot uniquely determine the laser scan's position, potentially exhibiting one or more additional degrees of freedom. We refer to such issues as \textbf{degeneracy problems}.
+
+In degenerate scenarios, most pure LiDAR scan matching algorithms struggle to provide correct pose estimation. For instance, in corridor environments, likelihood field methods generate fields concentrated along both corridor walls. If the robot moves along the corridor, new scan data will appear to match perfectly with existing corridor walls. Consequently, the matching algorithm may falsely conclude the robot hasn't moved. Similar phenomena occur with ICP-type methods. Here, we say the robot's pose estimation gains \textbf{extra degrees of freedom (gauge freedom)} along the corridor direction, while the perpendicular direction remains constrained, resulting in 1 additional degree of freedom. In open square scenarios, neither translation nor rotation can be uniquely determined, yielding 3 additional degrees of freedom. Beyond corridors and squares, many regular, symmetric environments (perfect circles, single walls, multiple parallel walls, cylindrical surfaces, etc.) also exhibit degeneracy - readers should be able to identify other degenerate scenarios.
+
+Degeneracy problems are particularly pronounced in pure LiDAR SLAM systems. Incorporating additional sensors can partially compensate for these effects. Later chapters will introduce multi-sensor fusion SLAM systems, most commonly combining IMU, wheel encoders, odometry or GPS information with LiDAR to achieve more robust performance. Both loosely-coupled and tightly-coupled approaches can compensate for LiDAR mapping or localization in degenerate scenarios.
+
+Readers can experiment with other datasets provided in this chapter to verify the SLAM system's core functionality (see Figure~\ref{fig:other-results}). Further improvements can be achieved by implementing motion compensation, degeneracy detection, secondary echo detection, and multi-sensor fusion. However, 2D SLAM ultimately faces practical limitations and is primarily suitable for relatively simple indoor applications. The 3D SLAM introduced in the next chapter demonstrates superior performance in large-scale outdoor environments.
+
+\begin{figure}[!t]
+	\centering
+	\includegraphics[width=1.0\textwidth]{resources/2d-lidar-mapping/other-results.pdf}
+	\caption{Mapping results from additional datasets in this chapter.}
+	\label{fig:other-results}
+\end{figure}
+
+\section{Summary}
+This chapter has presented various algorithmic modules for 2D LiDAR SLAM, which historically formed the core of SLAM research. In 2D scenarios, many problems can be simplified. We implemented registration algorithms including ICP, ICL and Gaussian fields, managed them using a submap framework, and ultimately constructed global grid maps. We also explained submap management across timestamps and loop closure correction for accumulated errors. The 2D SLAM system described here serves as a prototype for various single-line LiDAR mapping and localization applications.
+
+\section*{Exercises}
+\begin{enumerate}
+	\item Implement point-to-point 2D ICP using an optimization framework (based on g2o or ceres).
+	\item Implement point-to-line 2D ICP using an optimization framework (based on g2o or ceres).
+	\item Implement likelihood field registration method using an optimization framework (based on g2o or ceres).
+	\item In the likelihood field method, interpolation of the likelihood field image can be used to obtain more accurate error values and gradient functions. Implement a likelihood field scan matching method using linear interpolation.
+	\item Implement a degeneracy detection method for 2D LiDAR using line fitting.
+\end{enumerate}
