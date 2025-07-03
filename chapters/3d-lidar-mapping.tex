@@ -1,0 +1,1232 @@
+% !Mode:: "TeX:UTF-8"
+\thispagestyle{empty}
+\chapter{3D LiDAR Localization and Mapping}
+\thispagestyle{empty}
+
+This chapter introduces the principles of mapping and localization using 3D LiDAR. Compared to 2D LiDAR, 3D LiDAR provides richer information, is less susceptible to occlusion, and can better reconstruct the three-dimensional structure of the environment. We can either directly register the 3D point clouds or extract geometric features before registration. Both approaches are widely used in autonomous driving applications. In this chapter, we will manually implement the core algorithms and assemble them into a LiDAR odometry system.
+
+\includepdf{art/ch7.pdf}
+
+\section{Working Principles of Multi-beam LiDAR}
+\subsection{Mechanical LiDAR}
+The ranging principle of multi-beam LiDAR is the same as that of single-beam LiDAR. They emit a laser pulse toward the target object, measure the time interval between the transmitted and returned pulses, and then calculate the distance by multiplying the time interval by the speed of light. If the laser penetrates the object during measurement, the receiver may capture multiple echoes. Most LiDAR systems compute the distances from multiple echoes and use the strongest return as the final measured distance. This ranging principle is called Time of Flight (ToF), which is the primary method for most LiDAR sensors and RGB-D cameras. ToF can be further divided into Direct ToF (DToF) and Indirect ToF (IToF), with IToF further categorized into Frequency-Modulated Continuous Wave (FMCW) and Amplitude-Modulated Continuous Wave (AMCW). Due to its lower power consumption and simpler implementation, most LiDARs and RGB-D cameras currently use DToF for ranging.
+
+Compared to single-beam LiDAR, multi-beam LiDAR typically has multiple laser emitters. These are controlled by motors and rotate around an axis at a fixed frequency (e.g., 10 revolutions per second). The laser emitters are arranged at small angular offsets, allowing them to scan objects within a certain field of view when rotating. This rotating configuration is called a \textbf{spinning LiDAR} or mechanical LiDAR. Mechanical LiDARs usually have a 360-degree horizontal field of view, while the vertical field of view depends on the emitter arrangement, typically ranging from 30 to 45 degrees. The number of emitters is referred to as the \textbf{channel count}. Due to their symmetrical design, the channel count is usually a power of two, with common configurations including 4, 16, 32, 64, and 128 channels. The complexity and cost increase significantly with higher channel counts. Figure~\ref{fig:3d-lidars}~ shows several common 3D LiDARs and their single-frame scan data, demonstrating their significantly richer information compared to 2D LiDARs.
+
+\begin{figure}[!htp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{resources/3d-lidar-mapping/3d-lidars.pdf}
+	\caption{Common 3D LiDARs on the market and their single-frame scan data.}
+	\label{fig:3d-lidars}
+\end{figure}
+
+The rich information provided by 3D LiDARs greatly simplifies many computational tasks. For example, we can detect vehicles, traffic signs, and other distinct objects in 3D point clouds \cite{Zhou2018,Shi2019}, identify static and dynamic obstacles, and extract lane markings using reflection intensity \cite{Sithole2003,Fernandes2021}—tasks that are challenging with 2D LiDAR. From a localization and mapping perspective, we can register multiple scans to create a global point cloud map. Annotators can then label the point cloud to generate a \textbf{high-definition (HD) map}, enabling vehicles to achieve \textbf{high-precision localization} within the map. This is currently the standard practice for many Level 4 (L4) autonomous vehicles.
+
+\begin{figure}[!t]
+	\centering
+	\includegraphics[width=0.8\textwidth]{resources/3d-lidar-mapping/low-speed-l4-cars.pdf}
+	\caption{Low-speed autonomous vehicles using multi-beam LiDAR as the primary sensor}
+	\label{fig:low-speed-l4-cars}
+\end{figure}
+
+In the early years, mechanical LiDARs were primarily supplied by Velodyne. However, with recent technological advancements, domestic manufacturers such as RoboSense, Hesai, and DJI have gradually taken over the market, while Velodyne has declined. Today, mechanical LiDARs are available at relatively reasonable prices, with cost-effective 16-channel LiDARs becoming the preferred choice for many low-speed autonomous driving products. Figure~\ref{fig:low-speed-l4-cars}~ shows some low-speed autonomous vehicles equipped with multi-beam LiDARs. These vehicles typically use one or more LiDARs for mapping and localization. To ensure unobstructed views, they commonly mount the LiDAR on the roof, allowing 360-degree coverage around the vehicle. However, due to the limited vertical field of view, roof-mounted LiDARs create significant blind spots near the vehicle. Some larger vehicles address this issue by installing one or two supplementary blind-spot LiDARs at the front to prevent collisions. Nevertheless, using multiple LiDARs significantly increases overall costs, posing a major challenge for mass production.
+
+\subsection{Solid-State LiDAR}  
+Mechanical LiDARs require rotating laser emitters to achieve 360-degree coverage, inevitably incorporating precision mechanical components. These moving parts lead to high costs and vulnerability under harsh conditions like vehicle vibrations. Consequently, LiDARs that measure distances without moving the entire emission/reception assembly—collectively termed \textbf{solid-state LiDARs} (see Fig.~\ref{fig:solid-lidars})—have emerged.  
+
+Solid-state LiDARs employ various measurement principles:  
+\begin{enumerate}  
+	\item \textbf{Rotating Mirror (Semi-Solid) Design}: The laser emitter and receiver remain stationary, while a prism deflects the beam to scan different directions. Though the prism undergoes minor motion, this design eliminates rotating emitters. Examples include RoboSense and DJI's mass-produced rotating mirror LiDARs, now deployed in some passenger vehicles.  
+	\item \textbf{Pure Solid-State Designs}:  
+	\begin{itemize}  
+		\item \textit{Phased Array}: Scans sequentially via electronic beam steering.  
+		\item \textit{Flash LiDAR}: Illuminates the entire FoV simultaneously for single-shot 3D capture.  
+	\end{itemize}  
+	These technologies remain less mature but promise fully static operation.  
+\end{enumerate}  
+
+\begin{figure}[!t]  
+	\centering  
+	\includegraphics[width=0.8\textwidth]{resources/3d-lidar-mapping/solid-lidars.pdf}  
+	\caption{Representative solid-state LiDARs and their scan patterns}  
+	\label{fig:solid-lidars}  
+\end{figure}  
+
+Both semi- and pure solid-state LiDARs feature a scanning window defining their \textbf{Field of View (FoV)}. Typical horizontal FoVs are <120° (vs. 360° for mechanical LiDARs), while vertical FoVs are comparable. Unlike mechanical LiDARs, solid-state variants lack a \textbf{channel count} metric\footnote{Some manufacturers use "equivalent channels"; e.g., many solid-state LiDARs match 128-channel mechanical performance but with narrower FoVs.}. For instance, DJI's Livox series employs a "petal" scanning pattern, whereas others mimic mechanical LiDAR's horizontal scanning with equivalent channels. The constrained FoV enables higher scan rates at the cost of fewer points per frame. Ranging accuracy remains comparable as both types use ToF principles.  
+
+With lower costs and extended lifespans, solid-state LiDARs are increasingly adopted in production vehicles—primarily for forward obstacle detection rather than L4 HD mapping/localization. While consumer vehicles may use 1–2 front-facing units, L4 systems often combine 4–5 solid-state LiDARs for 360° coverage, introducing calibration/synchronization challenges and eroding cost advantages over mechanical LiDARs.  
+
+Most algorithms discussed later are agnostic to LiDAR type (mechanical/solid-state). We provide datasets for both to evaluate SLAM performance. Emerging designs (e.g., spherical/hemispherical FoV solid-state LiDARs) promise broader coverage, reflecting ongoing sensor evolution that will continue driving SLAM innovation.
+
+\section{Scan Matching for Multi-beam LiDAR}  
+The SLAM framework for multi-beam LiDAR is similar to that of single-beam systems. Following the previous chapter, we first discuss scan matching methods for aligning two point clouds, then address back-end processing. Multi-beam LiDAR typically yields superior scan matching compared to single-beam systems, simplifying back-end design. Most multi-beam SLAM systems forgo submap concepts, directly managing point clouds. Thus, registration primarily employs scan-to-scan or scan-to-map approaches.  
+
+\subsection{Point-to-Point ICP}  
+\subsubsection{Theoretical Foundations}  
+Point-to-point Iterative Closest Point (ICP) is a fundamental point cloud registration method. Given two point clouds $S_1=\{\bm{p}_1, \ldots, \bm{p}_m\}$ and $S_2 = \{\bm{q}_1, \ldots, \bm{q}_n\}$, correct alignment should satisfy for matched pairs $\bm{p}_i \in S_1, \bm{q}_j \in S_2$:  
+\begin{equation}\label{key}  
+	\bm{p}_i = \bm{R} \bm{q}_j + \bm{t}.  
+\end{equation}  
+Note that we neither assume equal point counts nor initial ordering correspondence between clouds. The ICP workflow proceeds as:  
+\begin{enumerate}  
+	\item Initialize pose estimate $\bm{R}_0, \bm{t}_0$.  
+	\item Iterate from initial pose. Let $\bm{R}_k, \bm{t}_k$ denote the $k$-th iteration estimate.  
+	\item For current pose, establish correspondences via nearest-neighbor search, yielding pairs $(\bm{p}_i, \bm{q}_i)$.  
+	\item Update pose by minimizing:  
+	\begin{equation}\label{eq:p2p-icp}  
+		\bm{R}_{k+1}, \bm{t}_{k+1} = \arg \min\limits_{\bm{R}, \bm{t}} \sum_{i} \| \bm{p}_i - (\bm{R} \bm{q}_i + \bm{t}) \|_2^2.  
+	\end{equation}  
+	\item Check convergence; if unmet, return to step 3.  
+\end{enumerate}  
+
+ICP essentially \textbf{alternates between pose estimation and correspondence matching} \cite{Pavlov2018}. Each iteration uses the current pose to find matches, then solves for an updated pose. Key observations:  
+
+\begin{itemize}  
+	\item \textit{Alternating Minimization}: This decoupled approach simplifies computation—both matching and pose subproblems are tractable. Modern methods increasingly solve both jointly \cite{Yang2020}. While theoretically minimizing error monotonically \cite{Zhang2021a}, incorrect matches (from fixed correspondences) can degrade performance.  
+	\item \textit{Least-Square Optimization}: Equation \eqref{eq:p2p-icp} admits various enhancements: weight matrices, robust kernels, or alternative error metrics \cite{Pottmann2004,Zinser2003,segal2009generalized}. Later discussions on point-line/point-plane ICP \cite{Chen1992} exemplify error metric modifications.  
+	\item \textit{Feature-Based Matching}: Extracting geometric features (planes, cylinders) from stable autonomous driving scenes can reduce computation and improve robustness by operating on higher-level abstractions.  
+\end{itemize}  
+
+We implement basic ICP using iterative optimization (analytical solutions exist\footnote{See \textit{Lecture 14}, Sec. 7.9.}) for consistency with later sections and flexibility in least-squares extensions. Defining point-to-point error:  
+\begin{equation}\label{key}  
+	\bm{e}_i = \bm{p}_i - \bm{R} \bm{q}_i - \bm{t},  
+\end{equation}  
+with right-multiplication for $\bm{R}$ updates, the Jacobians w.r.t. rotation and translation are:  
+\begin{equation}\label{eq:p2p-icp-jacobian}  
+	\frac{\partial \bm{e}_i}{\partial \bm{R}} = \bm{R} \bm{q}^\wedge, \quad \frac{\partial \bm{e}_i}{\partial \bm{t}} = -\bm{I}.  
+\end{equation}
+
+\subsubsection{Implementation}
+The core ICP algorithm is straightforward. Omitting peripheral I/O code, we present a concurrent implementation that significantly outperforms PCL's built-in ICP:
+
+\begin{lstlisting}[language=c++,caption=ch7/icp\_3d.cc]
+	bool Icp3d::AlignP2P(SE3& init_pose) {
+		LOG(INFO) << "aligning with point to point";
+		assert(target_ != nullptr && source_ != nullptr);
+		
+		SE3 pose = init_pose;
+		pose.translation() = target_center_ - source_center_;  // Initialize translation
+		LOG(INFO) << "init trans set to " << pose.translation().transpose();
+		
+		// Pre-generate point indices
+		std::vector<int> index(source_->points.size());
+		std::iota(index.begin(), index.end(), 0);
+		
+		// Concurrent computation buffers
+		std::vector<bool> effect_pts(index.size(), false);
+		std::vector<Eigen::Matrix<double, 3, 6>> jacobians(index.size());
+		std::vector<Vec3d> errors(index.size());
+		
+		for (int iter = 0; iter < options_.max_iteration_; ++iter) {
+			// Parallel nearest neighbor search
+			std::for_each(std::execution::par_unseq, index.begin(), index.end(), [&](int idx) {
+				auto q = ToVec3d(source_->points[idx]);
+				Vec3d qs = pose * q;  // Transformed point
+				std::vector<int> nn;
+				kdtree_->GetClosestPoint(ToPointType(qs), nn, 1);
+				
+				if (!nn.empty()) {
+					Vec3d p = ToVec3d(target_->points[nn[0]]);
+					double dis = (p - qs).norm();
+					if (dis > options_.max_nn_distance_) return;  // Reject outliers
+					
+					effect_pts[idx] = true;
+					
+					// Build residual and Jacobian
+					Vec3d e = p - qs;
+					Eigen::Matrix<double, 3, 6> J;
+					J.block<3, 3>(0, 0) = pose.so3().matrix() * SO3::hat(q);
+					J.block<3, 3>(0, 3) = -Mat3d::Identity();
+					
+					jacobians[idx] = J;
+					errors[idx] = e;
+				}
+			});
+			
+			// Accumulate Hessian and error
+			double total_res = 0;
+			int effective_num = 0;
+			auto H_and_err = std::accumulate(
+			index.begin(), index.end(), 
+			std::pair<Mat6d, Vec6d>(Mat6d::Zero(), Vec6d::Zero()),
+			[&](const auto& pre, int idx) {
+				if (!effect_pts[idx]) return pre;
+				total_res += errors[idx].squaredNorm();
+				effective_num++;
+				return std::pair<Mat6d, Vec6d>(
+				pre.first + jacobians[idx].transpose() * jacobians[idx],
+				pre.second - jacobians[idx].transpose() * errors[idx]
+				);
+			});
+			
+			if (effective_num < options_.min_effective_pts_) {
+				LOG(WARNING) << "Insufficient correspondences: " << effective_num;
+				return false;
+			}
+			
+			// Solve and update
+			Vec6d dx = H_and_err.first.ldlt().solve(H_and_err.second);
+			pose.so3() = pose.so3() * SO3::exp(dx.head<3>());
+			pose.translation() += dx.tail<3>();
+			
+			LOG(INFO) << "iter " << iter << " | res: " << total_res 
+			<< " | eff: " << effective_num
+			<< " | avg res: " << total_res/effective_num
+			<< " | dx: " << dx.norm();
+			
+			if (dx.norm() < options_.eps_) {
+				LOG(INFO) << "Converged with dx = " << dx.transpose();
+				break;
+			}
+		}
+		
+		init_pose = pose;
+		return true;
+	}
+\end{lstlisting}
+
+The implementation leverages the KD-tree from Chapter 5 for nearest neighbor search. A test program is provided in test\_icp.cc for evaluating registration performance:
+
+\begin{lstlisting}[language=c++,caption=src/ch7/test/test_icp.cc]
+	sad::CloudPtr source(new sad::PointCloudType), target(new sad::PointCloudType);
+	pcl::io::loadPCDFile(fLS::FLAGS_source, *source);
+	pcl::io::loadPCDFile(fLS::FLAGS_target, *target);
+	
+	bool success;
+	
+	sad::evaluate_and_call([&]() {
+		sad::Icp3d icp;
+		icp.SetSource(source);
+		icp.SetTarget(target);
+		icp.SetGroundTruth(gt_pose);
+		
+		SE3 pose;
+		success = icp.AlignP2P(pose);
+		
+		if (success) {
+			LOG(INFO) << "ICP success. Rotation (quat): " 
+			<< pose.so3().unit_quaternion().coeffs().transpose()
+			<< " | Translation: " << pose.translation().transpose();
+			
+			sad::CloudPtr aligned(new sad::PointCloudType);
+			pcl::transformPointCloud(*source, *aligned, pose.matrix().cast<float>());
+			pcl::io::savePCDFileBinaryCompressed("./data/ch7/aligned.pcd", *aligned);
+		} else {
+			LOG(ERROR) << "Alignment failed";
+		}
+	}, "ICP P2P", 1);
+\end{lstlisting}
+
+\section{Experimental Evaluation}
+To facilitate algorithm benchmarking, we provide simulated datasets derived from the EPFL Statues Dataset\footnote{EPFL Statues Dataset: \url{https://lgg.epfl.ch/statues_dataset.php}}, which contains high-accuracy reconstructed point clouds as shown in Fig.~\ref{fig:icp-align-results}. We generate test cases by applying random transformations to these models followed by sampling, producing target and source point clouds (available in \texttt{data/ch7/EPFL/}). The dataset includes two models (\texttt{kneeling\_lady} and \texttt{aquarius}) with ground truth poses for quantitative evaluation. All registration algorithms in this chapter report per-iteration pose errors against ground truth to assess convergence.
+
+Below demonstrates ICP testing (subsequent algorithms share the same evaluation framework):
+
+\begin{lstlisting}[language=sh,caption=Terminal output]
+	I0130 16:46:40.795749 84155 icp_3d.cc:13] Aligning with point-to-point ICP
+	I0130 16:46:40.805476 84155 icp_3d.cc:96] Iter 0 | Res: 11.523 | Eff: 44455 | Avg: 0.000259 | dx: 0.027
+	I0130 16:46:40.805512 84155 icp_3d.cc:101] Pose error: 0.0689234
+	[...]
+	I0130 16:46:40.828277 84155 icp_3d.cc:105] Converged, dx = [0.0054, -0.0021, -0.0035, -0.0009, 0.0018, -0.0023]
+	I0130 16:46:40.828301 84155 test_icp.cc:54] ICP success. Pose: [0.0265, -0.0107, -0.0235, 0.9993], [-0.0689, -0.1033, 0.0050]
+	I0130 16:46:40.878885 84155 sys_utils.h:32] ICP P2P avg time: 163.421ms (1 runs)
+	[...] 
+	I0130 16:46:42.158504 84155 test_icp.cc:140] PCL ICP pose: [0.0292, -0.0092, -0.0195, 0.9993], [-0.0636, -0.0567, 0.0027]
+	I0130 16:46:42.161834 84155 test_icp.cc:146] PCL ICP error: 0.262063
+	I0130 16:46:42.162148 84155 sys_utils.h:32] PCL ICP avg time: 895.009ms (1 runs)
+\end{lstlisting}
+
+Our concurrent implementation demonstrates 5.5× speedup over PCL's ICP with superior accuracy (0.015 vs 0.262 pose error). The decreasing residuals and pose errors confirm stable convergence. Fig.~\ref{fig:icp-align-results} visualizes the alignment results\footnote{Note: Point cloud colors may vary across PCL viewers due to random color assignment.}. While PCL's result shows visible misalignment (black edges), our implementation achieves sub-centimeter precision. Readers can inspect the results using:
+
+\begin{lstlisting}
+	pcl_viewer ./data/ch7/icp_trans.pcd ./data/ch7/EPFL/kneeling_lady_target.pcd
+\end{lstlisting}
+
+\begin{figure}
+	\centering
+	\includegraphics[width=0.8\textwidth]{3d-lidar-mapping/ch7-align-results.pdf}
+	\caption{Alignment visualization: (Left) Initial pose, (Middle) Our ICP, (Right) PCL ICP}
+	\label{fig:icp-align-results}
+\end{figure}
+
+Despite its simplicity, point-to-point ICP faces limitations in autonomous driving scenarios. The sparsity of LiDAR point clouds means consecutive scans rarely sample identical surface points. Matching discrete points directly (as in basic ICP) proves suboptimal. Subsequent sections address this through:
+\begin{itemize}
+	\item Multi-point correspondences (point-to-plane ICP)
+	\item Distribution-based matching (NDT)
+	\item Feature-level registration.
+\end{itemize}
+
+\subsection{Point-to-Line and Point-to-Plane ICP}
+\subsubsection{Theoretical Foundations}
+Point-to-line and point-to-plane ICP are direct extensions of the standard ICP method. Their principles are similar to the 2D point-to-line ICP introduced in the previous chapter, with the optimization variables extended to 3D space and derivatives handled using manifold representations. 
+
+Following the definitions from the previous section, let's consider two point clouds $S_1$ and $S_2$ with transformation parameters $\bm{R}, \bm{t}$. For each transformed point $\bm{R} \bm{q}_i + \bm{t}$, instead of finding a single nearest neighbor $\bm{p}_i$, we find multiple nearest neighbors and fit either a plane or a line to them.
+
+\paragraph{Point-to-Plane ICP}  
+For plane fitting, assume the plane parameters are $(\bm{n},d) \in \mathbb{R}^4$, where $\bm{n}$ is the unit normal vector and $d$ is the intercept. For any point $\bm{p}$ on the plane:
+\begin{equation}\label{key}
+	\bm{n}^\top \bm{p} + d = 0.
+\end{equation}
+The signed distance from a point $\bm{q}_i$ to the plane is:
+\begin{equation}\label{key}
+	e_i = \bm{n}^\top (\bm{R} \bm{q}_i + \bm{t}) + d.
+\end{equation}
+Note that since $|\bm{n}|=1$, no normalization is needed. The derivatives with respect to $\bm{R}$ and $\bm{t}$ are:
+\begin{equation}\label{key}
+	\frac{\partial e_i}{\partial \bm{R}} = -\bm{n}^\top \bm{R} \bm{q}_i^\wedge, \quad \frac{\partial e_i}{\partial \bm{t}} = \bm{n}.
+\end{equation}
+
+\paragraph{Point-to-Line ICP}  
+For line fitting, parameterize the line as:
+\begin{equation}\label{key}
+	\bm{p} = \bm{d} \tau + \bm{p}_0,
+\end{equation}
+where $\bm{d}$ is the unit direction vector, $\bm{p}_0$ is a point on the line, and $\tau$ is a scalar parameter. The perpendicular distance from $\bm{q}_i$ to the line is given by the cross product:
+\begin{equation}\label{key}
+	\bm{e}_i = \bm{d} \times (\bm{R} \bm{q}_i + \bm{t} - \bm{p}_0) = \bm{d}^\wedge (\bm{R} \bm{q}_i + \bm{t} - \bm{p}_0).
+\end{equation}
+The derivatives are:
+\begin{equation}\label{key}
+	\frac{\partial \bm{e}_i}{\partial \bm{R}} = -\bm{d}^\wedge \bm{R} \bm{q}_i^\wedge, \quad \frac{\partial \bm{e}_i}{\partial \bm{t}} = \bm{d}^\wedge.
+\end{equation}
+
+These derivatives are straightforward to derive, and we leave their complete derivation as an exercise for the reader.
+
+\subsection{Point-to-Line ICP Implementation}
+The point-to-line ICP follows the same principle as previous methods, with modifications to use line-based residuals. Below shows the key implementation differences:
+
+\begin{lstlisting}[language=c++,caption=ch7/icp\_3d.cc]
+std::for_each(std::execution::par_unseq, index.begin(), index.end(), [&](int idx) {
+	auto q = ToVec3d(source_->points[idx]);
+	Vec3d qs = pose * q;  // Transformed point
+	std::vector<int> nn;
+	kdtree_->GetClosestPoint(ToPointType(qs), nn, 5);  // 5 neighbors for line fitting
+	
+	if (nn.size() == 5) {
+		std::vector<Vec3d> nn_eigen;
+		for (int i = 0; i < 5; ++i) {
+			nn_eigen.emplace_back(ToVec3d(target_->points[nn[i]]));
+		}
+		
+		Vec3d direction, point_on_line;
+		if (!math::FitLine(nn_eigen, point_on_line, direction, 
+		options_.max_line_distance_)) {
+			effect_pts[idx] = false;
+			return;
+		}
+		
+		Vec3d err = SO3::hat(direction) * (qs - point_on_line);
+		
+		if (err.norm() > options_.max_line_distance_) {
+			effect_pts[idx] = false;
+			return;
+		}
+		
+		effect_pts[idx] = true;
+		
+		// Build 3x6 Jacobian
+		Eigen::Matrix<double, 3, 6> J;
+		J.block<3, 3>(0, 0) = -SO3::hat(direction) * pose.so3().matrix() * SO3::hat(q);
+		J.block<3, 3>(0, 3) = SO3::hat(direction);
+		
+		jacobians[idx] = J;
+		errors[idx] = err;
+	} else {
+		effect_pts[idx] = false;
+	}
+});
+\end{lstlisting}
+
+Key implementation notes:
+\begin{itemize}
+	\item Uses 5 nearest neighbors for line fitting
+	\linebreak[1] \item Jacobian becomes 3×6 dimensional
+	\linebreak[1] \item Residual becomes 3D vector (perpendicular distance components)
+\end{itemize}
+
+Benchmark results show comparable performance to point-to-point ICP:
+
+\begin{lstlisting}[language=c++,caption=Terminal output]
+I0130 16:46:41.100083 84155 icp_3d.cc:232] Aligning with point-to-line
+I0130 16:46:41.109969 84155 icp_3d.cc:325] Iter 0 | Pose error: 0.0536 | Res: 11.360 | Eff: 44503 | Avg: 0.000255 | dx: 0.0431
+I0130 16:46:41.118880 84155 icp_3d.cc:325] Iter 1 | Pose error: 0.0279 | Res: 3.6516 | Eff: 44515 | Avg: 8.20e-05 | dx: 0.0262
+I0130 16:46:41.127648 84155 icp_3d.cc:325] Iter 2 | Pose error: 0.0143 | Res: 1.013 | Eff: 44515 | Avg: 2.28e-05 | dx: 0.0138
+I0130 16:46:41.135840 84155 icp_3d.cc:325] Iter 3 | Pose error: 0.0073 | Res: 0.292 | Eff: 44515 | Avg: 6.58e-06 | dx: 0.00714
+I0130 16:46:41.135859 84155 icp_3d.cc:333] Converged, dx = [0.00545, -0.00273, -0.00242, -0.000307, 0.00164, -0.00229]
+E0130 16:46:41.135869 84155 test_icp.cc:96] ICP success. Pose: [0.0296, -0.0118, -0.0257, 0.999], [-0.0702, -0.1019, 0.00249]
+I0130 16:46:41.186185 84155 sys_utils.h:32] ICP P2Line avg time: 157.942ms (1 runs)
+\end{lstlisting}
+
+Performance comparison:
+\begin{itemize}
+	\item \textbf{Accuracy}: Point-to-plane > Point-to-line ≈ Point-to-point
+	\item \textbf{Efficiency}: All variants significantly outperform PCL's implementation
+\end{itemize}
+
+An important observation arises: Why limit ourselves to a single residual type? Modern approaches often:
+\begin{enumerate}
+	\item Classify local geometry (planar/linear) in the target cloud
+	\item Dynamically select point-to-plane or point-to-line residuals
+\end{enumerate}
+
+This feature-adaptive approach, common in autonomous driving, will be explored later. First, we introduce another statistical registration method: NDT (Normal Distributions Transform).
+
+\subsection{NDT Method}
+\label{sec:ndt}
+\subsubsection{Principles}
+Whether point-to-line or point-to-plane ICP, their fundamental difference from standard ICP lies in registering points not to individual \textbf{points}, but to certain \textbf{statistical measures}. Point-to-plane ICP fits local points to planes, while point-to-line ICP fits them to lines. Extending this idea further: Why must we presuppose whether points form planes or lines? Why precisely determine surface/line parameters? We only need the \textbf{local statistics} of the point cloud for matching. The most basic statistical measures of a point set are its \textbf{mean} and \textbf{covariance}. Following this reasoning leads to the traditional NDT (Normal Distribution Transform) method \cite{Ulas2013,Saarinen2013}.
+
+This section explains NDT principles using simplified notation, which differs slightly from the original NDT papers while maintaining theoretical consistency. The NDT workflow:
+
+\begin{enumerate}
+	\item Partition the target point cloud into voxels at a specified resolution.
+	\item Compute Gaussian distributions for each voxel. Let $\boldsymbol{\mu}_k$ and $\boldsymbol{\Sigma}_k$ denote the mean and covariance of the $k$-th voxel.
+	\item During registration, determine which voxel each transformed point occupies, then establish residuals between the point and the voxel's $\boldsymbol{\mu}_k, \boldsymbol{\Sigma}_k$.
+	\item Iteratively refine the pose estimate using Gauss-Newton or Levenberg-Marquardt.
+\end{enumerate}
+
+The key step is \#3. For a source point $\bm{q}_i$ transformed by $\bm{R}, \bm{t}$ into a voxel with statistics $\boldsymbol{\mu}_i, \boldsymbol{\Sigma}_i$\footnote{In practice, pose errors may place points in adjacent voxels. Most NDT implementations search neighboring voxels to improve convergence.}, we define the voxel residual as:
+\begin{equation}\label{key}
+	\bm{e}_i = \bm{R} \bm{q}_i + \bm{t} - \boldsymbol{\mu}_i,
+\end{equation}
+
+The optimal $\bm{R}, \bm{t}$ solve a weighted least-squares problem:
+\begin{equation}\label{key}
+	(\bm{R},\bm{t})^* = \arg \min\limits_{\bm{R}, \bm{t}} \sum_{i} (\bm{e}_i^\top \boldsymbol{\Sigma}_i^{-1} \bm{e}_i) .
+\end{equation}
+
+From least-squares theory, this equivalently maximizes the probability of each point belonging to its voxel's distribution - a maximum likelihood estimation (MLE)\footnote{Readers unfamiliar should consult Chapter 6 of \textit{14 Lectures}.}:
+\begin{equation}\label{key}
+	(\bm{R},\bm{t})^* = \arg \max\limits_{\bm{R}, \bm{t}} \prod_{i} P(\bm{R} \bm{q}_i + \bm{t})
+\end{equation}
+Here, $\boldsymbol{\Sigma}^{-1}_i$ provides the weighting: tighter distributions demand closer alignment to $\boldsymbol{\mu}_i$, while dispersed distributions tolerate greater deviation.
+
+The Gauss-Newton system becomes:
+\begin{equation}\label{eq:ndt-normal-equation}
+	\sum_{i} (\bm{J}_i^\top \boldsymbol{\Sigma}_i^{-1} \bm{J}_i) \Delta \bm{x} = -\sum_{i} \bm{J}_i^\top \boldsymbol{\Sigma}^{-1}_i \bm{e}_i,
+\end{equation}
+where $\Delta \bm{x}$ is the increment and $\bm{J}_i$ the Jacobian:
+\begin{equation}\label{key}
+	\frac{\partial \bm{e}_i}{\partial \bm{R}} = -\bm{R} \bm{q}_i^\wedge, \quad \frac{\partial \bm{e}_i}{\partial \bm{t}} = \bm{I}.
+\end{equation}
+Levenberg-Marquardt can enhance robustness.
+
+\textbf{Note}: This derivation differs significantly from \cite{Magnusson2009}, aligning more closely with early 2D NDT \cite{Biber2003}. The core principles remain identical - the original formulation used trigonometric expressions before manifold optimization became prevalent in SLAM. We omit the uniform distribution component for clarity, as most implementations incorporate practical improvements \cite{Kung2021, Rapp2015}. Similarly, other algorithms in this book adapt original formulations to maintain consistent notation.
+
+\subsubsection{Implementation}
+The NDT implementation consists of two main components: voxel construction and registration. The NDT class internally maintains these voxels and their indices. The voxel construction process is similar to the grid method described in Chapter 5, but without requiring nearest neighbor search implementation. The core code is as follows:
+
+\begin{lstlisting}[language=c++,caption=src/ch7/ndt\_3d.cc]
+class Ndt3d {
+	public:
+	enum class NearbyType {
+		CENTER,   // Consider only center
+		NEARBY6,  // Up/down/left/right/front/back
+	};
+	
+	using KeyType = Eigen::Matrix<int, 3, 1>;  // Voxel index
+	struct VoxelData {
+		VoxelData() {}
+		VoxelData(size_t id) { idx_.emplace_back(id); }
+		
+		std::vector<size_t> idx_;      // Point indices in cloud
+		Vec3d mu_ = Vec3d::Zero();     // Mean
+		Mat3d sigma_ = Mat3d::Zero();  // Covariance
+		Mat3d info_ = Mat3d::Zero();   // Inverse covariance
+	};
+	
+	private:
+	void BuildVoxels();
+	
+	/// Generate nearby grids based on neighbor type
+	void GenerateNearbyGrids();
+	
+	CloudPtr target_ = nullptr;
+	CloudPtr source_ = nullptr;
+	
+	Vec3d target_center_ = Vec3d::Zero();
+	Vec3d source_center_ = Vec3d::Zero();
+	Options options_;
+	
+	std::unordered_map<KeyType, VoxelData, hash_vec<3>> grids_;  // Voxel data
+	std::vector<KeyType> nearby_grids_;                          // Nearby voxels
+};
+
+void Ndt3d::BuildVoxels() {
+	assert(target_ != nullptr);
+	assert(target_->empty() == false);
+	
+	/// Assign points to voxels
+	std::vector<size_t> index(target_->size());
+	std::iota(index.begin(), index.end(), 0);
+	
+	std::for_each(index.begin(), index.end(), [this](const size_t& idx) {
+		auto pt = ToVec3d(target_->points[idx]);
+		auto key = (pt * options_.inv_voxel_size_).cast<int>();
+		grids_[key].idx_.emplace_back(idx);
+	});
+	
+	/// Compute mean and covariance for each voxel
+	std::for_each(std::execution::par_unseq, grids_.begin(), grids_.end(), [this](auto& v) {
+		if (v.second.idx_.size() > options_.min_pts_in_voxel_) {
+			// Minimum 3 points required
+			math::ComputeMeanAndCov(v.second.idx_, v.second.mu_, v.second.sigma_,
+			[this](const size_t& idx) { return ToVec3d(target_->points[idx]); });
+			// Regularize covariance matrix
+			v.second.info_ = (v.second.sigma_ + Mat3d::Identity() * 1e-3).inverse();
+		}
+	});
+	
+	/// Remove voxels with insufficient points
+	for (auto iter = grids_.begin(); iter != grids_.end();) {
+		if (iter->second.idx_.size() > options_.min_pts_in_voxel_) {
+			iter++;
+		} else {
+			iter = grids_.erase(iter);
+		}
+	}
+	
+	LOG(INFO) << "voxels: " << grids_.size();
+}
+
+void Ndt3d::GenerateNearbyGrids() {
+	nearby_grids_.clear();
+	if (options_.nearby_type_ == NearbyType::CENTER) {
+		nearby_grids_.emplace_back(KeyType::Zero());
+	} else if (options_.nearby_type_ == NearbyType::NEARBY6) {
+		nearby_grids_ = {KeyType(0, 0, 0),  KeyType(-1, 0, 0), KeyType(1, 0, 0), 
+			KeyType(0, 1, 0), KeyType(0, -1, 0), KeyType(0, 0, -1), 
+			KeyType(0, 0, 1)};
+	}
+}
+\end{lstlisting}
+
+\subsubsection{Voxel Neighbor Selection}
+Users can configure the voxel neighbor search strategy. We can either use only the center voxel or include its six adjacent voxels as neighbors. For any voxel containing at least three points, we compute its mean and covariance. 
+
+Note that in simulation scenarios, multiple points may share identical coordinates along certain axes, causing zero values in the covariance matrix diagonal. Similarly, when points within a voxel approximate a plane or line, the covariance matrix may become singular. Therefore, we add a small regularization term (1e-3) to the diagonal before matrix inversion to ensure numerical stability.
+
+The NDT registration implementation:
+
+\begin{lstlisting}[language=c++,caption=src/ch7/ndt\_3d.cc]
+bool Ndt3d::AlignNdt(SE3& init_pose) {
+	LOG(INFO) << "Aligning with NDT";
+	assert(!grids_.empty());
+	
+	SE3 pose = init_pose;
+	if (options_.remove_centroid_) {
+		pose.translation() = target_center_ - source_center_;  // Initialize translation
+		LOG(INFO) << "Initial translation: " << pose.translation().transpose();
+	}
+	
+	// Precompute point indices
+	int num_residual_per_point = options_.nearby_type_ == NearbyType::NEARBY6 ? 7 : 1;
+	std::vector<int> index(source_->size());
+	std::iota(index.begin(), index.end(), 0);
+	
+	for (int iter = 0; iter < options_.max_iteration_; ++iter) {
+		// Parallel computation buffers
+		std::vector<bool> effect_pts(index.size() * num_residual_per_point, false);
+		std::vector<Eigen::Matrix<double, 3, 6>> jacobians(effect_pts.size());
+		std::vector<Vec3d> errors(effect_pts.size());
+		std::vector<Mat3d> infos(effect_pts.size());
+		
+		// Parallel residual computation
+		std::for_each(std::execution::par_unseq, index.begin(), index.end(), [&](int idx) {
+			Vec3d qs = pose * ToVec3d(source_->points[idx]);
+			Vec3i base_key = (qs * options_.inv_voxel_size_).cast<int>();
+			
+			for (int i = 0; i < nearby_grids_.size(); ++i) {
+				Vec3i key = base_key + nearby_grids_[i];
+				int buffer_idx = idx * num_residual_per_point + i;
+				
+				if (auto it = grids_.find(key); it != grids_.end()) {
+					const auto& v = it->second;
+					Vec3d e = qs - v.mu_;
+					double res = e.transpose() * v.info_ * e;
+					
+					if (std::isnan(res) || res > options_.res_outlier_th_) {
+						continue;  // Reject outliers
+					}
+					
+					// Build residual and Jacobian
+					jacobians[buffer_idx].block<3,3>(0,0) = -pose.so3().matrix() * SO3::hat(q);
+					jacobians[buffer_idx].block<3,3>(0,3) = Mat3d::Identity();
+					errors[buffer_idx] = e;
+					infos[buffer_idx] = v.info_;
+					effect_pts[buffer_idx] = true;
+				}
+			}
+		});
+		
+		// Accumulate Hessian and error
+		Mat6d H = Mat6d::Zero();
+		Vec6d err = Vec6d::Zero();
+		double total_res = 0;
+		int effective_num = 0;
+		
+		for (int i = 0; i < effect_pts.size(); ++i) {
+			if (!effect_pts[i]) continue;
+			
+			H += jacobians[i].transpose() * infos[i] * jacobians[i];
+			err -= jacobians[i].transpose() * infos[i] * errors[i];
+			total_res += errors[i].transpose() * infos[i] * errors[i];
+			effective_num++;
+		}
+		
+		if (effective_num < options_.min_effective_pts_) {
+			LOG(WARNING) << "Insufficient correspondences: " << effective_num;
+			return false;
+		}
+		
+		// Update pose
+		Vec6d dx = H.ldlt().solve(err);
+		pose.so3() = pose.so3() * SO3::exp(dx.head<3>());
+		pose.translation() += dx.tail<3>();
+		
+		LOG(INFO) << "Iter " << iter << " | Res: " << total_res 
+		<< " | Eff: " << effective_num
+		<< " | Avg: " << total_res/effective_num
+		<< " | dx: " << dx.norm();
+		
+		if (gt_set_) {
+			LOG(INFO) << "Pose error: " << (gt_pose_.inverse() * pose).log().norm();
+		}
+		
+		if (dx.norm() < options_.eps_) break;
+	}
+	
+	init_pose = pose;
+	return true;
+}
+\end{lstlisting}
+
+Key implementation notes:
+\begin{itemize}
+	\item Supports configurable neighbor search (center-only or 6-adjacent)
+	\item Parallelized residual computation using C++17 execution policies
+	\item Regularized covariance matrices (1e-3) for numerical stability
+	\item Outlier rejection based on Mahalanobis distance threshold
+	\item Efficient LDLT decomposition for solving the linear system
+\end{itemize}
+
+The overall workflow remains consistent with our previous discussion, though readers may incorporate additional convergence checks as needed. The inclusion of covariance matrices imposes constraints during Gauss-Newton iterations, accelerating convergence\footnote{Similar covariance constraints could be applied in point-to-plane ICP, e.g., prioritizing errors along plane normals rather than uniform optimization.}. When executing the test program, readers will observe significantly faster performance from this NDT implementation:
+
+\begin{lstlisting}[language=sh,caption=Terminal output:]
+I0130 17:48:05.746295 88880 ndt_3d.cc:69] Aligning with NDT
+I0130 17:48:05.746309 88880 ndt_3d.cc:75] Initial translation: -0.0565748 -0.122053 0.0288451
+I0130 17:48:05.748436 88880 ndt_3d.cc:168] Iter 0 | Res: 136282 | Eff: 44120 | Avg: 3.0889 | dx: 0.0323 [0.0212, -0.0005, -0.0209, -0.0078, 0.0069, -0.0071]
+I0130 17:48:05.748458 88880 ndt_3d.cc:178] Pose error: 0.065853
+[...]
+I0130 17:48:05.754640 88880 ndt_3d.cc:182] Converged, dx = [0.0069, -0.0035, -0.0049, -0.0005, 0.0021, -0.0031]
+E0130 17:48:05.754648 88880 test_icp.cc:121] NDT success. Pose: [0.0267, -0.0049, -0.0222, 0.9994], [-0.0713, -0.1045, 0.0086]
+I0130 17:48:05.758247 88880 sys_utils.h:32] NDT avg time: 20.9043ms (1 runs)
+[...]
+I0130 17:44:52.928387 88363 test_icp.cc:167] PCL NDT pose error: 0.201841
+I0130 17:44:52.928720 88363 sys_utils.h:32] PCL NDT avg time: 250.998ms (1 runs)
+\end{lstlisting}
+
+Performance benchmarks show:
+\begin{itemize}
+	\item \textbf{Center-voxel mode}: 10x faster than PCL implementation
+	\item \textbf{6-neighbor mode}: 3-4x faster than PCL
+	\item \textbf{Dense point clouds}: Prefer center-voxel for efficiency
+	\item \textbf{Sparse point clouds}: Include neighboring voxels for robustness
+\end{itemize}
+
+NDT's elegant formulation and general applicability (unlike ICP's need for geometric assumptions) have established it as a standard benchmark for registration algorithms. However, two fundamental challenges persist:
+
+\begin{itemize}
+	\item \textbf{Initial guess dependency}: Like all registration methods, poor initialization may place points in incorrect voxels, leading to misalignment.
+	\item \textbf{Voxel size sensitivity}: The algorithm's discretization introduces a critical hyperparameter:
+	\begin{itemize}
+		\item Oversized voxels lose geometric fidelity in dense clouds
+		\item Undersized voxels contain insufficient points for meaningful statistics
+	\end{itemize}
+\end{itemize}
+
+\textbf{Practical recommendation}: Always conduct voxel size analysis during implementation, as this parameter profoundly impacts registration accuracy while lacking universal optimal values. The appropriate scale depends entirely on the scene's spatial characteristics and point density.
+
+\subsection{Comparative Analysis of Registration Methods vs. PCL Implementations}
+\begin{figure}[!t]
+	\centering
+	\includegraphics[width=0.6\textwidth]{resources/3d-lidar-mapping/align_time_usage.pdf}
+	\caption{Computation time comparison across registration methods}
+	\label{fig:align-time-usage}
+\end{figure}
+
+\begin{figure}[!t]
+	\centering
+	\includegraphics[width=0.6\textwidth]{resources/3d-lidar-mapping/pose_conv_speed.pdf}
+	\caption{Pose convergence curves of different registration methods}
+	\label{fig:pose-conv-speed}
+\end{figure}
+
+Using the EPFL dataset provided in this chapter, we evaluate the temporal efficiency and accuracy metrics of various registration methods. Our current implementation facilitates horizontal comparison of:
+\begin{enumerate}
+	\item Our point-to-point ICP (Sec. 7.2.1);
+	\item Our point-to-plane ICP (Sec. 7.2.2); 
+	\item Our point-to-line ICP (Sec. 7.2.3);
+	\item Our NDT implementation (Sec. 7.3);
+	\item PCL's ICP implementation;
+	\item PCL's NDT implementation.
+\end{enumerate}
+
+Figures~\ref{fig:align-time-usage} and~\ref{fig:pose-conv-speed} present the computational time and error convergence profiles respectively. Since PCL implementations only output final poses without intermediate iterations, their errors are represented as horizontal lines. Key observations from our benchmark:
+
+\begin{itemize}
+	\item \textbf{Point-to-plane ICP} achieves the highest pose accuracy with fastest convergence for small models like EPFL datasets
+	\item \textbf{NDT} demonstrates competitive speed but slightly inferior final accuracy compared to point-to-plane ICP
+	\item \textbf{Basic point-to-point ICP} shows relatively poor performance, serving mainly as a baseline
+\end{itemize}
+
+Further subdivision by nearest neighbor methods (K-dTree vs voxel-based) reveals additional performance variations. We encourage readers to conduct extended comparisons, though our experiments already establish a framework for evaluating registration algorithms. 
+
+\textbf{Critical Note}: Small model performance doesn't directly translate to large-scale scenarios. For compact models with smooth surfaces (like EPFL), point-to-plane ICP benefits from rich geometric constraints. NDT's effectiveness becomes voxel-size dependent - overly coarse voxels may prevent optimal convergence. However, autonomous driving scenarios present fundamentally different characteristics:
+
+\begin{itemize}
+	\item Sparse point clouds with large structures
+	\item Higher noise levels
+	\item Reduced surface completeness
+\end{itemize}
+
+Algorithm selection must therefore consider specific application contexts rather than relying on singular dataset performance. The optimal method varies significantly between precision small-object registration and large-scale noisy environment mapping.
+
+\section{Direct Method LiDAR Odometry}
+With registration methods like ICP and NDT, we can align multiple point clouds to form local maps and ultimately build a LiDAR odometry module. The simplest approach is to consecutively apply scan-to-scan matching between consecutive frames. In 3D SLAM, point clouds can be easily merged - we can compose a local map from recent scans and register the current frame against this map. This feature-free approach is called direct LiDAR odometry. Depending on the registration method used, we can implement various direct odometry solutions based on different ICP or NDT variants, as shown in the left portion of Fig.~\ref{fig:lo-pipeline}.
+
+For higher precision with slightly more computation, we can enhance the NDT implementation at the voxel level. Instead of concatenating historical point clouds into a local map, we can incrementally update the Gaussian distributions within NDT voxels using newly registered points. This incremental NDT approach avoids reconstructing the entire NDT structure or KD-trees for each frame, enabling highly efficient implementation. Below we implement both approaches and compare their computational performance.
+
+\begin{figure}[!thp]
+	\centering
+	\includegraphics[width=1.0\textwidth]{resources/3d-lidar-mapping/lo-pipeline.pdf}
+	\caption{Two implementation approaches for LiDAR odometry.}
+	\label{fig:lo-pipeline}
+\end{figure}
+
+\subsection{Building LiDAR Odometry with NDT}
+\label{sec:ndt-odom}
+We first implement the LiDAR odometry following the initial approach. This odometry maintains a local map composed of multiple scans, registers them collectively, and uses the NDT alignment from Section~\ref{sec:ndt} to estimate the current frame's pose. The core implementation is as follows:
+
+\begin{lstlisting}[language=c++, caption=src/ch7/direct\_ndt\_lo.cc]
+class DirectNDTLO {
+	public:
+	struct Options {
+		Options() {}
+		double kf_distance_ = 0.5;            // Keyframe distance threshold
+		double kf_angle_deg_ = 30;            // Rotation threshold
+		int num_kfs_in_local_map_ = 30;       // Local map keyframe capacity  
+		bool use_pcl_ndt_ = true;            // Use our NDT or PCL's NDT
+		bool display_realtime_cloud_ = true;  // Enable real-time visualization
+		
+		Ndt3d::Options ndt3d_options_;       // NDT3D configuration
+	};
+	
+	DirectNDTLO(Options options = Options()) : options_(options) {
+		if (options_.display_realtime_cloud_) {
+			viewer_ = std::make_shared<PCLMapViewer>(0.5);
+		}
+		
+		ndt_ = Ndt3d(options_.ndt3d_options_);
+		
+		// Configure PCL NDT
+		ndt_pcl_.setResolution(1.0);
+		ndt_pcl_.setStepSize(0.1);
+		ndt_pcl_.setTransformationEpsilon(0.01);
+	}
+	
+	/**
+	* Process a new point cloud scan
+	* @param scan  Current frame point cloud  
+	* @param pose  Estimated pose (output)
+	*/
+	void AddCloud(CloudPtr scan, SE3& pose);
+	
+	private:
+	/// Align scan with local map
+	SE3 AlignWithLocalMap(CloudPtr scan);
+	
+	/// Keyframe decision logic
+	bool IsKeyframe(const SE3& current_pose);
+	
+	private:
+	Options options_;
+	CloudPtr local_map_ = nullptr;
+	std::deque<CloudPtr> scans_in_local_map_;
+	std::vector<SE3> estimated_poses_;  // Estimated trajectory
+	SE3 last_kf_pose_;                  // Last keyframe pose
+	
+	pcl::NormalDistributionsTransform<PointType, PointType> ndt_pcl_;
+	Ndt3d ndt_;
+};
+
+void DirectNDTLO::AddCloud(CloudPtr scan, SE3& pose) {
+	if (local_map_ == nullptr) {
+		// Initialize with first frame
+		local_map_.reset(new PointCloudType);
+		*local_map_ += *scan;
+		pose = SE3();
+		last_kf_pose_ = pose;
+		
+		if (options_.use_pcl_ndt_) {
+			ndt_pcl_.setInputTarget(local_map_);
+		} else {
+			ndt_.SetTarget(local_map_);
+		}
+		return;
+	}
+	
+	// Align scan with local map
+	pose = AlignWithLocalMap(scan);
+	CloudPtr scan_world(new PointCloudType);
+	pcl::transformPointCloud(*scan, *scan_world, pose.matrix().cast<float>());
+	
+	if (IsKeyframe(pose)) {
+		last_kf_pose_ = pose;
+		
+		// Update local map
+		scans_in_local_map_.emplace_back(scan_world);
+		if (scans_in_local_map_.size() > options_.num_kfs_in_local_map_) {
+			scans_in_local_map_.pop_front();
+		}
+		
+		local_map_.reset(new PointCloudType);
+		for (auto& scan : scans_in_local_map_) {
+			*local_map_ += *scan;
+		}
+		
+		if (options_.use_pcl_ndt_) {
+			ndt_pcl_.setInputTarget(local_map_);
+		} else {
+			ndt_.SetTarget(local_map_);
+		}
+	}
+}
+
+SE3 DirectNDTLO::AlignWithLocalMap(CloudPtr scan) {
+	if (options_.use_pcl_ndt_) {
+		ndt_pcl_.setInputSource(scan);
+	} else {
+		ndt_.SetSource(scan);
+	}
+	
+	SE3 guess;
+	bool align_success = true;
+	
+	if (estimated_poses_.size() < 2) {
+		// Initial alignment without motion model
+		if (options_.use_pcl_ndt_) {
+			pcl::PointCloud<PointType> output;
+			ndt_pcl_.align(output, guess.matrix().cast<float>());
+			guess = Mat4dToSE3(ndt_pcl_.getFinalTransformation().cast<double>());
+		} else {
+			align_success = ndt_.AlignNdt(guess);
+		}
+	} else {
+		// Motion model prediction from last two poses
+		SE3 T1 = estimated_poses_.back();
+		SE3 T2 = estimated_poses_[estimated_poses_.size() - 2];
+		guess = T1 * (T2.inverse() * T1);
+		
+		if (options_.use_pcl_ndt_) {
+			pcl::PointCloud<PointType> output;
+			ndt_pcl_.align(output, guess.matrix().cast<float>());
+			guess = Mat4dToSE3(ndt_pcl_.getFinalTransformation().cast<double>());
+		} else {
+			align_success = ndt_.AlignNdt(guess);
+		}
+	}
+	
+	LOG(INFO) << "Estimated pose - t: " << guess.translation().transpose() 
+	<< ", q: " << guess.so3().unit_quaternion().coeffs().transpose();
+	
+	if (options_.use_pcl_ndt_) {
+		LOG(INFO) << "Transformation probability: " << ndt_pcl_.getTransformationProbability();
+	}
+	
+	estimated_poses_.emplace_back(guess);
+	return guess;
+}
+\end{lstlisting}
+
+This basic odometry continuously aligns incoming scans against a local map using NDT registration. Users can select either PCL's NDT or our custom implementation. Keyframes are selected based on distance or rotation thresholds, with recent keyframes aggregated into a local map serving as the NDT target. For alignment initialization, we employ a motion model derived from the relative movement of the last two frames. The system provides real-time visualization through a PCL-based 3D viewer and saves the merged point cloud as a PCD file upon completion.
+
+The test program for this section is shown below, where gflags can specify whether to use PCL's NDT implementation and the number of nearest neighbors for our NDT:
+
+\begin{lstlisting}[language=c++,caption=src/ch7/test/test_ndt_lo.cc]
+	/// This program demonstrates NDT-based LiDAR Odometry using ULHK dataset
+	/// When using PCL NDT, it rebuilds the NDT tree
+	DEFINE_string(bag_path, "./dataset/sad/ulhk/test2.bag", "path to rosbag");
+	DEFINE_string(dataset_type, "ULHK", "NCLT/ULHK/KITTI/WXB_3D");  // Dataset type
+	DEFINE_bool(use_pcl_ndt, false, "use pcl ndt to align?");
+	DEFINE_bool(use_ndt_nearby_6, false, "use ndt nearby 6?");
+	DEFINE_bool(display_map, true, "display map?");
+	
+	int main(int argc, char** argv) {
+		sad::RosbagIO rosbag_io(fLS::FLAGS_bag_path, sad::Str2DatasetType(FLAGS_dataset_type));
+		
+		sad::DirectNDTLO::Options options;
+		options.use_pcl_ndt_ = fLB::FLAGS_use_pcl_ndt;
+		options.ndt3d_options_.nearby_type_ =
+		FLAGS_use_ndt_nearby_6 ? sad::Ndt3d::NearbyType::NEARBY6 : sad::Ndt3d::NearbyType::CENTER;
+		options.display_realtime_cloud_ = FLAGS_display_map;
+		sad::DirectNDTLO ndt_lo(options);
+		
+		rosbag_io
+		.AddAutoPointCloudHandle([&ndt_lo](sensor_msgs::PointCloud2::Ptr msg) -> bool {
+			sad::common::Timer::Evaluate(
+			[&]() {
+				SE3 pose;
+				ndt_lo.AddCloud(sad::VoxelCloud(sad::PointCloud2ToCloudPtr(msg)), pose);
+			},
+			"NDT registration");
+			return true;
+		})
+		.Go();
+		
+		if (FLAGS_display_map) {
+			// Save the generated map
+			ndt_lo.SaveMap("./data/ch7/map.pcd");
+		}
+		
+		sad::common::Timer::PrintAll();
+		LOG(INFO) << "done.";
+		
+		return 0;
+	}
+\end{lstlisting}
+
+To run this program, readers need to download two test datasets from ULHK, with paths configurable via gflags. Compile and run with:
+
+\begin{lstlisting}[language=sh,caption=Terminal command:]
+	bin/test_ndt_lo 
+\end{lstlisting}
+
+You should see results similar to Fig.~\ref{fig:lo-map} (colors may vary - book illustrations typically use white background for printing). Upon completion, the Timer class prints algorithm efficiency:
+
+\begin{lstlisting}[language=sh,caption=Terminal output:]
+	I0131 10:51:49.840482 102707 timer.cc:16] >>> ===== Printing run time =====
+	I0131 10:51:49.840484 102707 timer.cc:18] > [ NDT registration ] average time usage: 36.349 ms , called times: 3178
+	I0131 10:51:49.840495 102707 timer.cc:23] >>> ===== Printing run time end =====
+	I0131 10:51:49.840497 102707 test_ndt_lo.cc:56] done.
+\end{lstlisting}
+
+With visualization disabled, our NDT odometry processes each frame in about 15ms (18ms when using 6 nearest neighbors), while PCL's NDT takes about 85ms. Readers can benchmark both implementations on their own machines. The number of nearest neighbors affects registration efficiency, but isn't the dominant factor in the full odometry pipeline - merging local maps and constructing voxels/KD-trees for these maps consume most computational resources.
+
+\begin{figure}[!t]
+	\centering
+	\includegraphics[width=1.0\textwidth]{resources/3d-lidar-mapping/ch7-lo-map}
+	\caption{Point cloud map generated by our odometry, using ULHK dataset.}
+	\label{fig:lo-map}
+\end{figure}
+
+Key reasons our NDT odometry outperforms PCL's implementation:
+\begin{enumerate}
+	\item While NDT is voxel-based, PCL's implementation still requires KD-trees for nearest neighbor searches. The time spent building KD-trees for local maps during scan-to-map registration is non-negligible. Our implementation directly uses voxel neighbors for faster lookups.
+	\item We parallelize residual and Jacobian calculations during registration, significantly speeding up the process compared to PCL's serial implementation.
+\end{enumerate}
+
+However, the current LO pipeline has room for improvement. For example, when adding keyframes, we currently rebuild the entire local map and reset all NDT voxels. While faster than rebuilding KD-trees, this could be optimized further by incrementally updating voxels with new scan data while automatically discarding outdated voxels through a time-based queue - an approach we call \textbf{Incremental NDT}. We'll implement this next and compare its performance with the current method.
+
+\subsection{Incremental NDT Odometry}
+\label{sec:inc-ndt}
+\subsubsection{Principles of Incremental Updates}
+Implementing incremental NDT odometry raises two key challenges: maintaining dynamically growing voxels and determining how to update Gaussian parameters within each voxel. We first address the problem of updating statistical estimates within individual voxels. Specifically, given an existing Gaussian distribution estimated from historical points in a voxel, how should we update the distribution parameters when new points are added? This derivation requires basic probability theory.
+
+\paragraph{Incremental Update of Gaussian Distribution}
+Consider a voxel containing $m$ historical points with Gaussian parameters $\boldsymbol{\mu}_H, \boldsymbol{\Sigma}_H$. When adding $n$ new points with statistics $\boldsymbol{\mu}_A, \boldsymbol{\Sigma}_A$, we derive the updated distribution $\boldsymbol{\mu}, \boldsymbol{\Sigma}$. Let historical points be $\bm{x}_1, \ldots, \bm{x}_m$ and new points $\bm{y}_1, \ldots, \bm{y}_n$.
+
+The mean update is straightforward:
+\begin{equation}\label{key}
+	\boldsymbol{\mu} = \frac{\sum_{i=1}^m \bm{x}_i + \sum_{j=1}^n \bm{y}_j}{m+n} = \frac{m \boldsymbol{\mu}_H + n\boldsymbol{\mu}_A}{m+n}.
+\end{equation}
+
+For covariance (ignoring Bessel's correction), we start with the sample covariance definition:
+\begin{equation}\label{eq:7.18}
+	\boldsymbol{\Sigma} = \frac{1}{m+n} \left( \sum_{i=1}^{m} (\bm{x}_i - \boldsymbol{\mu})(\bm{x}_i - \boldsymbol{\mu})^\top + \sum_{j=1}^{n} (\bm{y}_j - \boldsymbol{\mu})(\bm{y}_j - \boldsymbol{\mu})^\top \right).
+\end{equation}
+
+Expanding the first term using $\bm{x}_i - \boldsymbol{\mu} = (\bm{x}_i - \boldsymbol{\mu}_H) + (\boldsymbol{\mu}_H - \boldsymbol{\mu})$:
+\begin{align}\label{key}
+	\sum_{i=1}^{m} (\bm{x}_i - \boldsymbol{\mu})(\bm{x}_i - \boldsymbol{\mu})^\top &= \sum_{i=1}^{m} \left[ (\bm{x}_i - \boldsymbol{\mu}_H) + (\boldsymbol{\mu}_H - \boldsymbol{\mu}) \right] \left[ (\bm{x}_i - \boldsymbol{\mu}_H) + (\boldsymbol{\mu}_H - \boldsymbol{\mu}) \right]^\top \\
+	&= m\boldsymbol{\Sigma}_H + \sum_{i=1}^m (\bm{x}_i - \boldsymbol{\mu}_H)(\boldsymbol{\mu}_H - \boldsymbol{\mu})^\top \\
+	&\quad + \sum_{i=1}^m (\boldsymbol{\mu}_H - \boldsymbol{\mu})(\bm{x}_i - \boldsymbol{\mu}_H)^\top + m(\boldsymbol{\mu}_H - \boldsymbol{\mu})(\boldsymbol{\mu}_H - \boldsymbol{\mu})^\top.
+\end{align}
+
+The cross terms vanish since:
+\begin{equation}\label{key}
+	\sum_{i=1}^m (\bm{x}_i - \boldsymbol{\mu}_H) (\boldsymbol{\mu}_H - \boldsymbol{\mu})^\top = \left(\sum_{i=1}^m \bm{x}_i - m\boldsymbol{\mu}_H\right)(\boldsymbol{\mu}_H - \boldsymbol{\mu})^\top = \bm{0}.
+\end{equation}
+
+Thus we obtain:
+\begin{equation}\label{key}
+	\sum_{i=1}^{m} (\bm{x}_i - \boldsymbol{\mu})(\bm{x}_i - \boldsymbol{\mu})^\top = m \left(\boldsymbol{\Sigma}_H + (\boldsymbol{\mu}_H - \boldsymbol{\mu})(\boldsymbol{\mu}_H - \boldsymbol{\mu})^\top\right).
+\end{equation}
+
+Similarly for the new points:
+\begin{equation}\label{key}
+	\sum_{j=1}^{n} (\bm{y}_j - \boldsymbol{\mu})(\bm{y}_j - \boldsymbol{\mu})^\top = n \left(\boldsymbol{\Sigma}_A + (\boldsymbol{\mu}_A - \boldsymbol{\mu})(\boldsymbol{\mu}_A - \boldsymbol{\mu})^\top\right).
+\end{equation}
+
+The final covariance update formula becomes:
+\begin{equation}\label{key}
+	\boldsymbol{\Sigma} = \frac{m \left(\boldsymbol{\Sigma}_H + \Delta\boldsymbol{\mu}_H \Delta\boldsymbol{\mu}_H^\top\right) + n \left(\boldsymbol{\Sigma}_A + \Delta\boldsymbol{\mu}_A \Delta\boldsymbol{\mu}_A^\top\right)}{m+n}
+\end{equation}
+where $\Delta\boldsymbol{\mu}_H = \boldsymbol{\mu}_H - \boldsymbol{\mu}$ and $\Delta\boldsymbol{\mu}_A = \boldsymbol{\mu}_A - \boldsymbol{\mu}$. This formula enables efficient incremental updates of NDT voxel statistics.
+
+\subsection{Incremental NDT Odometry}
+\label{sec:inc-ndt}
+\subsubsection{Incremental Voxel Maintenance}
+Beyond updating Gaussian distributions within voxels, the voxel structure itself must dynamically expand as the vehicle moves. However, for long-term odometry operation, we must limit the total number of voxels (e.g., maintaining around 100,000 voxels) by periodically removing older ones. This requires implementing a least recently used (LRU) cache mechanism. We maintain a queue where recently updated voxels move to the front, while voxels exceeding capacity are removed from the back.
+
+The implementation follows:
+
+\begin{lstlisting}[language=c++,caption=src/ch7/ndt_inc.h]
+	class IncNdt3d {
+		public:
+		enum class NearbyType {
+			CENTER,   // Center voxel only
+			NEARBY6,  // 6 adjacent voxels
+		};
+		
+		using KeyType = Eigen::Matrix<int, 3, 1>;  // Voxel index
+		
+		/// Voxel data structure
+		struct VoxelData {
+			VoxelData() {}
+			VoxelData(const Vec3d& pt) {
+				pts_.emplace_back(pt);
+				num_pts_ = 1;
+			}
+			
+			void AddPoint(const Vec3d& pt) {
+				pts_.emplace_back(pt);
+				if (!ndt_estimated_) {
+					num_pts_++;
+				}
+			}
+			
+			std::vector<Vec3d> pts_;       // Buffered points
+			Vec3d mu_ = Vec3d::Zero();     // Mean
+			Mat3d sigma_ = Mat3d::Zero();  // Covariance
+			Mat3d info_ = Mat3d::Zero();   // Inverse covariance
+			
+			bool ndt_estimated_ = false;  // Whether Gaussian parameters are estimated
+			int num_pts_ = 0;            // Total accumulated points
+		};
+		
+		/// Add point cloud to voxels
+		void AddCloud(CloudPtr cloud_world);
+		
+		/// NDT alignment using Gauss-Newton
+		bool AlignNdt(SE3& init_pose);
+		
+		private:
+		/// Update voxel statistics
+		void UpdateVoxel(VoxelData& v);
+		
+		CloudPtr source_ = nullptr;
+		Options options_;
+		
+		using KeyAndData = std::pair<KeyType, VoxelData>;
+		std::list<KeyAndData> data_;  // LRU cache with actual data
+		std::unordered_map<KeyType, std::list<KeyAndData>::iterator, hash_vec<3>> grids_;  // Hashmap for fast lookup
+		std::vector<KeyType> nearby_grids_;  // Nearby voxel offsets
+	};
+\end{lstlisting}
+
+The IncNdt3d class maintains voxel data in a doubly-linked list (for LRU management) while using a hashmap for O(1) access. When new points are added, we update voxel statistics and maintain the cache:
+
+\begin{lstlisting}[language=c++,caption=src/ch7/ndt\_inc.cc]
+	void IncNdt3d::AddCloud(CloudPtr cloud_world) {
+		std::set<KeyType, less_vec<3>> active_voxels;  // Track updated voxels
+		for (const auto& p : cloud_world->points) {
+			auto pt = ToVec3d(p);
+			auto key = (pt * options_.inv_voxel_size_).cast<int>();
+			auto iter = grids_.find(key);
+			
+			if (iter == grids_.end()) {
+				// New voxel
+				data_.push_front({key, {pt}});
+				grids_.insert({key, data_.begin()});
+				
+				if (data_.size() >= options_.capacity_) {
+					// Remove oldest voxel
+					grids_.erase(data_.back().first);
+					data_.pop_back();
+				}
+			} else {
+				// Existing voxel - add point and update LRU
+				iter->second->second.AddPoint(pt);
+				data_.splice(data_.begin(), data_, iter->second);
+				iter->second = data_.begin();
+			}
+			
+			active_voxels.emplace(key);
+		}
+		
+		// Parallel voxel updates
+		std::for_each(std::execution::par_unseq, active_voxels.begin(), active_voxels.end(),
+		[this](const auto& key) { UpdateVoxel(grids_[key]->second); });
+	}
+	
+	void IncNdt3d::UpdateVoxel(VoxelData& v) {
+		if (v.ndt_estimated_ && v.num_pts_ > options_.max_pts_in_voxel_) {
+			return;  // Skip if already well-estimated
+		}
+		
+		if (!v.ndt_estimated_ && v.pts_.size() > options_.min_pts_in_voxel_) {
+			// Initial estimation for new voxel
+			math::ComputeMeanAndCov(v.pts_, v.mu_, v.sigma_, [](const Vec3d& p) { return p; });
+			v.info_ = (v.sigma_ + Mat3d::Identity() * 1e-3).inverse();
+			v.ndt_estimated_ = true;
+			v.pts_.clear();
+		} 
+		else if (v.ndt_estimated_ && v.pts_.size() > options_.min_pts_in_voxel_) {
+			// Incremental update for existing voxel
+			Vec3d cur_mu, new_mu;
+			Mat3d cur_var, new_var;
+			math::ComputeMeanAndCov(v.pts_, cur_mu, cur_var, [](const Vec3d& p) { return p; });
+			math::UpdateMeanAndCov(v.num_pts_, v.pts_.size(), v.mu_, v.sigma_, 
+			cur_mu, cur_var, new_mu, new_var);
+			
+			v.mu_ = new_mu;
+			v.sigma_ = new_var;
+			v.num_pts_ += v.pts_.size();
+			v.pts_.clear();
+			
+			// Regularize covariance
+			Eigen::JacobiSVD svd(v.sigma_, Eigen::ComputeFullU | Eigen::ComputeFullV);
+			Vec3d lambda = svd.singularValues();
+			if (lambda[1] < lambda[0] * 1e-3) lambda[1] = lambda[0] * 1e-3;
+			if (lambda[2] < lambda[0] * 1e-3) lambda[2] = lambda[0] * 1e-3;
+			
+			Mat3d inv_lambda = Vec3d(1.0/lambda[0], 1.0/lambda[1], 1.0/lambda[2]).asDiagonal();
+			v.info_ = svd.matrixV() * inv_lambda * svd.matrixU().transpose();
+		}
+	}
+\end{lstlisting}
+
+Key features:
+\begin{itemize}
+	\item Each voxel tracks whether its Gaussian parameters have been estimated
+	\item Points are buffered until reaching \texttt{min\_pts\_in\_voxel} threshold
+	\item Well-estimated voxels (with \texttt{max\_pts\_in\_voxel}) skip updates
+	\item Voxel updates are fully parallelizable
+	\item Covariance regularization ensures numerical stability
+\end{itemize}
+
+The Gaussian update computation corresponds to the formulas presented earlier, with a straightforward implementation:
+
+\begin{lstlisting}[language=c++,caption=src/common/math\_utils.h]
+	template <typename S, int D>
+	void UpdateMeanAndCov(int hist_m, int curr_n, const Eigen::Matrix<S, D, 1>& hist_mean,
+	const Eigen::Matrix<S, D, D>& hist_var, const Eigen::Matrix<S, D, 1>& curr_mean,
+	const Eigen::Matrix<S, D, D>& curr_var, Eigen::Matrix<S, D, 1>& new_mean,
+	Eigen::Matrix<S, D, D>& new_var) {
+		new_mean = (hist_m * hist_mean + curr_n * curr_mean) / (hist_m + curr_n);
+		new_var = (hist_m * (hist_var + (hist_mean - new_mean) * (hist_mean - new_mean).transpose()) 
+		+ curr_n * (curr_var + (curr_mean - new_mean) * (curr_mean - new_mean).transpose()))
+		/ (hist_m + curr_n);
+	}
+\end{lstlisting}
+
+The LiDAR odometry algorithm (src/ch7/incremental\_ndt\_lo.cc) is simpler than previous implementations, as it only needs to process keyframes by continuously adding them to the internal NDT structure and calling the alignment function. The local map is now maintained within NDT, eliminating the need for explicit point cloud concatenation.
+
+\begin{lstlisting}[language=c++,caption=src/ch7/incremental_ndt_lo.cc]
+class IncrementalNDTLO {
+	public:
+	struct Options {
+		Options() {}
+		double kf_distance_ = 0.5;            // Keyframe distance threshold
+		double kf_angle_deg_ = 30;            // Rotation threshold
+		bool display_realtime_cloud_ = true;  // Enable visualization
+		IncNdt3d::Options ndt3d_options_;     // NDT configuration
+	};
+	
+	IncrementalNDTLO(Options options = Options()) : options_(options) {
+		if (options_.display_realtime_cloud_) {
+			viewer_ = std::make_shared<PCLMapViewer>(0.5);
+		}
+		ndt_ = IncNdt3d(options_.ndt3d_options_);
+	}
+	
+	/**
+	* Process a new point cloud scan
+	* @param scan  Current frame
+	* @param pose  Estimated pose (output)
+	* @param use_guess  Whether to use input pose as initial guess
+	*/
+	void AddCloud(CloudPtr scan, SE3& pose, bool use_guess = false);
+	
+	private:
+	Options options_;
+	bool first_frame_ = true;
+	std::vector<SE3> estimated_poses_;  // Trajectory history
+	SE3 last_kf_pose_;                  // Last keyframe pose
+	int cnt_frame_ = 0;
+	
+	IncNdt3d ndt_;
+	std::shared_ptr<PCLMapViewer> viewer_ = nullptr;
+};
+
+void IncrementalNDTLO::AddCloud(CloudPtr scan, SE3& pose, bool use_guess) {
+	if (first_frame_) {
+		pose = SE3();
+		last_kf_pose_ = pose;
+		ndt_.AddCloud(scan);
+		first_frame_ = false;
+		return;
+	}
+	
+	// Alignment against NDT-maintained local map
+	SE3 guess;
+	ndt_.SetSource(scan);
+	if (estimated_poses_.size() < 2) {
+		ndt_.AlignNdt(guess);
+	} else {
+		if (!use_guess) {
+			// Motion model prediction
+			SE3 T1 = estimated_poses_.back();
+			SE3 T2 = estimated_poses_[estimated_poses_.size() - 2];
+			guess = T1 * (T2.inverse() * T1);
+		} else {
+			guess = pose;
+		}
+		ndt_.AlignNdt(guess);
+	}
+	
+	pose = guess;
+	estimated_poses_.emplace_back(pose);
+	
+	if (IsKeyframe(pose)) {
+		last_kf_pose_ = pose;
+		cnt_frame_ = 0;
+		// Add to NDT's internal map
+		CloudPtr scan_world(new PointCloudType);
+		pcl::transformPointCloud(*scan, *scan_world, guess.matrix().cast<float>());
+		ndt_.AddCloud(scan_world);
+	}
+	
+	if (viewer_) {
+		viewer_->SetPoseAndCloud(pose, scan_world);
+	}
+	cnt_frame_++;
+}
+\end{lstlisting}
+
+The odometry mainly handles state flags and counters, with minimal algorithmic complexity. Readers can test using test\_inc\_ndt\_lo with parameters identical to Section~\ref{sec:ndt-odom}. The incremental NDT output (Fig.~\ref{fig:ulhk-odom}) appears similar to Fig.~\ref{fig:lo-map} in top view but shows noticeable drift in side view - an unavoidable \textbf{accumulated error} in odometry that we'll address later with loop closure detection and pose graph optimization.
+
+\begin{figure}[!thp]
+	\centering
+	\includegraphics[width=1.0\textwidth]{resources/3d-lidar-mapping/ulhk-odom}
+	\caption{Incremental NDT output (alternate view)}
+	\label{fig:ulhk-odom}
+\end{figure}
+
+With visualization disabled, our incremental NDT processes each frame in ~6ms, compared to ~100ms for PCL's NDT - a >10× speedup. This demonstrates how understanding algorithmic principles enables custom optimizations beyond library limitations. Historical implementations often don't meet modern efficiency standards or anticipate future needs.
+
+Both this and the next section present \textbf{pure LiDAR} odometry. While adequate for passenger vehicle datasets, they may struggle with rapidly rotating small vehicles. Later we'll enhance them with IMU and RTK measurements for robust performance.
+
+
+
