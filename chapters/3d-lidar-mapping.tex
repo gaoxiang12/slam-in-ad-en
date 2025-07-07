@@ -1228,5 +1228,960 @@ With visualization disabled, our incremental NDT processes each frame in ~6ms, c
 
 Both this and the next section present \textbf{pure LiDAR} odometry. While adequate for passenger vehicle datasets, they may struggle with rapidly rotating small vehicles. Later we'll enhance them with IMU and RTK measurements for robust performance.
 
+\section{Laser Odometry with Feature-based Methods}  
+\subsection{Feature Extraction}  
 
+We refer to the odometry that \textbf{directly registers point clouds} as the direct method odometry. In contrast, autonomous driving often employs odometry that \textbf{first extracts features and then performs registration}, which we call feature-based odometry (or indirect method odometry) \cite{Wei2020}. Feature-based odometry requires extracting simple features from the point cloud first, followed by registering only the feature points. Additionally, depending on the different properties of the feature points themselves, different registration methods can be applied to achieve higher accuracy \cite{Hata2015}. Feature-based odometry implements different registration methods for different point cloud structures, offering better generalization compared to direct method odometry, which uniformly uses ICP or NDT. Among feature-based odometry systems, the LOAM series \cite{Zhang2014}, including the original LOAM \cite{Zhang2014} and subsequent improved versions (LeGO-LOAM \cite{Shan2018}, A-LOAM\footnote{\url{https://github.com/HKUST-Aerial-Robotics/A-LOAM}}, F-LOAM\footnote{\url{https://github.com/wh200720041/floam}}), are widely used open-source solutions in the autonomous driving industry and serve as the foundation for many subsequent LIO systems. However, the actual LOAM open-source code is quite complex, and we do not intend to explain it line by line in this book. Instead, we will explore the design philosophy of the LOAM series and provide a simple implementation based on its principles.  
+
+When discussing feature-based methods, the most pressing questions are: For a multi-beam LiDAR, what kind of features should we extract? And how should we use these features for point cloud registration? There are many types of point cloud features, such as PFH \cite{Rusu2008}, FPFH \cite{Rusu2009a}, and various deep learning-based features. We must ask: What kind of features are meaningful for real-time registration? Point cloud features can be used not only for registration but also for database retrieval, comparison, and compression. In real-time SLAM, we have the following requirements for features:  
+\begin{enumerate}  
+	\item Features should reflect the characteristics of the point cloud. For example, point clouds in autonomous driving are typically scanned by multi-beam LiDARs and are not as dense as RGB-D point clouds. Instead, they exhibit distinct \textbf{beam} properties, where each point belongs to a specific beam of the LiDAR. Instead of extracting features directly from the entire point cloud, we can extract features from the scan data of individual beams.  
+	\item After feature extraction, it should be straightforward to perform geometric registration on these feature points. Registration methods such as ICP or NDT can be used.  
+	\item Feature extraction should not consume excessive CPU or GPU resources, nor should it require specialized hardware.  
+	\item In system design, we prefer the entire LO or SLAM system to use the same computational architecture, rather than having some parts run on the CPU and others on the GPU, which would lead to unnecessary data transfer and resource consumption.  
+\end{enumerate}  
+
+Therefore, in industrial LO systems, people often use simple feature structures rather than complex ones based on statistical information or neural network computations. Most systems utilize \textbf{beam} information for feature extraction. Below, we introduce the feature extraction method used in LOAM-like systems.
+
+\subsection{Feature Extraction Based on LiDAR Beams}  
+
+Multi-beam LiDARs inherently provide \textbf{beam} information. In addition to the positional data $(x, y, z)$, the point cloud obtained from a LiDAR includes the following extra information:  
+\begin{enumerate}  
+	\item Which scan line a laser point originates from;  
+	\item The sequential order of laser points on the same scan line;  
+	\item Some drivers also output precise information such as polar coordinates and scan timestamps for each point.  
+\end{enumerate}  
+
+Knowing which points belong to the same scan line and their temporal order is highly useful for designing LiDAR odometry algorithms. Most notably, it eliminates the need to search for nearest neighbors on the same scan line. Additionally, based on the sequential order of these points, we can compute their \textbf{curvature} and classify them accordingly. The curvature can be defined as the difference between a point and its neighboring points on the same beam. In the LOAM series of work, researchers proposed a straightforward approach: points with high curvature along the same beam are classified as corner points, while those with low curvature are classified as planar points. To select the most distinct corner and planar points, one can sample the points with the highest and lowest curvature values, respectively. In multi-beam LiDAR scans, corner points typically lie on the surfaces of vertical objects or at the intersection of two planes, making them suitable for point-to-line ICP in the vertical direction. Meanwhile, planar points can be sampled across different beams and registered using point-to-plane ICP. The entire feature extraction and nearest-neighbor process is illustrated in Fig.~\ref{fig:curvature}.  
+
+\begin{figure}[!thp]  
+	\centering  
+	\includegraphics[width=.8\textwidth]{resources/3d-lidar-mapping/curvature.png}  
+	\caption{Using beam curvature to identify corner and planar points, followed by nearest-neighbor matching. The left side shows points $l$ and $j$ forming a line, while the right side shows points $m$, $j$, and $l$ forming a plane. This figure is sourced from \cite{Zhang2014}.}  
+	\label{fig:curvature}  
+\end{figure}  
+
+It is worth noting that this method of extracting corner and planar points can also be applied to 2D LiDARs, allowing the same approach to be used in 2D scan matching. Moreover, the extraction method is not limited to this single technique. For example, LeGO-LOAM \cite{Shan2018} uses range images to extract ground points, corner points, and planar points, while MULLS employs PCA to extract features such as ground, facades, pillars, and horizontal lines \cite{Pan2021}. However, most practical systems involve complex feature extraction processes, the details of which we will not cover here. Readers need only understand that extracting features to some extent helps optimize registration results.  
+
+That said, this beam-based method relies heavily on prior knowledge, such as the assumption that the point cloud consists of multiple scan lines and that the LiDAR is horizontally mounted. These implementations are often highly engineering-dependent, tailored to specific LiDAR scan angles and beam configurations. Such assumptions do not hold for solid-state LiDARs or RGB-D camera point clouds, limiting the applicability of this odometry approach.  
+
+\subsection{Implementation of Feature Extraction}  
+
+We will now implement the feature extraction component. Beam-based feature extraction requires knowledge of the LiDAR's beam information, which some LiDAR drivers provide. However, if the point cloud is converted to a standard PCL format, this information may be lost. While it is possible to compute the elevation angle for each point and infer its beam based on the LiDAR's elevation angle specifications, this complicates the code and introduces additional dependencies, increasing the learning curve for this book. Instead, we provide readers with preprocessed point clouds that include beam information, allowing them to focus solely on computing corner and planar points.  
+
+The feature extraction algorithm consists of the following steps:  
+\begin{enumerate}  
+	\item Compute and categorize each point's beam. Since our point clouds already include this information, this step can be skipped.  
+	\item Sequentially compute the curvature for each point on a beam.  
+	\item Divide the point cloud into sectors (we use six sectors in this implementation). Select points with the highest curvature as corner points, while the remaining points are classified as planar points.  
+\end{enumerate}  
+
+Note that most feature extraction methods lack rigorous theoretical justification and are instead derived from empirical engineering practices. Readers are encouraged to modify the feature extraction pipeline as needed, adding or removing steps as appropriate. Below is the code implementation:  
+
+\begin{lstlisting}[language=c++,caption=src/ch7/loam\_like/feature\_extraction.cc]  
+	void FeatureExtraction::Extract(FullCloudPtr pc_in, CloudPtr pc_out_edge, CloudPtr pc_out_surf) {  
+		int num_scans = 16;  
+		std::vector<CloudPtr> scans_in_each_line;  // Point clouds grouped by beam  
+		for (int i = 0; i < num_scans; i++) {  
+			scans_in_each_line.emplace_back(new PointCloudType);  
+		}  
+		
+		for (auto &pt : pc_in->points) {  
+			assert(pt.ring >= 0 && pt.ring < num_scans);  
+			PointType p;  
+			p.x = pt.x;  
+			p.y = pt.y;  
+			p.z = pt.z;  
+			p.intensity = pt.intensity;  
+			
+			scans_in_each_line[pt.ring]->emplace_back(p);  
+		}  
+		
+		// Compute curvature  
+		for (int i = 0; i < num_scans; i++) {  
+			if (scans_in_each_line[i]->points.size() < 131) {  
+				continue;  
+			}  
+			
+			std::vector<IdAndValue> cloud_curvature;  // Curvature for each beam  
+			int total_points = scans_in_each_line[i]->points.size() - 10;  
+			for (int j = 5; j < (int)scans_in_each_line[i]->points.size() - 5; j++) {  
+				// Leave a margin at both ends, sampling 10 neighboring points for averaging  
+				double diffX = scans_in_each_line[i]->points[j - 5].x + scans_in_each_line[i]->points[j - 4].x +  
+				scans_in_each_line[i]->points[j - 3].x + scans_in_each_line[i]->points[j - 2].x +  
+				scans_in_each_line[i]->points[j - 1].x - 10 * scans_in_each_line[i]->points[j].x +  
+				scans_in_each_line[i]->points[j + 1].x + scans_in_each_line[i]->points[j + 2].x +  
+				scans_in_each_line[i]->points[j + 3].x + scans_in_each_line[i]->points[j + 4].x +  
+				scans_in_each_line[i]->points[j + 5].x;  
+				double diffY = scans_in_each_line[i]->points[j - 5].y + scans_in_each_line[i]->points[j - 4].y +  
+				scans_in_each_line[i]->points[j - 3].y + scans_in_each_line[i]->points[j - 2].y +  
+				scans_in_each_line[i]->points[j - 1].y - 10 * scans_in_each_line[i]->points[j].y +  
+				scans_in_each_line[i]->points[j + 1].y + scans_in_each_line[i]->points[j + 2].y +  
+				scans_in_each_line[i]->points[j + 3].y + scans_in_each_line[i]->points[j + 4].y +  
+				scans_in_each_line[i]->points[j + 5].y;  
+				double diffZ = scans_in_each_line[i]->points[j - 5].z + scans_in_each_line[i]->points[j - 4].z +  
+				scans_in_each_line[i]->points[j - 3].z + scans_in_each_line[i]->points[j - 2].z +  
+				scans_in_each_line[i]->points[j - 1].z - 10 * scans_in_each_line[i]->points[j].z +  
+				scans_in_each_line[i]->points[j + 1].z + scans_in_each_line[i]->points[j + 2].z +  
+				scans_in_each_line[i]->points[j + 3].z + scans_in_each_line[i]->points[j + 4].z +  
+				scans_in_each_line[i]->points[j + 5].z;  
+				IdAndValue distance(j, diffX * diffX + diffY * diffY + diffZ * diffZ);  
+				cloud_curvature.push_back(distance);  
+			}  
+			
+			// Select features per sector (360° divided into 6 sectors)  
+			for (int j = 0; j < 6; j++) {  
+				int sector_length = (int)(total_points / 6);  
+				int sector_start = sector_length * j;  
+				int sector_end = sector_length * (j + 1) - 1;  
+				if (j == 5) {  
+					sector_end = total_points - 1;  
+				}  
+				
+				std::vector<IdAndValue> sub_cloud_curvature(cloud_curvature.begin() + sector_start,  
+				cloud_curvature.begin() + sector_end);  
+				
+				ExtractFromSector(scans_in_each_line[i], sub_cloud_curvature, pc_out_edge, pc_out_surf);  
+			}  
+		}  
+	}  
+	
+	void FeatureExtraction::ExtractFromSector(const CloudPtr &pc_in, std::vector<IdAndValue> &cloud_curvature, CloudPtr &pc_out_edge, CloudPtr &pc_out_surf) {  
+		// Sort by curvature  
+		std::sort(cloud_curvature.begin(), cloud_curvature.end(),  
+		[](const IdAndValue &a, const IdAndValue &b) { return a.value_ < b.value_; });  
+		
+		int largest_picked_num = 0;  
+		int point_info_count = 0;  
+		
+		/// Select corner points with the highest curvature  
+		std::vector<int> picked_points;  // Mark selected corner points (neighboring points are excluded)  
+		for (int i = cloud_curvature.size() - 1; i >= 0; i--) {  
+			int ind = cloud_curvature[i].id_;  
+			if (std::find(picked_points.begin(), picked_points.end(), ind) == picked_points.end()) {  
+				if (cloud_curvature[i].value_ <= 0.1) {  
+					break;  
+				}  
+				
+				largest_picked_num++;  
+				picked_points.push_back(ind);  
+				
+				if (largest_picked_num <= 20) {  
+					pc_out_edge->push_back(pc_in->points[ind]);  
+					point_info_count++;  
+				} else {  
+					break;  
+				}  
+				
+				for (int k = 1; k <= 5; k++) {  
+					double diffX = pc_in->points[ind + k].x - pc_in->points[ind + k - 1].x;  
+					double diffY = pc_in->points[ind + k].y - pc_in->points[ind + k - 1].y;  
+					double diffZ = pc_in->points[ind + k].z - pc_in->points[ind + k - 1].z;  
+					if (diffX * diffX + diffY * diffY + diffZ * diffZ > 0.05) {  
+						break;  
+					}  
+					picked_points.push_back(ind + k);  
+				}  
+				for (int k = -1; k >= -5; k--) {  
+					double diffX = pc_in->points[ind + k].x - pc_in->points[ind + k + 1].x;  
+					double diffY = pc_in->points[ind + k].y - pc_in->points[ind + k + 1].y;  
+					double diffZ = pc_in->points[ind + k].z - pc_in->points[ind + k + 1].z;  
+					if (diffX * diffX + diffY * diffY + diffZ * diffZ > 0.05) {  
+						break;  
+					}  
+					picked_points.push_back(ind + k);  
+				}  
+			}  
+		}  
+		
+		/// Select planar points with lower curvature  
+		for (int i = 0; i <= (int)cloud_curvature.size() - 1; i++) {  
+			int ind = cloud_curvature[i].id_;  
+			if (std::find(picked_points.begin(), picked_points.end(), ind) == picked_points.end()) {  
+				pc_out_surf->push_back(pc_in->points[ind]);  
+			}  
+		}  
+	}  
+\end{lstlisting}  
+
+The entire process aligns with the description above. We use the `test_feature_extraction` program to evaluate the extraction results on a single point cloud. The program reads raw Velodyne packets and converts them into a point cloud while preserving beam information. The feature extraction algorithm then separates corner and planar points, storing them in two PCD files, as shown in Fig.~\ref{fig:corner-and-edge}. In structured indoor environments, corner and planar points are clearly distinguishable—corners lie on edges, while planar points lie on surfaces. In outdoor open areas, planar points perform well, but corner points are less reliable. Additionally, ground points are often distributed in circular patterns rather than straight lines, making curvature-based classification less effective. Some odometry algorithms opt to filter out ground points or model them separately. Similar approaches are used for ceilings in indoor environments.  
+
+\begin{figure}[!thp]  
+	\centering  
+	\includegraphics[width=.8\textwidth]{resources/3d-lidar-mapping/corner_and_edge}  
+	\caption{Corner and planar points extracted from a single scan. Red points: corners (or edges); green points: planar points.}  
+	\label{fig:corner-and-edge}  
+\end{figure}  
+
+\begin{figure}[!thp]  
+	\centering  
+	\includegraphics[width=.8\textwidth]{resources/3d-lidar-mapping/corner-and-edge-outside}  
+	\caption{Corner and planar points in an outdoor scene. Planar points: reddish-brown; corner points: green.}  
+	\label{fig:corner-and-edge-outside}  
+\end{figure}  
+
+Feature extraction typically consumes significant computational resources, making feature-based odometry slower than direct registration methods. However, the results are often more stable.
+
+Now let's implement the feature-based LiDAR odometry. The overall computational flow is similar to the previous NDT-based approach. We construct two local maps for corner and planar points respectively, then incorporate both ICP results into a single optimization problem. The core registration code is as follows:
+
+\begin{lstlisting}[language=c++,caption=src/ch7/loam-like/loam\_like\_odom.cc]
+	class LoamLikeOdom {
+		public:
+		struct Options {
+			Options() {}
+			
+			int min_edge_pts_ = 20;               // Minimum edge points
+			int min_surf_pts_ = 20;               // Minimum planar points
+			double kf_distance_ = 1.0;            // Keyframe distance threshold
+			double kf_angle_deg_ = 15;            // Rotation angle threshold
+			int num_kfs_in_local_map_ = 30;       // Number of keyframes in local map
+			bool display_realtime_cloud_ = true;  // Whether to display real-time cloud
+			
+			// ICP parameters
+			int max_iteration_ = 5;             // Maximum iterations
+			double max_plane_distance_ = 0.05;  // Plane distance threshold
+			double max_line_distance_ = 0.5;    // Line distance threshold
+			int min_effective_pts_ = 10;        // Minimum effective points
+			double eps_ = 1e-3;                 // Convergence threshold
+			
+			bool use_edge_points_ = true;  // Whether to use edge points
+			bool use_surf_points_ = true;  // Whether to use planar points
+		};
+		
+		explicit LoamLikeOdom(Options options = Options());
+		
+		/**
+		* Process a point cloud, which will be divided into edge and planar points
+		* @param pcd_edge
+		* @param pcd_surf
+		*/
+		void ProcessPointCloud(FullCloudPtr full_cloud);
+		
+		private:
+		/// Align with local map
+		SE3 AlignWithLocalMap(CloudPtr edge, CloudPtr surf);
+		
+		/// Determine if current frame is keyframe
+		bool IsKeyframe(const SE3& current_pose);
+		
+		Options options_;
+		
+		int cnt_frame_ = 0;
+		int last_kf_id_ = 0;
+		
+		CloudPtr local_map_edge_ = nullptr, local_map_surf_ = nullptr;  // Local maps
+		std::vector<SE3> estimated_poses_;    // Estimated poses for trajectory
+		SE3 last_kf_pose_;                    // Last keyframe pose
+		std::deque<CloudPtr> edges_, surfs_;  // Cached edge and planar points
+		
+		CloudPtr global_map_ = nullptr;  // Global map for saving
+		
+		std::shared_ptr<FeatureExtraction> feature_extraction_ = nullptr;
+		
+		std::shared_ptr<PCLMapViewer> viewer_ = nullptr;
+		KdTree kdtree_edge_, kdtree_surf_;
+	};
+	
+	void LoamLikeOdom::ProcessPointCloud(FullCloudPtr cloud) {
+		LOG(INFO) << "processing frame " << cnt_frame_++;
+		// Step 1. Feature extraction
+		CloudPtr current_edge(new PointCloudType), current_surf(new PointCloudType);
+		feature_extraction_->Extract(cloud, current_edge, current_surf);
+		
+		if (current_edge->size() < options_.min_edge_pts_ || current_surf->size() < options_.min_surf_pts_) {
+			LOG(ERROR) << "not enough edge/surf pts: " << current_edge->size() << "," << current_surf->size();
+			return;
+		}
+		
+		LOG(INFO) << "edge: " << current_edge->size() << ", surf: " << current_surf->size();
+		
+		if (local_map_edge_ == nullptr || local_map_surf_ == nullptr) {
+			// Special handling for first frame
+			local_map_edge_ = current_edge;
+			local_map_surf_ = current_surf;
+			
+			kdtree_edge_.BuildTree(local_map_edge_);
+			kdtree_surf_.BuildTree(local_map_surf_);
+			
+			edges_.emplace_back(current_edge);
+			surfs_.emplace_back(current_surf);
+			return;
+		}
+		
+		/// Align with local map
+		SE3 pose = AlignWithLocalMap(current_edge, current_surf);
+		CloudPtr scan_world(new PointCloudType);
+		pcl::transformPointCloud(*ConvertToCloud<FullPointType>(cloud), *scan_world, pose.matrix());
+		
+		CloudPtr edge_world(new PointCloudType), surf_world(new PointCloudType);
+		pcl::transformPointCloud(*current_edge, *edge_world, pose.matrix());
+		pcl::transformPointCloud(*current_surf, *surf_world, pose.matrix());
+		
+		if (IsKeyframe(pose)) {
+			LOG(INFO) << "inserting keyframe";
+			last_kf_pose_ = pose;
+			last_kf_id_ = cnt_frame_;
+			
+			// Rebuild local map
+			edges_.emplace_back(edge_world);
+			surfs_.emplace_back(surf_world);
+			
+			if (edges_.size() > options_.num_kfs_in_local_map_) {
+				edges_.pop_front();
+			}
+			if (surfs_.size() > options_.num_kfs_in_local_map_) {
+				surfs_.pop_front();
+			}
+			
+			local_map_surf_.reset(new PointCloudType);
+			local_map_edge_.reset(new PointCloudType);
+			
+			for (auto& s : edges_) {
+				*local_map_edge_ += *s;
+			}
+			for (auto& s : surfs_) {
+				*local_map_surf_ += *s;
+			}
+			
+			local_map_surf_ = VoxelCloud(local_map_surf_, 1.0);
+			local_map_edge_ = VoxelCloud(local_map_edge_, 1.0);
+			
+			LOG(INFO) << "insert keyframe, surf pts: " << local_map_surf_->size()
+			<< ", edge pts: " << local_map_edge_->size();
+			
+			kdtree_surf_.BuildTree(local_map_surf_);
+			kdtree_edge_.BuildTree(local_map_edge_);
+			
+			*global_map_ += *scan_world;
+		}
+		
+		LOG(INFO) << "current pose: " << pose.translation().transpose() << ", "
+		<< pose.so3().unit_quaternion().coeffs().transpose();
+		
+		if (viewer_ != nullptr) {
+			viewer_->SetPoseAndCloud(pose, scan_world);
+		}
+	}
+	
+	SE3 LoamLikeOdom::AlignWithLocalMap(CloudPtr edge, CloudPtr surf) {
+		// Custom ICP implementation needed here
+		SE3 pose;
+		if (estimated_poses_.size() >= 2) {
+			// Predict pose from last two poses
+			SE3 T1 = estimated_poses_[estimated_poses_.size() - 1];
+			SE3 T2 = estimated_poses_[estimated_poses_.size() - 2];
+			pose = T1 * (T2.inverse() * T1);
+		}
+		
+		int edge_size = edge->size();
+		int surf_size = surf->size();
+		
+		// Implement concurrent processing
+		for (int iter = 0; iter < options_.max_iteration_; ++iter) {
+			std::vector<bool> effect_surf(surf_size, false);
+			std::vector<Eigen::Matrix<double, 1, 6>> jacob_surf(surf_size);  // 1D residual for planes
+			std::vector<double> errors_surf(surf_size);
+			
+			std::vector<bool> effect_edge(edge_size, false);
+			std::vector<Eigen::Matrix<double, 3, 6>> jacob_edge(edge_size);  // 3D residual for edges
+			std::vector<Vec3d> errors_edge(edge_size);
+			
+			std::vector<int> index_surf(surf_size);
+			std::iota(index_surf.begin(), index_surf.end(), 0);
+			std::vector<int> index_edge(edge_size);
+			std::iota(index_edge.begin(), index_edge.end(), 0);
+			
+			// Gauss-Newton iteration
+			// Nearest neighbor search for edge points
+			if (options_.use_edge_points_) {
+				std::for_each(std::execution::par_unseq, index_edge.begin(), index_edge.end(), [&](int idx) {
+					Vec3d q = ToVec3d(edge->points[idx]);
+					Vec3d qs = pose * q;
+					
+					// Find nearest neighbors
+					std::vector<int> nn_indices;
+					
+					kdtree_edge_.GetClosestPoint(ToPointType(qs), nn_indices, 5);
+					effect_edge[idx] = false;
+					
+					if (nn_indices.size() >= 3) {
+						std::vector<Vec3d> nn_eigen;
+						for (auto& n : nn_indices) {
+							nn_eigen.emplace_back(ToVec3d(local_map_edge_->points[n]));
+						}
+						
+						// Point-to-line residual
+						Vec3d d, p0;
+						if (!math::FitLine(nn_eigen, p0, d, options_.max_line_distance_)) {
+							return;
+						}
+						
+						Vec3d err = SO3::hat(d) * (qs - p0);
+						if (err.norm() > options_.max_line_distance_) {
+							return;
+						}
+						
+						effect_edge[idx] = true;
+						
+						// Build residual
+						Eigen::Matrix<double, 3, 6> J;
+						J.block<3, 3>(0, 0) = -SO3::hat(d) * pose.so3().matrix() * SO3::hat(q);
+						J.block<3, 3>(0, 3) = SO3::hat(d);
+						
+						jacob_edge[idx] = J;
+						errors_edge[idx] = err;
+					}
+				});
+			}
+			
+			/// Nearest neighbor search for planar points
+			if (options_.use_surf_points_) {
+				std::for_each(std::execution::par_unseq, index_surf.begin(), index_surf.end(), [&](int idx) {
+					Vec3d q = ToVec3d(surf->points[idx]);
+					Vec3d qs = pose * q;
+					
+					// Find nearest neighbors
+					std::vector<int> nn_indices;
+					
+					kdtree_surf_.GetClosestPoint(ToPointType(qs), nn_indices, 5);
+					effect_surf[idx] = false;
+					
+					if (nn_indices.size() == 5) {
+						std::vector<Vec3d> nn_eigen;
+						for (auto& n : nn_indices) {
+							nn_eigen.emplace_back(ToVec3d(local_map_surf_->points[n]));
+						}
+						
+						// Point-to-plane residual
+						Vec4d n;
+						if (!math::FitPlane(nn_eigen, n)) {
+							return;
+						}
+						
+						double dis = n.head<3>().dot(qs) + n[3];
+						if (fabs(dis) > options_.max_plane_distance_) {
+							return;
+						}
+						
+						effect_surf[idx] = true;
+						
+						// Build residual
+						Eigen::Matrix<double, 1, 6> J;
+						J.block<1, 3>(0, 0) = -n.head<3>().transpose() * pose.so3().matrix() * SO3::hat(q);
+						J.block<1, 3>(0, 3) = n.head<3>().transpose();
+						
+						jacob_surf[idx] = J;
+						errors_surf[idx] = dis;
+					}
+				});
+			}
+			
+			// Accumulate Hessian and error, compute dx
+			double total_res = 0;
+			int effective_num = 0;
+			
+			Mat6d H = Mat6d::Zero();
+			Vec6d err = Vec6d::Zero();
+			
+			for (const auto& idx : index_surf) {
+				if (effect_surf[idx]) {
+					H += jacob_surf[idx].transpose() * jacob_surf[idx];
+					err += -jacob_surf[idx].transpose() * errors_surf[idx];
+					effective_num++;
+					total_res += errors_surf[idx] * errors_surf[idx];
+				}
+			}
+			
+			for (const auto& idx : index_edge) {
+				if (effect_edge[idx]) {
+					H += jacob_edge[idx].transpose() * jacob_edge[idx];
+					err += -jacob_edge[idx].transpose() * errors_edge[idx];
+					effective_num++;
+					total_res += errors_edge[idx].norm();
+				}
+			}
+			
+			if (effective_num < options_.min_effective_pts_) {
+				LOG(WARNING) << "effective num too small: " << effective_num;
+				return pose;
+			}
+			
+			Vec6d dx = H.inverse() * err;
+			pose.so3() = pose.so3() * SO3::exp(dx.head<3>());
+			pose.translation() += dx.tail<3>();
+			
+			// Update
+			LOG(INFO) << "iter " << iter << " total res: " << total_res << ", eff: " << effective_num
+			<< ", mean res: " << total_res / effective_num << ", dxn: " << dx.norm();
+			
+			if (dx.norm() < options_.eps_) {
+				LOG(INFO) << "converged, dx = " << dx.transpose();
+				break;
+			}
+		}
+		
+		estimated_poses_.emplace_back(pose);
+		return pose;
+	}
+\end{lstlisting}
+
+Since we need to handle both point-to-line and point-to-plane registration simultaneously, the code here will be somewhat lengthy. The workflow is identical to what we introduced in the ICP section, with the addition of local map maintenance procedures. Readers should compile and run the `test_loam_odom` program to execute this odometry:
+
+\begin{lstlisting}[language=c++,caption=Terminal input:]
+	bin/test_loam_odom 
+\end{lstlisting}
+
+Figure~\ref{fig:loam-map} shows the mapping results from this section's odometry program, where readers can clearly observe the structural shapes of various objects.
+
+\begin{figure}[!thp]
+	\centering  
+	\includegraphics[width=.8\textwidth]{resources/3d-lidar-mapping/ch7-loam-map}  
+	\caption{Point cloud map generated by the LOAM-like odometry algorithm in this section}  
+	\label{fig:loam-map}  
+\end{figure}
+
+In principle, feature-based algorithms classify raw point clouds into simple features and then construct different optimization problems for different feature types. The rationale behind extracting these features and using different ICP methods for corner and planar points remains largely based on empirical debugging experience. In practical testing, corner and planar points cannot always be perfectly classified—they represent approximate results. Many points classified as corners or planes may actually lie on trees or bushes, where point-to-plane ICP might not reflect true physical meaning. Therefore, feature-based point cloud registration methods are primarily designed based on intuitive experience. They may perform better on certain datasets but fail in other scenarios. Many feature extraction processes also lack theoretical foundations, relying instead on empirical design. Systems like LeGO-LOAM and MULLS employ more sophisticated feature extraction methods, while their registration components remain consistent with classical algorithms.  
+
+We can further refine the classification by separating ground and ceiling points, categorizing point clouds into \textbf{corners, less-sharp corners, planar points, less-flat planar points}, etc., based on beam curvature. Such refinements can improve registration accuracy.  
+
+In terms of performance metrics, this odometry processes 16-beam LiDAR data at approximately 20 milliseconds per frame, slightly slower than the incremental NDT odometry discussed earlier. This is partly due to the added feature extraction step and the need to rebuild Kd-trees for nearest-neighbor searches in point-to-plane and point-to-line ICP. Some methods use voxels for ICP nearest-neighbor searches instead—readers are encouraged to implement this themselves.  
+
+In addition to the examples demonstrated in the book, readers can also run other provided sample datasets.
+
+\section{Loosely Coupled LIO Systems}
+By the previous section, we have systematically introduced LiDAR SLAM systems along with the principles of inertial navigation and integrated navigation. Now it's time to combine them together.
+
+Many LiDAR odometry algorithms utilize IMU measurements to guide the initial guess for LiDAR matching. Such Lidar-inertial Odometry systems are referred to as LIO or LINS systems, which can be viewed as coupled LiDAR-IMU systems. Based on the coupling methodology, they can be classified into "tightly coupled" and "loosely coupled" systems. This section focuses on loosely coupled systems, while the theoretically more complex tightly coupled systems will be introduced in Chapter~\ref{cpt:tightly-lio}.
+
+In a loosely coupled system, we still maintain a state estimator to compute the vehicle's state. The IMU and wheel odometry provide observations for inertial and velocity states, while \textbf{the pose output from LiDAR point cloud matching} serves as pose observations for the system. In this framework, we do not directly incorporate point cloud residuals (such as point-to-line, point-to-plane, or NDT residuals) into the state estimator. Instead, we fuse the \textbf{output pose} from point cloud registration with the estimator. This keeps the Kalman filter component and point cloud registration \textbf{decoupled} \cite{Tang2015}. We can freely choose any odometry pose from previous chapters as the observation source. Conversely, point cloud registration can use the predicted output from the state estimator as the initial pose guess. However, if the point cloud structure degenerates or gets disturbed, the registration algorithm may become unstable, adversely affecting the state estimator.
+
+In contrast, tightly coupled systems directly incorporate point cloud residual equations as observation models into the estimator. This approach essentially embeds an ICP or NDT process within the filter or optimization algorithm. Since ICP and NDT require iterative updates of their nearest neighbors, the corresponding filter should also support iterative updates. Having introduced various registration methods in this chapter and different inertial navigation approaches in earlier chapters, we can flexibly combine them to create an LIO solution. Here we implement a relatively simple case: using the ESKF from Chapter 3 combined with the incremental NDT odometry from Section \ref{sec:inc-ndt} to build a loosely coupled LIO system. This implementation is relatively simple and suitable for teaching purposes, and readers can replace the LiDAR odometry with ICP or feature-based methods.
+
+\subsection{Coordinate Frame Conventions}
+With the introduction of IMU, we now have three coordinate frames: world frame (W), IMU frame (I), and LiDAR frame (L). The IMU and LiDAR frames are not coincident, with a transformation between them denoted as $\bm{T}_{IL}$. This parameter varies across different datasets depending on sensor mounting. We record $\bm{T}_{IL}$ for each dataset in configuration files and load it during program initialization.
+
+For point cloud registration, several approaches exist. Since IMU motion models are derived in the IMU frame, we prefer to keep them unchanged without introducing additional variables. Therefore, we choose to transform LiDAR point clouds to the IMU frame using the extrinsic calibration. This makes the IMU frame the central reference for localization and mapping. The local maps in our LiDAR odometry are also maintained in the IMU frame. The transformation is straightforward: for a point $\bm{p}_L$ measured by the LiDAR, its IMU frame coordinates become:
+\begin{equation}\label{key}
+	\bm{p}_{I} = \bm{T}_{IL} \bm{p}_L = \bm{R}_{IL} \bm{p}_L + \bm{t}_{IL}.
+\end{equation}
+
+This approach avoids introducing additional extrinsic parameters into the observation model. An alternative method would keep the LiDAR odometry operating in the LiDAR frame while transforming the output pose to the IMU frame via $\bm{T}_{IL}$. However, that would introduce extra $\bm{T}_{IL}$ terms in the observation equations, complicating the Jacobian matrices.
+
+\subsection{Motion and Observation Equations for Loosely Coupled LIO}
+Since the entire LIO operates in the IMU frame, the state variable motion equations remain consistent with~\eqref{eq:eskf-F}, which we won't reiterate here. Meanwhile, the pose output from LiDAR odometry can be directly treated as observations of the state variables $\bm{R}, \bm{p}$. This process is essentially identical to the GNSS observations discussed in Chapter~\ref{cpt:ins} equation~\eqref{eq:obs-gnss}. Abstractly written as $\bm{z}=\bm{h}(\bm{x})$, the translation observation is:
+\begin{equation}\label{key}
+	\bm{p}_{LO} = \bm{p}.
+\end{equation}
+For rotation observations, to facilitate derivative computation, we express it as:
+\begin{equation}\label{key}
+	\delta \boldsymbol{\theta} = \mathrm{Log}(\bm{R}^\top \bm{R}_{LO}).
+\end{equation}
+Here, the observation Jacobian of odometry rotation with respect to error state $\delta \boldsymbol{\theta}$ should be $\bm{I}$, with the residual defined as:
+\begin{equation}\label{key}
+	\bm{r}_{\bm{R}} = - \mathrm{Log}( \bm{R}^\top \bm{R}_{LO}).
+\end{equation}
+At the implementation level, we'll use the same observation function as GNSS since they fundamentally represent direct observations of rotation and translation.
+
+\subsection{Data Preparation for Loosely Coupled System}
+The implementation of loosely coupled LIO consists of three main components: First, we need to synchronize IMU data with LiDAR data. LiDAR typically operates at 10Hz while IMU runs at 100Hz. We aim to uniformly process the 10 IMU measurements between consecutive LiDAR scans. Second, we need to handle LiDAR motion compensation, which requires pose estimates during the LiDAR measurement period - these can be obtained from ESKF predictions of IMU data. Third, we should feed the predicted poses from ESKF to the odometry algorithm, then incorporate the registered poses back into ESKF. Additionally, to support various datasets in this book, we define an extra data conversion processor.
+
+The CloudConvert class in this section handles conversion of different point cloud formats to PCL format, with the following main interface:
+
+\begin{lstlisting}[language=c++,caption=src/ch7/loosly_coupled_lio/cloud_convert.h]
+	class CloudConvert {
+		public:
+		EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+		
+		enum class LidarType {
+			AVIA = 1,  // DJI solid-state LiDAR
+			VELO32,    // Velodyne 32-beam
+			OUST64,    // Ouster 64-beam
+		};
+		
+		CloudConvert() = default;
+		~CloudConvert() = default;
+		
+		/**
+		* Process Livox Avia point cloud
+		* @param msg
+		* @param pcl_out
+		*/
+		void Process(const livox_ros_driver::CustomMsg::ConstPtr &msg, FullCloudPtr &pcl_out);
+		
+		/**
+		* Process sensor_msgs::PointCloud2
+		* @param msg
+		* @param pcl_out
+		*/
+		void Process(const sensor_msgs::PointCloud2::ConstPtr &msg, FullCloudPtr &pcl_out);
+		
+		/// Load parameters from YAML
+		void LoadFromYAML(const std::string &yaml);
+		
+		private:
+		void AviaHandler(const livox_ros_driver::CustomMsg::ConstPtr &msg);
+		void Oust64Handler(const sensor_msgs::PointCloud2::ConstPtr &msg);
+		void VelodyneHandler(const sensor_msgs::PointCloud2::ConstPtr &msg);
+		
+		FullPointCloudType cloud_full_, cloud_out_;  // Output point cloud
+		LidarType lidar_type_ = LidarType::AVIA;     // LiDAR type
+		int point_filter_num_ = 1;                   // Point decimation ratio
+		int num_scans_ = 6;                          // Number of scan beams
+		float time_scale_ = 1e-3;                    // Time field scaling factor
+	};
+\end{lstlisting}
+
+The implementation mainly standardizes point cloud interfaces. After processing by this class, subsequent modules only need to handle FullCloudPtr input. The class manages per-point timestamps, decimation ratios, etc., typically producing much smaller point clouds than raw sensor output. We omit the detailed implementation as it's relatively trivial.
+
+Next, we synchronize IMU and point cloud data using the MessageSync class:
+
+\begin{lstlisting}[language=c++,caption=src/ch7/loosly_coupled_lio/measure_sync.h]
+	/// IMU and LiDAR synchronization
+	struct MeasureGroup {
+		MeasureGroup() { this->lidar_.reset(new FullPointCloudType()); };
+		
+		double lidar_begin_time_ = 0;   // LiDAR packet start time
+		double lidar_end_time_ = 0;     // LiDAR packet end time
+		FullCloudPtr lidar_ = nullptr;  // LiDAR point cloud
+		std::deque<IMUPtr> imu_;        // IMU measurements between frames
+	};
+	
+	/**
+	* Synchronize LiDAR and IMU data
+	*/
+	class MessageSync {
+		public:
+		using Callback = std::function<void(const MeasureGroup &)>;
+		
+		MessageSync(Callback cb) : callback_(cb), conv_(new CloudConvert) {}
+		
+		/// Initialization
+		void Init(const std::string &yaml);
+		
+		/// Process IMU data
+		void ProcessIMU(IMUPtr imu);
+		
+		/**
+		* Process sensor_msgs::PointCloud2
+		* @param msg
+		*/
+		void ProcessCloud(const sensor_msgs::PointCloud2::ConstPtr &msg);
+		
+		void ProcessCloud(const livox_ros_driver::CustomMsg::ConstPtr &msg);
+		
+		private:
+		/// Attempt synchronization, returns true if successful
+		bool Sync();
+		
+		Callback callback_;                             // Callback after synchronization
+		std::shared_ptr<CloudConvert> conv_ = nullptr;  // Point cloud converter
+		std::deque<FullCloudPtr> lidar_buffer_;         // LiDAR data buffer
+		std::deque<IMUPtr> imu_buffer_;                 // IMU data buffer
+		double last_timestamp_imu_ = -1.0;              // Latest IMU timestamp
+		double last_timestamp_lidar_ = 0;               // Latest LiDAR timestamp
+		std::deque<double> time_buffer_;
+		bool lidar_pushed_ = false;
+		MeasureGroup measures_;
+		double lidar_end_time_ = 0;
+	};
+	
+	bool MessageSync::Sync() {
+		if (lidar_buffer_.empty() || imu_buffer_.empty()) {
+			return false;
+		}
+		
+		if (!lidar_pushed_) {
+			measures_.lidar_ = lidar_buffer_.front();
+			measures_.lidar_begin_time_ = time_buffer_.front();
+			
+			lidar_end_time_ = measures_.lidar_begin_time_ + 
+			measures_.lidar_->points.back().time / double(1000);
+			
+			measures_.lidar_end_time_ = lidar_end_time_;
+			lidar_pushed_ = true;
+		}
+		
+		if (last_timestamp_imu_ < lidar_end_time_) {
+			return false;
+		}
+		
+		double imu_time = imu_buffer_.front()->timestamp_;
+		measures_.imu_.clear();
+		while ((!imu_buffer_.empty()) && (imu_time < lidar_end_time_)) {
+			imu_time = imu_buffer_.front()->timestamp_;
+			if (imu_time > lidar_end_time_) {
+				break;
+			}
+			measures_.imu_.push_back(imu_buffer_.front());
+			imu_buffer_.pop_front();
+		}
+		
+		lidar_buffer_.pop_front();
+		time_buffer_.pop_front();
+		lidar_pushed_ = false;
+		
+		if (callback_) {
+			callback_(measures_);
+		}
+		
+		return true;
+	}
+\end{lstlisting}
+
+This class receives raw IMU and LiDAR messages from ROS packages, assembles them into a MeasureGroup through the Sync() function, and passes it to the callback function. Our subsequent loosely/tightly coupled algorithms only need to handle MeasureGroup objects without worrying about data preparation and synchronization implementation details.
+
+\subsection{Main Workflow of Loosely Coupled System}
+The main implementation of the loosely coupled system is shown below. It maintains an ESKF object and a MessageSync object to process synchronized point clouds and IMU data.
+
+\begin{lstlisting}[language=c++,caption=src/ch7/loosely_coupled_lio/loosly_lio.h]
+	class LooselyLIO {
+		public:
+		EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+		struct Options {
+			Options() {}
+			bool save_motion_undistortion_pcd_ = false;  // Whether to save point clouds before/after motion undistortion
+			bool with_ui_ = true;                        // Whether to enable UI
+		};
+		
+		LooselyLIO(Options options);
+		~LooselyLIO() = default;
+		
+		/// Initialize from config file
+		bool Init(const std::string &config_yaml);
+		
+		/// Point cloud callback
+		void PCLCallBack(const sensor_msgs::PointCloud2::ConstPtr &msg);
+		void LivoxPCLCallBack(const livox_ros_driver::CustomMsg::ConstPtr &msg);
+		
+		/// IMU callback
+		void IMUCallBack(IMUPtr msg_in);
+		
+		/// Terminate program and exit UI
+		void Finish();
+		
+		private:
+		/// Process synchronized IMU and LiDAR data
+		void ProcessMeasurements(const MeasureGroup &meas);
+		
+		/// Attempt IMU initialization
+		void TryInitIMU();
+		
+		/// Predict states using IMU
+		/// Predicted states during this period will be stored in imu_states_
+		void Predict();
+		
+		/// Motion undistortion for point cloud in measures_
+		void Undistort();
+		
+		/// Perform registration and observation
+		void Align();
+		
+		private:
+		/// modules
+		std::shared_ptr<MessageSync> sync_ = nullptr;  // Message synchronizer
+		StaticIMUInit imu_init_;                       // IMU static initialization
+		std::shared_ptr<sad::IncrementalNDTLO> inc_ndt_lo_ = nullptr;
+		
+		/// point clouds data
+		FullCloudPtr scan_undistort_{new FullPointCloudType()};  // scan after undistortion
+		SE3 pose_of_lo_;
+		
+		Options options_;
+		
+		// flags
+		bool imu_need_init_ = true;   // Whether IMU bias needs initialization
+		bool flg_first_scan_ = true;  // Whether first LiDAR scan
+		int frame_num_ = 0;           // Frame counter
+		
+		// EKF data
+		MeasureGroup measures_;              // Synchronized IMU and point cloud
+		std::vector<NavStated> imu_states_;  // States during ESKF prediction
+		ESKFD eskf_;                         // ESKF
+		SE3 TIL_;                            // Extrinsic between LiDAR and IMU
+		
+		std::shared_ptr<ui::PangolinWindow> ui_ = nullptr;
+	};
+\end{lstlisting}
+
+The core processing logic resides in the ProcessMeasurements function, which includes the following steps:
+
+\begin{lstlisting}[language=c++,caption=src/ch7/loosely_coupled_lio/loosly_lio.cc]
+	void LooselyLIO::ProcessMeasurements(const MeasureGroup &meas) {
+		LOG(INFO) << "call meas, imu: " << meas.imu_.size() << ", lidar pts: " << meas.lidar_->size();
+		measures_ = meas;
+		
+		if (imu_need_init_) {
+			// Initialize IMU system
+			TryInitIMU();
+			return;
+		}
+		
+		// State prediction using IMU data
+		Predict();
+		
+		// Motion undistortion for point cloud
+		Undistort();
+		
+		// Registration
+		Align();
+	}
+\end{lstlisting}
+
+The workflow is straightforward: When IMU is uninitialized, it uses the static initialization method from Chapter 3 to estimate IMU biases. After initialization, it first performs prediction using IMU data, then applies motion undistortion to the point cloud using predicted states, and finally registers the undistorted point cloud. The static initialization part was introduced earlier. Now let's examine the implementations of these three functions:
+
+The prediction part is simple - it directly feeds IMU data to the filter and records the nominal states:
+
+\begin{lstlisting}[language=c++,caption=src/ch7/loosely_coupled_lio/loosly_lio.cc]
+	void LooselyLIO::Predict() {
+		imu_states_.clear();
+		imu_states_.emplace_back(eskf_.GetNominalState());
+		
+		/// Predict IMU states
+		for (auto &imu : measures_.imu_) {
+			eskf_.Predict(*imu);
+			imu_states_.emplace_back(eskf_.GetNominalState());
+		}
+	}
+\end{lstlisting}
+
+Regarding motion undistortion, let's first examine its underlying principle.
+
+\paragraph{Motion Compensation Using IMU Predicted Poses}
+\label{sec:motion-compensation}
+With IMU poses available in the LIO system, we can utilize IMU-predicted poses to perform motion compensation on LiDAR point clouds. This aspect wasn't covered in previous pure LiDAR systems, so we'll introduce it here.
+
+Motion compensation refers to correcting scan distortions caused by vehicle motion. If the LiDAR remains stationary during scanning, the measured distances match the true distances. However, when the LiDAR moves with the vehicle, we must account for the vehicle's motion during scanning. Most LiDARs operate at 10-20Hz with scan durations of 0.1-0.05 seconds. For a vehicle moving at 20m/s, the pose difference between scan start and end could reach 1-2 meters. Faster speeds or larger rotations exacerbate motion distortion. Small autonomous vehicles or robots may also rotate rapidly, potentially causing scan angles to under- or overshoot 360 degrees, resulting in ghosting artifacts within single scans. Therefore, motion compensation becomes essential for fast-moving vehicles.
+
+The principle is straightforward: we need the vehicle poses during scanning. Assume a scan duration $t_s$. Each LiDAR point carries its timestamp (typically provided by the driver, or calculable from beam angles if the LiDAR model is known). Let $\bm{p}_t = (x,y,z)^\top, t \in (0,t_s)$ represent a point's coordinates in the \textbf{LiDAR frame}. Meanwhile, we can query LiDAR poses at any $t \in [0,t_s]$ (typically via IMU pose interpolation). Denote the IMU pose at $t$ as $\bm{T}(t)_{WI}$ and the end pose as $\bm{T}(t_s)_{WI}$. To compensate motion, we transform each point to the scan-end pose:
+
+Given IMU-LiDAR extrinsics $\bm{T}_{IL}$, the compensation formula is:
+\begin{equation}\label{key}
+	\bm{p}^\prime = \bm{T}_{LI} \bm{T}(t_s)_{IW} \bm{T}(t)_{WI} \bm{T}_{IL} \bm{p}_t.
+\end{equation}
+
+Reading right-to-left, this naturally yields coordinates in the end-time LiDAR frame. Omitting the leftmost matrix gives IMU-frame coordinates.
+
+In implementation, we obtain scan-start/end poses through various means. For LIO systems, a natural approach uses relative poses from EKF prediction between scans. The Predict function already stores IMU-predicted poses between scans, enabling the following undistortion code:
+
+\begin{lstlisting}[language=c++,caption=src/ch7/loosely_coupled_lio/loosly_lio.cc]
+	void LooselyLIO::Undistort() {
+		auto cloud = measures_.lidar_;
+		auto imu_state = eskf_.GetNominalState();  // Final state
+		SE3 T_end = SE3(imu_state.R_, imu_state.p_);
+		
+		/// Transform all points to end-time pose
+		std::for_each(std::execution::par_unseq, cloud->points.begin(), cloud->points.end(), [&](auto &pt) {
+			SE3 Ti = T_end;
+			NavStated match;
+			
+			// pt.time is milliseconds relative to scan start
+			math::PoseInterp<NavStated>(
+			measures_.lidar_begin_time_ + pt.time * 1e-3, imu_states_, [](const NavStated &s) { return s.timestamp_; }, [](const NavStated &s) { return s.GetSE3(); }, Ti, match);
+			
+			Vec3d pi = ToVec3d(pt);
+			Vec3d p_compensate = TIL_.inverse() * T_end.inverse() * Ti * TIL_ * pi;
+			
+			pt.x = p_compensate(0);
+			pt.y = p_compensate(1);
+			pt.z = p_compensate(2);
+		});
+		scan_undistort_ = cloud;
+	}
+\end{lstlisting}
+
+Figure~\ref{fig:cloud-undist} shows the undistortion effect. Right-side points (near scan end) require smaller corrections, while left-side points (near scan start) need larger adjustments. Note this method assumes the filter works properly - if the filter fails or poses diverge, the undistortion will likewise diverge.
+
+\begin{figure}[!t]
+	\centering
+	\includegraphics[width=0.8\textwidth]{resources/3d-lidar-mapping/cloud_undist}
+	\caption{Point cloud before/after undistortion (green: corrected)}
+	\label{fig:cloud-undist}
+\end{figure}
+
+\subsection{Registration Module of the Loosely Coupled LIO System}
+Finally, we present the registration module code of the loosely coupled LIO system. Since the undistorted point cloud has already been obtained in previous steps, we only need to pass it to the NDT odometry, compute the pose, and then feed it back to the Kalman filter:
+
+\begin{lstlisting}[language=c++,caption=src/ch7/loosely_coupled_lio/loosly_lio.cc]
+	void LooselyLIO::Align() {
+		FullCloudPtr scan_undistort_trans(new FullPointCloudType);
+		pcl::transformPointCloud(*scan_undistort_, *scan_undistort_trans, TIL_.matrix());
+		scan_undistort_ = scan_undistort_trans;
+		
+		auto current_scan = ConvertToCloud<FullPointType>(scan_undistort_);
+		
+		// Voxel filtering
+		pcl::VoxelGrid<PointType> voxel;
+		voxel.setLeafSize(0.5, 0.5, 0.5);
+		voxel.setInputCloud(current_scan);
+		
+		CloudPtr current_scan_filter(new PointCloudType);
+		voxel.filter(*current_scan_filter);
+		
+		/// Process first frame of LiDAR data
+		if (flg_first_scan_) {
+			SE3 pose;
+			inc_ndt_lo_->AddCloud(current_scan_filter, pose);
+			flg_first_scan_ = false;
+			return;
+		}
+		
+		/// Get predicted pose from EKF, feed to LO, obtain LO pose, and finally integrate into EKF
+		SE3 pose_predict = eskf_.GetNominalSE3();
+		inc_ndt_lo_->AddCloud(current_scan_filter, pose_predict, true);
+		pose_of_lo_ = pose_predict;
+		eskf_.ObserveSE3(pose_of_lo_, 1e-2, 1e-2);
+		
+		if (options_.with_ui_) {
+			// Send to UI
+			ui_->UpdateScan(current_scan, eskf_.GetNominalSE3());  // Convert to Lidar Pose for UI
+			ui_->UpdateNavState(eskf_.GetNominalState());
+		}
+		frame_num_++;
+	}
+\end{lstlisting}
+
+Now please run the test\_loosely\_lio program to evaluate the performance of this chapter's implementation. The program supports running on three datasets: ULHK, KITTI, and NCLT. You can specify which dataset to use through gflags, for example:
+\begin{lstlisting}
+	./bin/test_loosely_lio --bag_path ./dataset/sad/nclt/20120429.bag --dataset_type NCLT --config ./config/velodyne_nclt.yaml
+\end{lstlisting}
+
+This will run on a specified NCLT data bag. The NCLT data should appear as shown in Figure~\ref{fig:nclt-loosely-lio}. This example program can also run on solid-state LiDAR datasets, such as the AVIA dataset:
+
+\begin{lstlisting}
+	bin/test_loosely_lio --bag_path ./dataset/sad/avia/HKU_MB_2020-09-20-13-34-51.bag --config ./config/avia.yaml --dataset_type=AVIA
+\end{lstlisting}
+
+The AVIA dataset uses DJI's solid-state LiDAR, where you can observe its field of view is significantly narrower than 360-degree mechanical LiDARs (Figure~\ref{fig:avia-loosely-lio}).
+
+\begin{figure}[!t]
+	\centering
+	\includegraphics[width=0.8\textwidth]{resources/3d-lidar-mapping/loosely-nclt.png}
+	\caption{Real-time operation results of the loosely coupled LIO program on NCLT dataset}
+	\label{fig:nclt-loosely-lio}
+\end{figure}
+
+\begin{figure}[!t]
+	\centering
+	\includegraphics[width=0.8\textwidth]{resources/3d-lidar-mapping/avia01.png}
+	\caption{Real-time operation results of the loosely coupled LIO program on AVIA dataset}
+	\label{fig:avia-loosely-lio}
+\end{figure}
+
+
+\section{Summary}
+This section systematically introduced the fundamental algorithms of a 3D LiDAR SLAM system. We implemented various ICP and NDT methods and extended them into LiDAR odometry. Furthermore, we realized feature-based LiDAR odometry and, combined with the previous Kalman filter, implemented a loosely coupled LIO system based on the Kalman filter. Through the programs in this section, readers can gain deeper insight into how a point cloud system is composed and operates.
+
+In the next section, we will focus on tightly coupled LIO systems. We will introduce tightly coupled LIO based on iterative Kalman filters and optimization. Subsequently, we will incorporate RTK constraints and loop closure detection constraints to achieve complete mapping and localization functionality.
+
+\section*{Exercises}
+\begin{enumerate}
+	\item Derive the right multiplication derivative of $\bm{R}$ in Equation \eqref{eq:p2p-icp-jacobian}.
+	\item Use std::reduce to parallelize the Hessian matrix accumulation process.
+	\item Derive the derivatives of point-to-plane and point-to-line residuals with respect to $\bm{R}$.
+	\item Explain the relationship between weighted least squares problems and maximum likelihood estimation in NDT.
+	\item Design and implement a parallel computation pipeline for calculating laser beam curvature.
+	\item Develop a ground extraction pipeline for the LOAM-like odometry in this book, and apply point-to-plane ICP separately to ground point clouds.
+	\item Study relevant literature to understand the differences in feature extraction methods between algorithms like LOAM or LeGO-LOAM.
+	\item *Attempt to implement a loosely coupled LIO system using other methods introduced in this book (point-to-plane ICP, feature-based methods, etc.).
+\end{enumerate}
 
