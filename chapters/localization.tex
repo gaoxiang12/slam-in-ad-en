@@ -1,6 +1,6 @@
 \thispagestyle{empty}
 
-\chapter{Real-Time Localization System for Autonomous Vehicles}
+\chapter{Real-Time Localization System}
 \thispagestyle{empty}
 \label{cpt:localization}
 
@@ -106,6 +106,213 @@ void Fusion::AlignForGrid(sad::Fusion::GridSearchResult& gr) {
 	gr.result_pose_ = Mat4ToSE3(ndt.getFinalTransformation());  
 }  
 \end{lstlisting}
+
+\section{Algorithm Implementation}
+We concurrently invoke multi-resolution NDT searches to determine the vehicle's initial orientation. If the maximum matching score from these registration results exceeds a preset threshold, we consider the initialization successful. Upon successful RTK initialization, the fusion system transitions to normal operation mode. The code framework here resembles the LIO system described earlier. We retain the point cloud deskewing and IMU-LiDAR message synchronization components while replacing the original LIO registration with map matching:
+
+\begin{lstlisting}[language=c++,caption=/ch10/fusion.cc]
+	void Fusion::ProcessMeasurements(const MeasureGroup& meas) {
+		measures_ = meas;
+		
+		if (imu_need_init_) {
+			TryInitIMU();
+			return;
+		}
+		
+		/// The following three steps remain consistent with LIO, 
+		/// except the map matching is now handled by the align function
+		if (status_ == Status::WORKING) {
+			Predict();
+			Undistort();
+		} else {
+			scan_undistort_ = measures_.lidar_;
+		}
+		
+		Align();
+	}
+	
+	void Fusion::Align() {
+		FullCloudPtr scan_undistort_trans(new FullPointCloudType);
+		pcl::transformPointCloud(*scan_undistort_, *scan_undistort_trans, TIL_.matrix());
+		scan_undistort_ = scan_undistort_trans;
+		current_scan_ = ConvertToCloud<FullPointType>(scan_undistort_);
+		current_scan_ = VoxelCloud(current_scan_, 0.5);
+		
+		if (status_ == Status::WAITING_FOR_RTK) {
+			// If recent RTK signal exists, attempt initialization
+			if (last_gnss_ != nullptr) {
+				if (SearchRTK()) {
+					status_ == Status::WORKING;
+					ui_->UpdateScan(current_scan_, eskf_.GetNominalSE3());
+					ui_->UpdateNavState(eskf_.GetNominalState());
+				}
+			}
+		} else {
+			LidarLocalization();
+			ui_->UpdateScan(current_scan_, eskf_.GetNominalSE3());
+			ui_->UpdateNavState(eskf_.GetNominalState());
+		}
+	}
+\end{lstlisting}
+
+At the LiDAR registration level, we load point clouds near the predicted pose and perform NDT registration:
+
+\begin{lstlisting}[language=c++,caption=/ch10/fusion.cc]
+	bool Fusion::LidarLocalization() {
+		SE3 pred = eskf_.GetNominalSE3();
+		LoadMap(pred);
+		
+		ndt_.setInputCloud(current_scan_);
+		CloudPtr output(new PointCloudType);
+		ndt_.align(*output, pred.matrix().cast<float>());
+		
+		SE3 pose = Mat4ToSE3(ndt_.getFinalTransformation());
+		eskf_.ObserveSE3(pose, 1e-1, 1e-2);
+		
+		LOG(INFO) << "lidar loc score: " << ndt_.getTransformationProbability();
+		
+		return true;
+	}
+\end{lstlisting}
+
+The LoadMap function loads/unloads necessary map blocks based on the given pose:
+
+\begin{lstlisting}[language=c++,caption=/ch10/fusion.cc]
+	void Fusion::LoadMap(const SE3& pose) {
+		int gx = int((pose.translation().x() - 50.0) / 100);
+		int gy = int((pose.translation().y() - 50.0) / 100);
+		Vec2i key(gx, gy);
+		
+		// Load 9 surrounding blocks around current position
+		std::set<Vec2i, less_vec<2>> surrounding_index{
+			key + Vec2i(0, 0), key + Vec2i(-1, 0), key + Vec2i(-1, -1), key + Vec2i(-1, 1), key + Vec2i(0, -1),
+			key + Vec2i(0, 1), key + Vec2i(1, 0),  key + Vec2i(1, -1),  key + Vec2i(1, 1),
+		};
+		
+		// Load necessary regions
+		bool map_data_changed = false;
+		int cnt_new_loaded = 0, cnt_unload = 0;
+		for (auto& k : surrounding_index) {
+			if (map_data_index_.find(k) == map_data_index_.end()) {
+				// Map data doesn't exist
+				continue;
+			}
+			
+			if (map_data_.find(k) == map_data_.end()) {
+				// Load this block
+				CloudPtr cloud(new PointCloudType);
+				pcl::io::loadPCDFile(data_path_ + std::to_string(k[0]) + "_" + std::to_string(k[1]) + ".pcd", *cloud);
+				map_data_.emplace(k, cloud);
+				map_data_changed = true;
+				cnt_new_loaded++;
+			}
+		}
+		
+		// Unload unnecessary regions (slightly larger than loading area to avoid frequent unloading)
+		for (auto iter = map_data_.begin(); iter != map_data_.end();) {
+			if ((iter->first - key).norm() > 3.0) {
+				// Unload this block
+				iter = map_data_.erase(iter);
+				cnt_unload++;
+				map_data_changed = true;
+			} else {
+				iter++;
+			}
+		}
+		
+		LOG(INFO) << "new loaded: " << cnt_new_loaded << ", unload: " << cnt_unload;
+		if (map_data_changed) {
+			// Rebuild NDT target map
+			ref_cloud_.reset(new PointCloudType);
+			for (auto& mp : map_data_) {
+				*ref_cloud_ += *mp.second;
+			}
+			
+			LOG(INFO) << "rebuild global cloud, grids: " << map_data_.size();
+			ndt_.setResolution(1.0);
+			ndt_.setInputTarget(ref_cloud_);
+		}
+		
+		ui_->UpdatePointCloudGlobal(map_data_);
+	}
+\end{lstlisting}
+
+The map block calculation method remains consistent with the previous chapter. When map blocks change, the KD-tree inside PCL's NDT needs reconstruction. Note this operation can be computationally expensive, potentially causing system lag during map transitions. In practical systems, we could employ a dedicated loading thread to handle this task.
+
+\subsection{Peripheral Test Code}
+Finally, we send the unpacked ROS messages to the fusion localization algorithm. The test code is shown below:
+
+\begin{lstlisting}[language=c++,caption=src/ch10/run\_fusion\_offline.cc]
+	int main(int argc, char** argv) {	
+		sad::Fusion fusion(FLAGS_config_yaml);
+		if (!fusion.Init()) {
+			return -1;
+		}
+		
+		auto yaml = YAML::LoadFile(FLAGS_config_yaml);
+		auto bag_path = yaml["bag_path"].as<std::string>();
+		sad::RosbagIO rosbag_io(bag_path, sad::DatasetType::NCLT);
+		
+		/// Deliver various messages to fusion
+		rosbag_io
+		.AddAutoRTKHandle([&fusion](GNSSPtr gnss) {
+			fusion.ProcessRTK(gnss);
+			return true;
+		})
+		.AddAutoPointCloudHandle([&](sensor_msgs::PointCloud2::Ptr cloud) -> bool {
+			fusion.ProcessPointCloud(cloud);
+			return true;
+		})
+		.AddImuHandle([&](IMUPtr imu) {
+			fusion.ProcessIMU(imu);
+			return true;
+		})
+		.Go();
+		
+		LOG(INFO) << "done.";
+	}
+\end{lstlisting}
+
+To test this section's code, readers should first specify the test data package in the configuration file's bag\_path field. For fairness, we recommend using different packages from the mapping data. The NCLT dataset was collected across different months. For example, readers could use April's data for mapping and May/June's data for localization testing, which includes some dynamic object scenarios.
+
+After executing run\_fusion\_offline, readers should see the fusion localization interface as shown in Figure~\ref{fig:fusion-test}. The gray point cloud displays the map, while the colored point cloud shows the current scan (with cumulative effects retained for some time). The white coordinate frame indicates the vehicle's current localization. Readers should observe effective localization during most periods, as shown in Figure~\ref{fig:fusion-loc}.
+
+\begin{figure}[!t]
+	\centering
+	\includegraphics[width=1.0\textwidth]{resources/localization/fusion_offline.png}
+	\caption{Test results of fusion localization}
+	\label{fig:fusion-test}
+\end{figure}
+
+This section demonstrates the effectiveness of point cloud fusion localization. It shows that point cloud localization typically offers better robustness than RTK. As long as the point cloud map is sufficiently accurate, it can function effectively in most mapped areas without relying on outdoor RTK signal quality.
+
+\begin{figure}[!t]
+	\centering
+	\includegraphics[width=1.0\textwidth]{resources/localization/fusion-full.png}
+	\caption{Global results of fusion localization}
+	\label{fig:fusion-loc}
+\end{figure}
+
+\section{Summary}
+Building upon the point cloud mapping results from Chapter~\ref{cpt:mapping}, this chapter demonstrates a case study of fusion localization using existing LiDAR point cloud maps. The advantages and disadvantages of point cloud localization can be summarized as follows:
+
+\begin{enumerate}
+	\item Point cloud localization depends on scene structure rather than weather or occlusion conditions, typically offering better environmental adaptability than RTK. It works both indoors and outdoors with few limitations.
+	\item Point cloud localization results can be integrated into ESKF filters like RTK or form an optimization system as in Chapter~\ref{cpt:preinteg}.
+	\item For large-scale scenarios, the map should be partitioned, loading only nearby regions for localization.
+	\item Unlike RTK, point cloud localization requires an initial approximate position. Insufficient initial accuracy may necessitate grid searches of nearby positions and angles.
+	\item It shows some adaptability to dynamic scenes. As long as major structures (typically buildings) remain unchanged, small dynamic objects (crowds, vehicles, etc.) usually don't significantly interfere.
+	\item For open areas, point cloud maps can be compressed into 2.5D maps \cite{Wolcott2017,Wolcott2015,Wan2018}, greatly reducing storage requirements. Due to space constraints, these compression algorithms aren't detailed here. Readers may refer to the literature for implementation details.
+\end{enumerate}
+
+\section*{Exercises}
+\begin{enumerate}
+	\item Test mapping and localization on other datasets provided with this book.
+	\item Implement your own NDT to replace PCL's NDT, addressing lag during map transitions.
+	\item Use NDT scores to evaluate matching quality, reinitializing the system when scores are too low.
+	\item Adapt this program into a ROS node running via subscription callbacks (requires basic ROS knowledge).
+	\item Experiment with compressing point cloud maps for 2D/2.5D map-based localization \cite{Wolcott2017}.
+\end{enumerate}
 
 
 
