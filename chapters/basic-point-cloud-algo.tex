@@ -44,12 +44,12 @@ This book does not intend to engage in debates about sensors but focuses solely 
 	\label{fig:RAE}  
 \end{figure}  
 
-Let the distance be $r=\text{Range}$, the azimuth angle be $A=\text{Azimuth}$, and the elevation angle be $E=\text{Elevation}$. These angles are similar to Euler angles. Based on geometric relationships, the position of $\bm{P}$ in the radar reference frame can easily be derived:  
+Let the distance be $r=\text{Range}$, the azimuth angle be $A=\text{Azimuth}$, and the elevation angle be $E=\text{Elevation}$. These angles are similar to Euler angles. Based on geometric relationships, the position of $\mathbf{P}$ in the radar reference frame can easily be derived:  
 \begin{equation}\label{key}  
-	\bm{P} = \left[r \cos E \cos A, r \cos E \sin A, r \sin E \right] ^\top.  
+	\mathbf{P} = \left[r \cos E \cos A, r \cos E \sin A, r \sin E \right] ^\top.  
 \end{equation}  
 
-Conversely, $r, A, E$ can be calculated from $\bm{P}=[x,y,z]^\top$:  
+Conversely, $r, A, E$ can be calculated from $\mathbf{P}=[x,y,z]^\top$:  
 \begin{equation}\label{key}  
 	\begin{aligned}  
 		r &= \sqrt{x^2 + y^2 + z^2}, \\  
@@ -143,7 +143,7 @@ Bird's-eye view (BEV) is another commonly used representation for maps, especial
 
 Since vehicles are usually horizontally positioned, the sensors mounted on them are also typically level. Under this assumption, converting an outdoor point cloud map to a bird's-eye view is straightforward, as the $x, y, z$ coordinates of the point cloud correspond directly to horizontal and vertical axes. For sensors with tilted or rotating configurations, additional ground or world coordinate system information is required. Below, we convert the point cloud from Figure~\ref{fig:pcd-example} into a bird's-eye view. The BEV is implemented using OpenCV as a 2D image. To map point cloud coordinates to image coordinates, we define a resolution $r$, which determines how many meters each pixel represents. Additionally, we ensure the image center aligns with the point cloud center, while the image dimensions depend on the $x, y$ range of the point cloud.  
 
-Let the point cloud center be $\bm{c}=[c_x, c_y]^\top$ and the image center be $I_x, I_y$. A point with coordinates $(x, y, z)$ should map to image coordinates $(u, v)$ as follows:  
+Let the point cloud center be $\mathbf{c}=[c_x, c_y]^\top$ and the image center be $I_x, I_y$. A point with coordinates $(x, y, z)$ should map to image coordinates $(u, v)$ as follows:  
 
 \begin{equation}\label{key}  
 	\left\{  
@@ -226,7 +226,7 @@ Bird's-eye view (BEV) is another commonly used representation for maps, especial
 
 Since vehicles are usually horizontally positioned, the sensors mounted on them are also typically level. Under this assumption, converting an outdoor point cloud map to a bird's-eye view is straightforward, as the $x, y, z$ coordinates of the point cloud correspond directly to horizontal and vertical axes. For sensors with tilted or rotating configurations, additional ground or world coordinate system information is required. Below, we convert the point cloud from Figure~\ref{fig:pcd-example} into a bird's-eye view. The BEV is implemented using OpenCV as a 2D image. To map point cloud coordinates to image coordinates, we define a resolution $r$, which determines how many meters each pixel represents. Additionally, we ensure the image center aligns with the point cloud center, while the image dimensions depend on the $x, y$ range of the point cloud.  
 
-Let the point cloud center be $\bm{c}=[c_x, c_y]^\top$ and the image center be $I_x, I_y$. A point with coordinates $(x, y, z)$ should map to image coordinates $(u, v)$ as follows:  
+Let the point cloud center be $\mathbf{c}=[c_x, c_y]^\top$ and the image center be $I_x, I_y$. A point with coordinates $(x, y, z)$ should map to image coordinates $(u, v)$ as follows:  
 
 \begin{equation}\label{key}  
 	\left\{  
@@ -373,7 +373,7 @@ Of course, regardless of the representation method, the fundamental measurement 
 For example, a vertical pillar in 3D space is distributed along the $Z$-axis, but in a range image, it appears as a feature along the $Y$-axis, while in a bird's-eye view, it collapses to a single point. This shift in distribution affects the performance of clustering or feature extraction algorithms. Consequently, some algorithms prefer to extract features from range images or bird's-eye views first, then compute their corresponding 3D positions.
 
 \section{Nearest Neighbor Problem}
-The nearest neighbor problem is one of the most fundamental issues in point cloud processing and a step that will be repeatedly invoked in many matching algorithms. The problem can be described very simply: Given a point cloud $\mathcal{X} = \{ \bm{x}_1, \ldots, \bm{x}_n\}$ containing $n$ points, we ask, which point is closest to a given point $\bm{x}_m$? Further, what are the $k$ nearest points to it? Or which points lie within a fixed range $r$ of it? The former is called $k$-nearest neighbor search (kNN), while the latter is called range search.  
+The nearest neighbor problem is one of the most fundamental issues in point cloud processing and a step that will be repeatedly invoked in many matching algorithms. The problem can be described very simply: Given a point cloud $\mathcal{X} = \{ \mathbf{x}_1, \ldots, \mathbf{x}_n\}$ containing $n$ points, we ask, which point is closest to a given point $\mathbf{x}_m$? Further, what are the $k$ nearest points to it? Or which points lie within a fixed range $r$ of it? The former is called $k$-nearest neighbor search (kNN), while the latter is called range search.  
 
 Although this problem appears simple, solving it is not trivial, and there are many different approaches. We are particularly concerned with the efficiency of solving the nearest neighbor problem because this algorithm is typically invoked thousands or even millions of times. A small increase in computation time per call can lead to significant efficiency differences in the overall matching algorithm. Below, we introduce nearest neighbor methods in order of increasing complexity, which also aligns with the historical development of algorithmic techniques.  
 
@@ -384,7 +384,7 @@ The brute-force nearest neighbor search (BF search) is the simplest and most int
 
 \begin{mdframed}
 	\paragraph{Brute-Force Nearest Neighbor Search}  
-	Given a point cloud $\mathcal{X}$ and a query point $\bm{x}_m$, compute the distance between $\bm{x}_m$ and every point in $\mathcal{X}$, then return the minimum distance.  
+	Given a point cloud $\mathcal{X}$ and a query point $\mathbf{x}_m$, compute the distance between $\mathbf{x}_m$ and every point in $\mathcal{X}$, then return the minimum distance.  
 \end{mdframed}  
 
 Similarly, the brute-force $k$-nearest neighbor search can be defined as:  
@@ -392,10 +392,10 @@ Similarly, the brute-force $k$-nearest neighbor search can be defined as:
 \begin{mdframed}
 	\paragraph{Brute-Force $k$-Nearest Neighbor (BF kNN)}  
 	\begin{enumerate}
-		\item For a given point cloud $\mathcal{X}$ and query point $\bm{x}_m$, compute the distance between $\bm{x}_m$ and every point in $\mathcal{X}$.  
+		\item For a given point cloud $\mathcal{X}$ and query point $\mathbf{x}_m$, compute the distance between $\mathbf{x}_m$ and every point in $\mathcal{X}$.  
 		\item Sort the results from step 1.  
 		\item Select the $k$ nearest points.  
-		\item Repeat steps 1–3 for all $\bm{x}_m$.  
+		\item Repeat steps 1–3 for all $\mathbf{x}_m$.  
 	\end{enumerate}
 \end{mdframed}  
 
@@ -591,9 +591,9 @@ inline size_t hash_vec<3>::operator()(const Eigen::Matrix<int, 3, 1>& v) const {
 }
 \end{lstlisting}
 
-The `hash_vec` function is a template function with two specializations for 2D and 3D spatial hash functions, respectively. According to the literature \cite{Teschner2003}, spatial hash functions can be implemented by multiplying each dimension's data by a large prime number, then taking the XOR, and finally applying modulo with a large integer. For a spatial point \(\bm{p}=[p_x, p_y, p_z]\), using three large prime numbers \(n_1, n_2, n_3\) and a large integer \(N\), its hash function can be defined as:
+The `hash_vec` function is a template function with two specializations for 2D and 3D spatial hash functions, respectively. According to the literature \cite{Teschner2003}, spatial hash functions can be implemented by multiplying each dimension's data by a large prime number, then taking the XOR, and finally applying modulo with a large integer. For a spatial point \(\mathbf{p}=[p_x, p_y, p_z]\), using three large prime numbers \(n_1, n_2, n_3\) and a large integer \(N\), its hash function can be defined as:
 \begin{equation}\label{key}
-	\text{hash}(\bm{p}) = ((p_x n_1) ~ \mathrm{xor}~ (p_y n_2) ~\mathrm{xor}~ (p_z n_3))~\text{mod}~ N.
+	\text{hash}(\mathbf{p}) = ((p_x n_1) ~ \mathrm{xor}~ (p_y n_2) ~\mathrm{xor}~ (p_z n_3))~\text{mod}~ N.
 \end{equation}
 
 Similarly, we can define a hash function for 2D spatial points. Combined with the template parameter `dim` of the `GridNN` class, these can be used as implementations for the hash function in `std::unordered_map`. Then, we define their nearest neighbors in the `nearby_grids_` member variable:
@@ -868,12 +868,12 @@ In the construction process of a K-d tree, we primarily consider how to partitio
 \begin{mdframed}
 	\textbf{Construction of a K-d Tree:}
 	\begin{enumerate}
-		\item \textbf{Input:} Point cloud data \(\bm{X} = \{\bm{x}_1, \ldots, \bm{x}_n\}\), where \(\bm{x}_i \in \mathbb{R}^{k}\).
-		\item Consider inserting subset \(\bm{X}_n \subset \bm{X}\) into node \(n\):
-		\item If \(\bm{X}_n\) is empty, exit.
-		\item If \(\bm{X}_n\) contains only one point, mark it as a leaf node and exit.
-		\item Calculate the variance of \(\bm{X}_n\) along each axis and select the axis \(j\) with the highest dispersion. Use the mean \(m_j = \bm{X}_n[j]\) as the splitting threshold.
-		\item For each \(\bm{x} \in \bm{X}_n\), if \(\bm{x}[j] < m_j\), insert it into the left child node; otherwise, insert it into the right child node.
+		\item \textbf{Input:} Point cloud data \(\mathbf{X} = \{\mathbf{x}_1, \ldots, \mathbf{x}_n\}\), where \(\mathbf{x}_i \in \mathbb{R}^{k}\).
+		\item Consider inserting subset \(\mathbf{X}_n \subset \mathbf{X}\) into node \(n\):
+		\item If \(\mathbf{X}_n\) is empty, exit.
+		\item If \(\mathbf{X}_n\) contains only one point, mark it as a leaf node and exit.
+		\item Calculate the variance of \(\mathbf{X}_n\) along each axis and select the axis \(j\) with the highest dispersion. Use the mean \(m_j = \mathbf{X}_n[j]\) as the splitting threshold.
+		\item For each \(\mathbf{x} \in \mathbf{X}_n\), if \(\mathbf{x}[j] < m_j\), insert it into the left child node; otherwise, insert it into the right child node.
 		\item Recursively apply the above steps until all points are inserted into the tree.
 	\end{enumerate}
 \end{mdframed}
@@ -897,13 +897,13 @@ Based on this principle, the nearest neighbor search in a K-d tree can be descri
 \begin{mdframed}
 	\textbf{Nearest Neighbor Search in K-d Trees:}
 	\begin{enumerate}
-		\item \textbf{Input:} K-d tree \(T\), query point \(\bm{x}\).
-		\item \textbf{Output:} Nearest neighbor of \(\bm{x}\).
+		\item \textbf{Input:} K-d tree \(T\), query point \(\mathbf{x}\).
+		\item \textbf{Output:} Nearest neighbor of \(\mathbf{x}\).
 		\item Let the current node be \(n_c\), initially the root node. Let \(d\) be the current minimum distance.
 		\begin{enumerate}
-			\item If \(n_c\) is a leaf, compute the distance between \(n_c\) and \(\bm{x}\). If it is smaller than \(d\), update \(n_c\) as the nearest neighbor and backtrack to its parent.
-			\item If \(n_c\) is not a leaf, determine which side of \(n_c\) \(\bm{x}\) lies on. If the side containing \(\bm{x}\) has not been explored, prioritize exploring that side.
-			\item Determine whether to explore the other side of \(n_c\). Compute the distance \(d'\) from \(\bm{x}\) to the splitting plane of \(n_c\). If \(d' < d\), the other side must be explored; otherwise, skip it.
+			\item If \(n_c\) is a leaf, compute the distance between \(n_c\) and \(\mathbf{x}\). If it is smaller than \(d\), update \(n_c\) as the nearest neighbor and backtrack to its parent.
+			\item If \(n_c\) is not a leaf, determine which side of \(n_c\) \(\mathbf{x}\) lies on. If the side containing \(\mathbf{x}\) has not been explored, prioritize exploring that side.
+			\item Determine whether to explore the other side of \(n_c\). Compute the distance \(d'\) from \(\mathbf{x}\) to the splitting plane of \(n_c\). If \(d' < d\), the other side must be explored; otherwise, skip it.
 			\item If both sides have been explored or need not be explored, backtrack to the parent node until \(n_c\) becomes the root node.
 		\end{enumerate}
 	\end{enumerate}
@@ -914,13 +914,13 @@ For the \(k\)-nearest neighbor problem, the nearest neighbor becomes a set of po
 \begin{mdframed}
 	\textbf{\(k\)-Nearest Neighbor Search in K-d Trees:}
 	\begin{enumerate}
-		\item \textbf{Input:} K-d tree \(T\), query point \(\bm{x}\), number of neighbors \(k\).
+		\item \textbf{Input:} K-d tree \(T\), query point \(\mathbf{x}\), number of neighbors \(k\).
 		\item \textbf{Output:} Set of \(k\)-nearest neighbors \(N\).
 		\item Let the current node be \(n_c\), initially the root node. Define \(S(n_c)\) as the \(k\)-nearest neighbor search under \(n_c\):
 		\begin{enumerate}
-			\item If \(n_c\) is a leaf, compute its distance to \(\bm{x}\). If it is smaller than the largest distance in \(N\), add \(n_c\) to \(N\). If \(|N| > k\), remove the farthest point in \(N\).
-			\item Determine which side of \(n_c\) \(\bm{x}\) lies on and recursively call \(S(n_c.\text{left})\) or \(S(n_c.\text{right})\).
-			\item Determine whether to explore the other side of \(n_c\). The exploration condition is: if \(|N| < k\), explore; if \(|N| = k\) and the distance from \(\bm{x}\) to the splitting plane is less than the largest distance in \(N\), explore.
+			\item If \(n_c\) is a leaf, compute its distance to \(\mathbf{x}\). If it is smaller than the largest distance in \(N\), add \(n_c\) to \(N\). If \(|N| > k\), remove the farthest point in \(N\).
+			\item Determine which side of \(n_c\) \(\mathbf{x}\) lies on and recursively call \(S(n_c.\text{left})\) or \(S(n_c.\text{right})\).
+			\item Determine whether to explore the other side of \(n_c\). The exploration condition is: if \(|N| < k\), explore; if \(|N| = k\) and the distance from \(\mathbf{x}\) to the splitting plane is less than the largest distance in \(N\), explore.
 			\item If the other side need not be explored, return; otherwise, continue the search on the other side.
 		\end{enumerate}
 	\end{enumerate}
@@ -1315,12 +1315,12 @@ With these differences in mind, we describe the octree construction and search a
 \begin{mdframed}
 	\textbf{Octree Construction:}
 	\begin{enumerate}
-		\item Input: Point cloud data $\bm{X} = \{\bm{x}_1, \ldots, \bm{x}_n\}$, where $\bm{x}_i \in \mathbb{R}^{k}$.
-		\item Consider inserting subset $\bm{X}_n \subseteq \bm{X}$ into node $n$:
-		\item If $\bm{X}_n$ is empty, exit;
-		\item If $\bm{X}_n$ contains only one point, mark it as a leaf node and exit;
+		\item Input: Point cloud data $\mathbf{X} = \{\mathbf{x}_1, \ldots, \mathbf{x}_n\}$, where $\mathbf{x}_i \in \mathbb{R}^{k}$.
+		\item Consider inserting subset $\mathbf{X}_n \subseteq \mathbf{X}$ into node $n$:
+		\item If $\mathbf{X}_n$ is empty, exit;
+		\item If $\mathbf{X}_n$ contains only one point, mark it as a leaf node and exit;
 		\item Expand $n$ following the \textbf{eight-way split} rule.
-		\item For each $\bm{x} \in \bm{X}_n$, record which child node contains $\bm{x}$. Then recursively apply the construction method to the child node and its corresponding point cloud.
+		\item For each $\mathbf{x} \in \mathbf{X}_n$, record which child node contains $\mathbf{x}$. Then recursively apply the construction method to the child node and its corresponding point cloud.
 		\item Repeat the above steps until all points are inserted into the tree.
 	\end{enumerate}
 \end{mdframed}
@@ -1331,13 +1331,13 @@ The k-nearest neighbor search algorithm for octrees can also be obtained by slig
 \begin{mdframed}
 	\textbf{Octree k-Nearest Neighbor Search:}
 	\begin{enumerate}
-		\item Input: Octree $T$, query point $\bm{x}$, number of neighbors $k$;
+		\item Input: Octree $T$, query point $\mathbf{x}$, number of neighbors $k$;
 		\item Output: k-nearest neighbor set $N$;
 		\item Let the current node be $n_c$ (initially the root node). Define function $S(n_c)$ as performing k-nearest neighbor search under $n_c$:
 		\begin{enumerate}
-			\item If $n_c$ is a leaf, calculate whether the distance between $n_c$ and $\bm{x}$ is smaller than the maximum distance in $N$; if so, add $n_c$ to $N$. If $|N| > k$, remove the farthest matching point from $N$;
-			\item Determine which child node of $n_c$ contains $\bm{x}$. If $\bm{x}$ is outside $n_c$'s bounding box, expand all child nodes; if inside, prioritize expanding the child node containing $\bm{x}$.
-			\item Determine whether to expand other child nodes of $n_c$. The expansion condition: if $|N|<k$, expansion is mandatory; if $|N|=k$ and the previously calculated distance between $\bm{x}$ and $n_c$ is less than the maximum matching distance in $N$, also expand;
+			\item If $n_c$ is a leaf, calculate whether the distance between $n_c$ and $\mathbf{x}$ is smaller than the maximum distance in $N$; if so, add $n_c$ to $N$. If $|N| > k$, remove the farthest matching point from $N$;
+			\item Determine which child node of $n_c$ contains $\mathbf{x}$. If $\mathbf{x}$ is outside $n_c$'s bounding box, expand all child nodes; if inside, prioritize expanding the child node containing $\mathbf{x}$.
+			\item Determine whether to expand other child nodes of $n_c$. The expansion condition: if $|N|<k$, expansion is mandatory; if $|N|=k$ and the previously calculated distance between $\mathbf{x}$ and $n_c$ is less than the maximum matching distance in $N$, also expand;
 			\item If $n_c$'s child nodes don't need expansion, return; otherwise, continue calling the neighbor search algorithm for other nodes.
 		\end{enumerate}
 	\end{enumerate}
@@ -1584,7 +1584,7 @@ In SLAM, we focus on \textbf{low-dimensional} data structures that can be \textb
 
 Most spatial indexing methods mentioned here are better suited for \textbf{static, known datasets}. For instance, R-trees or R$^*$-trees are ideal for querying elements within a specific bounding box on a map. However, SLAM is inherently \textbf{dynamic}, requiring frequent creation and adjustment of point cloud maps, where constructing and destroying complex data structures can be time-consuming. Thus, SLAM tends to favor simpler, easily maintainable methods and often opts for approximate nearest neighbors over strict $k$-NN. Grids, voxels, and K-d trees remain the most preferred choices in SLAM.
 
-We will not conduct comprehensive comparative experiments on these spatial indexing methods here. Readers may refer to survey literature \cite{Mahapatra2015, Bhatia2010} for performance comparisons or textbooks \cite{李航2012} for analyses of common spatial indexing algorithms.
+We will not conduct comprehensive comparative experiments on these spatial indexing methods here. Readers may refer to survey literature \cite{Mahapatra2015, Bhatia2010} for performance comparisons and analyses of common spatial indexing algorithms.
 
 \subsection{Summary}
 This section introduced several common K-nearest neighbor (KNN) solutions in SLAM: brute-force search, grid-based methods, K-d trees, and octrees. As a summary, we present the performance comparison of these methods in Figure~\ref{fig:nn-compare} for reference. Typically, multithreaded implementations significantly outperform single-threaded ones. Readers may verify whether their experimental results align with ours.
@@ -1606,89 +1606,89 @@ In registration problems, a common approach is to first use a nearest-neighbor s
 \subsection{Plane Fitting}
 As with many other problems, \textbf{linear} problems are often the simplest cases. Linear fitting of point clouds is the most basic component. The linear fitting problem for point clouds can be approached from several perspectives, and comparing these viewpoints provides different insights. The same problem may be referred to by different names across fields, yet their solutions are deeply interconnected. A linear fitting problem might be called \textbf{linear regression} (regressing the parameters of a line) or \textbf{principal component analysis (PCA)} (analyzing the primary axes of a point cloud's distribution).
 
-Let's first consider plane fitting. Given a point cloud $\bm{X} = \{ \bm{x}_1, \ldots, \bm{x}_n \}$ composed of $n$ points, where each point has 3D Euclidean coordinates $\bm{x}_k \in \mathbb{R}^3$, we seek plane parameters $\bm{n}, d$ such that:
+Let's first consider plane fitting. Given a point cloud $\mathbf{X} = \{ \mathbf{x}_1, \ldots, \mathbf{x}_n \}$ composed of $n$ points, where each point has 3D Euclidean coordinates $\mathbf{x}_k \in \mathbb{R}^3$, we seek plane parameters $\mathbf{n}, d$ such that:
 \begin{equation}
-	\forall k \in [1, n], \bm{n}^\top \bm{x}_k + d = 0,
+	\forall k \in [1, n], \mathbf{n}^\top \mathbf{x}_k + d = 0,
 \end{equation}
-where $\bm{n} \in \mathbb{R}^3$ is the normal vector and $d \in \mathbb{R}$ is the intercept.
+where $\mathbf{n} \in \mathbb{R}^3$ is the normal vector and $d \in \mathbb{R}$ is the intercept.
 
 Clearly, this problem has four unknowns, while each point provides one equation. With multiple points, noise typically makes the system overdetermined and unsolvable. Thus, we often seek a least squares solution (Linear Least Square) to minimize the error:
 \begin{equation}
-	\min_{\bm{n}, d} \sum_{k=1}^{n} \| \bm{n}^\top \bm{x}_k + d \|_2^2.
+	\min_{\mathbf{n}, d} \sum_{k=1}^{n} \| \mathbf{n}^\top \mathbf{x}_k + d \|_2^2.
 \end{equation}
 Using homogeneous coordinates can further simplify the problem. The homogeneous coordinates of a 3D point are four-dimensional, though in practice we simply append a 1:
 \begin{equation}
-	\tilde{\bm{x}} = [\bm{x}^\top, 1]^\top \in \mathbb{R}^4.
+	\tilde{\mathbf{x}} = [\mathbf{x}^\top, 1]^\top \in \mathbb{R}^4.
 \end{equation}
-Thus, $\tilde{\bm{n}} = [\bm{n}^\top, d]^\top \in \mathbb{R}^4$ is also a homogeneous vector, and the problem can be rewritten as:
+Thus, $\tilde{\mathbf{n}} = [\mathbf{n}^\top, d]^\top \in \mathbb{R}^4$ is also a homogeneous vector, and the problem can be rewritten as:
 \begin{equation}\label{eq.6.6}
-	\min_{\tilde{\bm{n}}} \sum_{k=1}^{n} \| \tilde{\bm{x}}^\top_k \tilde{\bm{n}} \|_2^2.
+	\min_{\tilde{\mathbf{n}}} \sum_{k=1}^{n} \| \tilde{\mathbf{x}}^\top_k \tilde{\mathbf{n}} \|_2^2.
 \end{equation}
 The subscript 2 denotes the L2-norm (standard Euclidean norm), and the superscript 2 indicates the squared sum of norms. This is a \textbf{summation-form} linear least squares problem, which can also be expressed in matrix form. Stacking all points into a matrix:
 \begin{equation}
-	\tilde{\bm{X}} = [\tilde{\bm{x}}_1, \ldots, \tilde{\bm{x}}_n],
+	\tilde{\mathbf{X}} = [\tilde{\mathbf{x}}_1, \ldots, \tilde{\mathbf{x}}_n],
 \end{equation}
 the summation can be omitted:
 \begin{equation}
-	\min_{\tilde{\bm{n}}} \| \tilde{\bm{X}}^\top \tilde{\bm{n}} \|_2^2.
+	\min_{\tilde{\mathbf{n}}} \| \tilde{\mathbf{X}}^\top \tilde{\mathbf{n}} \|_2^2.
 \end{equation}
 
-This is essentially solving a linear algebra problem: given any matrix $\bm{A}$ (not necessarily square), we seek a non-zero vector $\bm{x}$ that minimizes $\bm{A} \bm{x}$. Of course, if $\bm{x} = 0$, the product is trivially zero, but we want non-trivial solutions, so we impose $\bm{x} \neq 0$. Moreover, scaling $\bm{x}$ by a non-zero constant $k$ scales $\bm{A}\bm{x}$ by $k$ (and its squared norm by $k^2$). Thus, we disregard the magnitude of $\bm{x}$ and focus on its direction by enforcing $\|\bm{x}\|=1$.
+This is essentially solving a linear algebra problem: given any matrix $\mathbf{A}$ (not necessarily square), we seek a non-zero vector $\mathbf{x}$ that minimizes $\mathbf{A} \mathbf{x}$. Of course, if $\mathbf{x} = 0$, the product is trivially zero, but we want non-trivial solutions, so we impose $\mathbf{x} \neq 0$. Moreover, scaling $\mathbf{x}$ by a non-zero constant $k$ scales $\mathbf{A}\mathbf{x}$ by $k$ (and its squared norm by $k^2$). Thus, we disregard the magnitude of $\mathbf{x}$ and focus on its direction by enforcing $\|\mathbf{x}\|=1$.
 
-For $\bm{A}$, we impose no constraints. In the point cloud plane extraction problem, $\bm{A}$ is an $\mathbb{R}^{n \times 4}$ matrix, and $\bm{x}$ is a unit vector in $\mathbb{R}^4$. We can then ask: for which $\bm{x}$ does $\bm{A}\bm{x}$ attain its maximum or minimum?
+For $\mathbf{A}$, we impose no constraints. In the point cloud plane extraction problem, $\mathbf{A}$ is an $\mathbb{R}^{n \times 4}$ matrix, and $\mathbf{x}$ is a unit vector in $\mathbb{R}^4$. We can then ask: for which $\mathbf{x}$ does $\mathbf{A}\mathbf{x}$ attain its maximum or minimum?
 
 Next, we will first discuss how to solve such problems in general linear algebra before returning to the plane fitting problem. Moving from the abstract to the concrete is always easier.
 
 \subsubsection{Various Solutions to Linear Least Squares}
 \paragraph{Eigenvalue Solution}
-Algebraically, linear least squares refers to finding $\bm{x}^* \in \mathbb{R}^n$ for a given matrix $\bm{A} \in \mathbb{R}^{m \times n}$ such that:
+Algebraically, linear least squares refers to finding $\mathbf{x}^* \in \mathbb{R}^n$ for a given matrix $\mathbf{A} \in \mathbb{R}^{m \times n}$ such that:
 \begin{equation}\label{key}
-	\bm{x}^* = \arg \min_{\bm{x}} \|\bm{A} \bm{x} \|^2_2 =  \arg \min_{\bm{x}} \bm{x}^\top \bm{A}^\top 
-	\bm{A} \bm{x}, \quad \text{s.t.}, \| \bm{x} \| = 1.
+	\mathbf{x}^* = \arg \min_{\mathbf{x}} \|\mathbf{A} \mathbf{x} \|^2_2 =  \arg \min_{\mathbf{x}} \mathbf{x}^\top \mathbf{A}^\top 
+	\mathbf{A} \mathbf{x}, \quad \text{s.t.}, \| \mathbf{x} \| = 1.
 \end{equation}
 
-We observe that $\bm{A}^\top \bm{A}$ is a real symmetric matrix. According to linear algebra theory, real symmetric matrices can always be diagonalized via eigenvalue decomposition:
+We observe that $\mathbf{A}^\top \mathbf{A}$ is a real symmetric matrix. According to linear algebra theory, real symmetric matrices can always be diagonalized via eigenvalue decomposition:
 \begin{equation}\label{key}
-	\bm{A}^\top \bm{A} = \bm{V} \boldsymbol{\Lambda} \bm{V}^{-1},
+	\mathbf{A}^\top \mathbf{A} = \mathbf{V} \boldsymbol{\Lambda} \mathbf{V}^{-1},
 \end{equation}
-where $\boldsymbol{\Lambda}$ is a diagonal matrix of eigenvalues, which we assume are arranged in descending order as $\lambda_1, \ldots, \lambda_n$. $\bm{V}$ is an orthogonal matrix whose column vectors $\bm{v}_1, \ldots, \bm{v}_n$ are the corresponding eigenvectors, forming an orthonormal basis. Any vector $\bm{x}$ can be expressed as a linear combination of this basis:
+where $\boldsymbol{\Lambda}$ is a diagonal matrix of eigenvalues, which we assume are arranged in descending order as $\lambda_1, \ldots, \lambda_n$. $\mathbf{V}$ is an orthogonal matrix whose column vectors $\mathbf{v}_1, \ldots, \mathbf{v}_n$ are the corresponding eigenvectors, forming an orthonormal basis. Any vector $\mathbf{x}$ can be expressed as a linear combination of this basis:
 \begin{equation}\label{key}
-	\bm{x} = \alpha_1 \bm{v}_1 + \ldots + \alpha_n \bm{v}_n.
+	\mathbf{x} = \alpha_1 \mathbf{v}_1 + \ldots + \alpha_n \mathbf{v}_n.
 \end{equation}
 
-It follows that\footnote{Alternatively, from the eigenvector perspective: $\bm{A}^\top \bm{A} \bm{x} = \sum_{k=1}^{n} \alpha_k \lambda_k \bm{v}_k$, yielding the same result.}:
+It follows that\footnote{Alternatively, from the eigenvector perspective: $\mathbf{A}^\top \mathbf{A} \mathbf{x} = \sum_{k=1}^{n} \alpha_k \lambda_k \mathbf{v}_k$, yielding the same result.}:
 \begin{equation}\label{key}
-	\bm{V}^{-1} \bm{x} = \bm{V}^\top \bm{x} = [\alpha_1, \ldots, \alpha_n]^\top. 
+	\mathbf{V}^{-1} \mathbf{x} = \mathbf{V}^\top \mathbf{x} = [\alpha_1, \ldots, \alpha_n]^\top. 
 \end{equation}
 
 Thus, the objective function becomes:
 \begin{equation}\label{key}
-	\| \bm{A} \bm{x} \|_2^2 = \sum_{k=1}^{n} \lambda_k \alpha_k^2,
+	\| \mathbf{A} \mathbf{x} \|_2^2 = \sum_{k=1}^{n} \lambda_k \alpha_k^2,
 \end{equation}
-with the constraint $\| \bm{x} \| = 1$ implying $\alpha_1^2 + \ldots + \alpha_n^2 = 1$. Since the eigenvalues $\lambda_k$ are arranged in descending order, the minimum is achieved by setting $\alpha_1 = 0, \ldots, \alpha_{n-1} = 0, \alpha_n = 1$, i.e., $\bm{x}^* = \bm{v}_n$.
+with the constraint $\| \mathbf{x} \| = 1$ implying $\alpha_1^2 + \ldots + \alpha_n^2 = 1$. Since the eigenvalues $\lambda_k$ are arranged in descending order, the minimum is achieved by setting $\alpha_1 = 0, \ldots, \alpha_{n-1} = 0, \alpha_n = 1$, i.e., $\mathbf{x}^* = \mathbf{v}_n$.
 
-We conclude that the optimal solution to the linear least squares problem is the \textbf{eigenvector corresponding to the smallest eigenvalue}. Since this problem aims to solve $\bm{A} \bm{x} = \bm{0}$, it can also be referred to as the \textbf{null space solution}. Note that the eigenvalue decomposition is performed on $\bm{A}^\top \bm{A}$ rather than directly on $\bm{A}$ (as $\bm{A}$ may not be diagonalizable, whereas $\bm{A}^\top \bm{A}$, being real symmetric, is guaranteed to be diagonalizable).
+We conclude that the optimal solution to the linear least squares problem is the \textbf{eigenvector corresponding to the smallest eigenvalue}. Since this problem aims to solve $\mathbf{A} \mathbf{x} = \mathbf{0}$, it can also be referred to as the \textbf{null space solution}. Note that the eigenvalue decomposition is performed on $\mathbf{A}^\top \mathbf{A}$ rather than directly on $\mathbf{A}$ (as $\mathbf{A}$ may not be diagonalizable, whereas $\mathbf{A}^\top \mathbf{A}$, being real symmetric, is guaranteed to be diagonalizable).
 
 \paragraph{Singular Value Solution}
-The aforementioned problem can also be approached from another perspective using \textbf{Singular Value Decomposition (SVD)}. Since any matrix can be decomposed via SVD, we perform SVD on $\bm{A}$ to obtain:
+The aforementioned problem can also be approached from another perspective using \textbf{Singular Value Decomposition (SVD)}. Since any matrix can be decomposed via SVD, we perform SVD on $\mathbf{A}$ to obtain:
 \begin{equation}\label{key}
-	\bm{A} = \bm{U} \boldsymbol{\Sigma} \bm{V}^\top,
+	\mathbf{A} = \mathbf{U} \boldsymbol{\Sigma} \mathbf{V}^\top,
 \end{equation}
-where $\bm{U}$ and $\bm{V}$ are orthogonal matrices, and $\boldsymbol{\Sigma}$ is a diagonal matrix called the \textbf{singular value matrix}, with its diagonal elements being the singular values of $\bm{A}$, typically arranged in descending order.  
+where $\mathbf{U}$ and $\mathbf{V}$ are orthogonal matrices, and $\boldsymbol{\Sigma}$ is a diagonal matrix called the \textbf{singular value matrix}, with its diagonal elements being the singular values of $\mathbf{A}$, typically arranged in descending order.  
 
-Substituting the SVD result into the linear least squares problem, since $\bm{U}$ is orthogonal, it cancels out when computing the L2-norm. We observe that this approach is essentially equivalent to the eigenvalue method:
+Substituting the SVD result into the linear least squares problem, since $\mathbf{U}$ is orthogonal, it cancels out when computing the L2-norm. We observe that this approach is essentially equivalent to the eigenvalue method:
 \begin{equation}\label{key}
-	\bm{x}^\top \bm{A}^\top \bm{A} \bm{x} = \bm{x}^\top \bm{V} 
-	\boldsymbol{\Sigma}^2 \bm{V}^\top \bm{x}.
+	\mathbf{x}^\top \mathbf{A}^\top \mathbf{A} \mathbf{x} = \mathbf{x}^\top \mathbf{V} 
+	\boldsymbol{\Sigma}^2 \mathbf{V}^\top \mathbf{x}.
 \end{equation}
 
-Thus, similar to the eigenvalue solution, we take $\bm{x}$ as the last column of $\bm{V}$. In fact, the relationship between the singular values of $\bm{A}$ and the eigenvalues of $\bm{A}^\top\bm{A}$ is well-documented in many matrix theory textbooks \cite{Magnus1998, ZhangXianDa2004}. Here, we take this opportunity to reintroduce this concept through a practical problem.  
+Thus, similar to the eigenvalue solution, we take $\mathbf{x}$ as the last column of $\mathbf{V}$. In fact, the relationship between the singular values of $\mathbf{A}$ and the eigenvalues of $\mathbf{A}^\top\mathbf{A}$ is well-documented in many matrix theory textbooks \cite{Magnus1998}. Here, we take this opportunity to reintroduce this concept through a practical problem.  
 
 Furthermore, fitting an $(N-1)$-dimensional hyperplane to points in $N$-dimensional space can also be viewed as solving the null space problem in least squares. In summary, to fit a plane to a set of points, we simply:  
 
 \begin{enumerate}
-\item Arrange all point coordinates into matrix $\bm{A}$,  
-\item Compute the right singular vector corresponding to the smallest singular value of $\bm{A}$, or compute the eigenvector corresponding to the smallest eigenvalue of $\bm{A}^\top \bm{A}$.  
+\item Arrange all point coordinates into matrix $\mathbf{A}$,  
+\item Compute the right singular vector corresponding to the smallest singular value of $\mathbf{A}$, or compute the eigenvector corresponding to the smallest eigenvalue of $\mathbf{A}^\top \mathbf{A}$.  
 \end{enumerate}
 
 Either approach yields the desired solution.
@@ -1724,7 +1724,7 @@ bool FitPlane(std::vector<Eigen::Matrix<S, 3, 1>>& data, Eigen::Matrix<S, 4, 1>&
 }
 \end{lstlisting}
 
-We use fast SVD decomposition, computing only the last column of the SVD result for matrix $\bm{A}$. After computation, we also verify the squared error against points doesn't exceed a preset threshold. Now let's write a test program that:
+We use fast SVD decomposition, computing only the last column of the SVD result for matrix $\mathbf{A}$. After computation, we also verify the squared error against points doesn't exceed a preset threshold. Now let's write a test program that:
 
 1. Takes randomly generated plane parameters as ground truth
 2. Samples points on the plane 
@@ -1777,60 +1777,60 @@ We can observe the difference between ground truth and estimated parameters is a
 
 \subsection{Line Fitting}
 \label{sec:line-fitting}
-Let us now consider a problem very similar to plane fitting: line fitting. We still assume the point set $\bm{X}$ consists of $n$ 3D points. However, we can describe a straight line in several different ways, such as treating the line as the intersection of two planes, or using a point on the line plus a direction vector to define the line. The latter approach is more intuitive.
+Let us now consider a problem very similar to plane fitting: line fitting. We still assume the point set $\mathbf{X}$ consists of $n$ 3D points. However, we can describe a straight line in several different ways, such as treating the line as the intersection of two planes, or using a point on the line plus a direction vector to define the line. The latter approach is more intuitive.
 
-Let a point $\bm{x}$ on the line satisfy the equation:
+Let a point $\mathbf{x}$ on the line satisfy the equation:
 \begin{equation}\label{key}
-	\bm{x} = \bm{d} t + \bm{p},
+	\mathbf{x} = \mathbf{d} t + \mathbf{p},
 \end{equation}
-where $\bm{d}, \bm{p} \in \mathbb{R}^3$, $t \in \mathbb{R}$. Here, $\bm{d}$ is the direction vector of the line, satisfying $\|\bm{d}\| = 1$; $\bm{p}$ is a point on the line $l$, and $t$ is the line parameter. We aim to solve for $\bm{d}$ and $\bm{p}$, totaling 6 unknowns. Clearly, when the given point set is large, this remains an overdetermined system, requiring the construction of a least squares problem for solution.
+where $\mathbf{d}, \mathbf{p} \in \mathbb{R}^3$, $t \in \mathbb{R}$. Here, $\mathbf{d}$ is the direction vector of the line, satisfying $\|\mathbf{d}\| = 1$; $\mathbf{p}$ is a point on the line $l$, and $t$ is the line parameter. We aim to solve for $\mathbf{d}$ and $\mathbf{p}$, totaling 6 unknowns. Clearly, when the given point set is large, this remains an overdetermined system, requiring the construction of a least squares problem for solution.
 
-For any point $\bm{x}_k$ not on $l$, we can use the Pythagorean theorem to compute the squared perpendicular distance from the point to the line:
+For any point $\mathbf{x}_k$ not on $l$, we can use the Pythagorean theorem to compute the squared perpendicular distance from the point to the line:
 \begin{equation}\label{key}
-	f^2_k = \| \bm{x}_k - \bm{p}\|^2 - \| (\bm{x}_k-\bm{p})^\top \bm{d} \|^2 ,
+	f^2_k = \| \mathbf{x}_k - \mathbf{p}\|^2 - \| (\mathbf{x}_k-\mathbf{p})^\top \mathbf{d} \|^2 ,
 \end{equation}
-and then formulate the least squares problem to solve for $\bm{d}$ and $\bm{p}$:
+and then formulate the least squares problem to solve for $\mathbf{d}$ and $\mathbf{p}$:
 \begin{equation}\label{key}
-	(\bm{d},\bm{p})^* = \arg \min_{\bm{d}, \bm{p}} \sum_{k=1}^{n} f_k^2, \quad \text{s.t.} \|\bm{d}\|= 1.
+	(\mathbf{d},\mathbf{p})^* = \arg \min_{\mathbf{d}, \mathbf{p}} \sum_{k=1}^{n} f_k^2, \quad \text{s.t.} \|\mathbf{d}\|= 1.
 \end{equation}
 Since the error term for each point is already squared, we simply need to sum them.
 
-Next, we separate the $\bm{d}$ and $\bm{p}$ components. First, consider $\frac{\partial f^2_k}{\partial \bm{p}}$:
+Next, we separate the $\mathbf{d}$ and $\mathbf{p}$ components. First, consider $\frac{\partial f^2_k}{\partial \mathbf{p}}$:
 \begin{align}\label{key}
-	\frac{\partial f^2_k}{\partial \bm{p}} &= -2(\bm{x}_k - \bm{p}) + 2 \underbrace{(\bm{x}_k - \bm{p})^\top \bm{d}}_{\text{scalar, }=\bm{d}^\top (\bm{x}_k - \bm{p})} \bm{d}, \\
-	&= (-2) (\bm{I} - \bm{d} \bm{d}^\top) (\bm{x}_k - \bm{p}).
+	\frac{\partial f^2_k}{\partial \mathbf{p}} &= -2(\mathbf{x}_k - \mathbf{p}) + 2 \underbrace{(\mathbf{x}_k - \mathbf{p})^\top \mathbf{d}}_{\text{scalar, }=\mathbf{d}^\top (\mathbf{x}_k - \mathbf{p})} \mathbf{d}, \\
+	&= (-2) (\mathbf{I} - \mathbf{d} \mathbf{d}^\top) (\mathbf{x}_k - \mathbf{p}).
 \end{align}
-Thus, the derivative of the overall objective function with respect to $\bm{p}$ is:
+Thus, the derivative of the overall objective function with respect to $\mathbf{p}$ is:
 \begin{align}\label{key}
-	\frac{\partial \sum_{k=1}^{n} f_k^2}{\partial \bm{p}} &= \sum_{k=1}^{n} (-2) (\bm{I} - \bm{d} \bm{d}^\top) (\bm{x}_k - \bm{p}), \\ 
-	&= (-2) (\bm{I} - \bm{d} \bm{d}^\top) \sum_{k=1}^n (\bm{x}_k - \bm{p}).
+	\frac{\partial \sum_{k=1}^{n} f_k^2}{\partial \mathbf{p}} &= \sum_{k=1}^{n} (-2) (\mathbf{I} - \mathbf{d} \mathbf{d}^\top) (\mathbf{x}_k - \mathbf{p}), \\ 
+	&= (-2) (\mathbf{I} - \mathbf{d} \mathbf{d}^\top) \sum_{k=1}^n (\mathbf{x}_k - \mathbf{p}).
 \end{align}
 To find the extremum of the least squares problem, set this equal to zero, yielding:
 \begin{equation}
-	\bm{p} = \frac{1}{n} \sum_{k=1}^n \bm{x}_k,
+	\mathbf{p} = \frac{1}{n} \sum_{k=1}^n \mathbf{x}_k,
 \end{equation}
-indicating that $\bm{p}$ should be the centroid of the point cloud. Thus, we can first determine $\bm{p}$ and then consider $\bm{d}$. With $\bm{p}$ solved, let $\bm{y}_k = \bm{x}_k - \bm{p}$, treating $\bm{y}_k$ as known, and simplify the error term:
+indicating that $\mathbf{p}$ should be the centroid of the point cloud. Thus, we can first determine $\mathbf{p}$ and then consider $\mathbf{d}$. With $\mathbf{p}$ solved, let $\mathbf{y}_k = \mathbf{x}_k - \mathbf{p}$, treating $\mathbf{y}_k$ as known, and simplify the error term:
 \begin{equation}\label{eq.6.24}
-	f_k^2 = \bm{y}_k^\top \bm{y}_k - \bm{d}^\top \bm{y}_k \bm{y}_k^\top \bm{d}.
+	f_k^2 = \mathbf{y}_k^\top \mathbf{y}_k - \mathbf{d}^\top \mathbf{y}_k \mathbf{y}_k^\top \mathbf{d}.
 \end{equation}
 
-Clearly, the first error term does not contain $\bm{d}$ and is unaffected by the choice of $\bm{d}$, so it can be omitted. Minimizing the second term is equivalent to maximizing its negation:
+Clearly, the first error term does not contain $\mathbf{d}$ and is unaffected by the choice of $\mathbf{d}$, so it can be omitted. Minimizing the second term is equivalent to maximizing its negation:
 \begin{equation}\label{key}
-	\bm{d}^* = \arg \max_{\bm{d}} \sum_{k=1}^{n} \bm{d}^\top \bm{y}_k\bm{y}_k^\top \bm{d} = \sum_{k=1}^{n} \| \bm{y}_k^\top \bm{d}\|_2^2.
+	\mathbf{d}^* = \arg \max_{\mathbf{d}} \sum_{k=1}^{n} \mathbf{d}^\top \mathbf{y}_k\mathbf{y}_k^\top \mathbf{d} = \sum_{k=1}^{n} \| \mathbf{y}_k^\top \mathbf{d}\|_2^2.
 \end{equation}
 If we define:
 \begin{equation}\label{key}
-	\bm{A} = \begin{bmatrix}
-		\bm{y}_1^\top \\
+	\mathbf{A} = \begin{bmatrix}
+		\mathbf{y}_1^\top \\
 		\ldots \\
-		\bm{y}_n^\top
+		\mathbf{y}_n^\top
 	\end{bmatrix},
 \end{equation}
 then the problem becomes:
 \begin{equation}\label{eq.6.33}
-	\bm{d}^* = \arg \max_{\bm{d}} \| \bm{A} \bm{d} \|_2^2.
+	\mathbf{d}^* = \arg \max_{\mathbf{d}} \| \mathbf{A} \mathbf{d} \|_2^2.
 \end{equation}
-This problem is still very similar to (\ref{eq.6.6}), except that we seek to \textbf{maximize} rather than \textbf{minimize}. For plane fitting, we minimized this problem; for line fitting, we maximize it. Following the previous discussion, taking $\bm{d}$ as the eigenvector corresponding to the smallest eigenvalue or singular value yields the minimizing solution; conversely, taking the eigenvector corresponding to the largest eigenvalue yields the maximizing solution. Thus, the solution to this problem should take $\bm{d}$ as the right singular vector corresponding to the largest singular value of $\bm{A}$, or the eigenvector corresponding to the largest eigenvalue of $\bm{A}^\top \bm{A}$.
+This problem is still very similar to (\ref{eq.6.6}), except that we seek to \textbf{maximize} rather than \textbf{minimize}. For plane fitting, we minimized this problem; for line fitting, we maximize it. Following the previous discussion, taking $\mathbf{d}$ as the eigenvector corresponding to the smallest eigenvalue or singular value yields the minimizing solution; conversely, taking the eigenvector corresponding to the largest eigenvalue yields the maximizing solution. Thus, the solution to this problem should take $\mathbf{d}$ as the right singular vector corresponding to the largest singular value of $\mathbf{A}$, or the eigenvector corresponding to the largest eigenvalue of $\mathbf{A}^\top \mathbf{A}$.
 
 \begin{figure}[!htp]
 	\centering
@@ -1871,7 +1871,7 @@ double eps = 0.2) {
 }
 \end{lstlisting}
 
-Note that we need to compute the full $\bm{V}$ matrix of the SVD since we want the largest singular value. The rest of the computation remains consistent with the mathematical formulation. Below is the test program:
+Note that we need to compute the full $\mathbf{V}$ matrix of the SVD since we want the largest singular value. The rest of the computation remains consistent with the mathematical formulation. Below is the test program:
 
 \begin{lstlisting}[language=c++,caption=src/ch5/linear\_fitting.cc]
 void LineFittingTest() {
@@ -1912,7 +1912,7 @@ Similarly, we first set the ground truth line parameters, add noise to sampled p
 
 At this point, we have demonstrated how to fit lines and planes to 3D point clouds. Interestingly, these two problems share remarkable similarities and can even be reduced to \textbf{finding the maximum and minimum solutions of the same problem}, as illustrated in Figure~\ref{fig:linear-fitting}. Line fitting seeks the direction of maximum variance, while plane fitting seeks the direction of minimum variance; line fitting corresponds to the eigenvector of the largest eigenvalue, while plane fitting corresponds to the smallest eigenvalue. This aligns perfectly with our intuition.
 
-Extending to higher or lower dimensions, the plane fitting discussed here becomes fitting an $N-1$ dimensional hyperplane to points in $N$-dimensional space, while line fitting becomes fitting a 1-dimensional subspace. When points lie in 2D space ($N=2$), plane fitting reduces to line fitting, making the two problems identical. In higher dimensions, we can pose more complex questions - for example, what form should we fit for 5D point clouds in 4D or 3D space? While these questions may sound abstract, they have practical applications in numerous cases. Of course, people typically refer to them as \textbf{data} rather than point clouds. These $N-2$, $N-3$ dimensional fittings are also called \textbf{data dimensionality reduction}, implemented through SVD decomposition by selecting different columns of the $\bm{V}$ matrix or eliminating components with near-zero singular values while retaining those with larger singular values. Like squeezing water from a sponge, directions with small singular values represent \textbf{noise} while those with large singular values contain the \textbf{essential information}. These methods find applications in data compression, feature extraction, and more, with different names across domains. In Principal Component Analysis (PCA) \cite{Wold1987}, they're called \textbf{maximum principal components} or \textbf{minimum principal components}. In low-rank approximation problems \cite{Eckart1936}, line fitting can be viewed as a rank-1 approximation. Alternatively, in subspace analysis \cite{Lay2005}, line fitting constructs the range space (or row/column space) while plane fitting constructs the null space. Linear problems often exhibit intricate connections, with conclusions that are universally applicable. All these problems can be modeled as linear least squares problems, with SVD or eigenvalue decomposition remaining the core solution approaches.
+Extending to higher or lower dimensions, the plane fitting discussed here becomes fitting an $N-1$ dimensional hyperplane to points in $N$-dimensional space, while line fitting becomes fitting a 1-dimensional subspace. When points lie in 2D space ($N=2$), plane fitting reduces to line fitting, making the two problems identical. In higher dimensions, we can pose more complex questions - for example, what form should we fit for 5D point clouds in 4D or 3D space? While these questions may sound abstract, they have practical applications in numerous cases. Of course, people typically refer to them as \textbf{data} rather than point clouds. These $N-2$, $N-3$ dimensional fittings are also called \textbf{data dimensionality reduction}, implemented through SVD decomposition by selecting different columns of the $\mathbf{V}$ matrix or eliminating components with near-zero singular values while retaining those with larger singular values. Like squeezing water from a sponge, directions with small singular values represent \textbf{noise} while those with large singular values contain the \textbf{essential information}. These methods find applications in data compression, feature extraction, and more, with different names across domains. In Principal Component Analysis (PCA) \cite{Wold1987}, they're called \textbf{maximum principal components} or \textbf{minimum principal components}. In low-rank approximation problems \cite{Eckart1936}, line fitting can be viewed as a rank-1 approximation. Alternatively, in subspace analysis \cite{Lay2005}, line fitting constructs the range space (or row/column space) while plane fitting constructs the null space. Linear problems often exhibit intricate connections, with conclusions that are universally applicable. All these problems can be modeled as linear least squares problems, with SVD or eigenvalue decomposition remaining the core solution approaches.
 
 \section{Summary}
 This chapter introduced fundamental point cloud representations and basic point cloud-related problems, such as nearest neighbor search and fitting solutions. Starting from first principles, we implemented brute-force nearest neighbor search, K-d trees, octrees, and other nearest neighbor methods, and conducted comparative experiments with PCL versions in terms of efficiency and accuracy. Since we only need to consider LiDAR point clouds without accommodating various other point cloud templates, our implementations of K-d trees and other data structures are more concise than PCL's versions. These data structures are highly useful and will be employed in subsequent chapters to implement point cloud registration, odometry, and other algorithmic modules.
@@ -1923,6 +1923,6 @@ This chapter introduced fundamental point cloud representations and basic point 
 	\item Extend the K-d tree point cloud type to a template class.
 	\item Incorporate bounding boxes into the K-d tree node structure to achieve more precise pruning.
 	\item Attempt to improve the lower bound accuracy of the distance between query points and bounding boxes in octrees, and observe whether nearest neighbor performance improves.
-	\item Derive that the solution to Equation~\eqref{eq.6.33} is the eigenvector corresponding to the largest eigenvalue of $\bm{A}^\top \bm{A}$.
+	\item Derive that the solution to Equation~\eqref{eq.6.33} is the eigenvector corresponding to the largest eigenvalue of $\mathbf{A}^\top \mathbf{A}$.
 	\item Compare the nearest neighbor algorithms in this chapter with common approximate nearest neighbor algorithms such as nanoflann \cite{Blanco2014}, Faiss \cite{Johnson2019}, and nmslib \cite{Boytsov2016}, and evaluate their performance in point cloud nearest neighbor search.
 \end{enumerate}

@@ -63,18 +63,18 @@ The SLAM framework for multi-beam LiDAR is similar to that of single-beam system
 
 \subsection{Point-to-Point ICP}  
 \subsubsection{Theoretical Foundations}  
-Point-to-point Iterative Closest Point (ICP) is a fundamental point cloud registration method. Given two point clouds $S_1=\{\bm{p}_1, \ldots, \bm{p}_m\}$ and $S_2 = \{\bm{q}_1, \ldots, \bm{q}_n\}$, correct alignment should satisfy for matched pairs $\bm{p}_i \in S_1, \bm{q}_j \in S_2$:  
+Point-to-point Iterative Closest Point (ICP) is a fundamental point cloud registration method. Given two point clouds $S_1=\{\mathbf{p}_1, \ldots, \mathbf{p}_m\}$ and $S_2 = \{\mathbf{q}_1, \ldots, \mathbf{q}_n\}$, correct alignment should satisfy for matched pairs $\mathbf{p}_i \in S_1, \mathbf{q}_j \in S_2$:  
 \begin{equation}\label{key}  
-	\bm{p}_i = \bm{R} \bm{q}_j + \bm{t}.  
+	\mathbf{p}_i = \mathbf{R} \mathbf{q}_j + \mathbf{t}.  
 \end{equation}  
 Note that we neither assume equal point counts nor initial ordering correspondence between clouds. The ICP workflow proceeds as:  
 \begin{enumerate}  
-	\item Initialize pose estimate $\bm{R}_0, \bm{t}_0$.  
-	\item Iterate from initial pose. Let $\bm{R}_k, \bm{t}_k$ denote the $k$-th iteration estimate.  
-	\item For current pose, establish correspondences via nearest-neighbor search, yielding pairs $(\bm{p}_i, \bm{q}_i)$.  
+	\item Initialize pose estimate $\mathbf{R}_0, \mathbf{t}_0$.  
+	\item Iterate from initial pose. Let $\mathbf{R}_k, \mathbf{t}_k$ denote the $k$-th iteration estimate.  
+	\item For current pose, establish correspondences via nearest-neighbor search, yielding pairs $(\mathbf{p}_i, \mathbf{q}_i)$.  
 	\item Update pose by minimizing:  
 	\begin{equation}\label{eq:p2p-icp}  
-		\bm{R}_{k+1}, \bm{t}_{k+1} = \arg \min\limits_{\bm{R}, \bm{t}} \sum_{i} \| \bm{p}_i - (\bm{R} \bm{q}_i + \bm{t}) \|_2^2.  
+		\mathbf{R}_{k+1}, \mathbf{t}_{k+1} = \arg \min\limits_{\mathbf{R}, \mathbf{t}} \sum_{i} \| \mathbf{p}_i - (\mathbf{R} \mathbf{q}_i + \mathbf{t}) \|_2^2.  
 	\end{equation}  
 	\item Check convergence; if unmet, return to step 3.  
 \end{enumerate}  
@@ -89,11 +89,11 @@ ICP essentially \textbf{alternates between pose estimation and correspondence ma
 
 We implement basic ICP using iterative optimization (analytical solutions exist\footnote{See \textit{Lecture 14}, Sec. 7.9.}) for consistency with later sections and flexibility in least-squares extensions. Defining point-to-point error:  
 \begin{equation}\label{key}  
-	\bm{e}_i = \bm{p}_i - \bm{R} \bm{q}_i - \bm{t},  
+	\mathbf{e}_i = \mathbf{p}_i - \mathbf{R} \mathbf{q}_i - \mathbf{t},  
 \end{equation}  
-with right-multiplication for $\bm{R}$ updates, the Jacobians w.r.t. rotation and translation are:  
+with right-multiplication for $\mathbf{R}$ updates, the Jacobians w.r.t. rotation and translation are:  
 \begin{equation}\label{eq:p2p-icp-jacobian}  
-	\frac{\partial \bm{e}_i}{\partial \bm{R}} = \bm{R} \bm{q}^\wedge, \quad \frac{\partial \bm{e}_i}{\partial \bm{t}} = -\bm{I}.  
+	\frac{\partial \mathbf{e}_i}{\partial \mathbf{R}} = \mathbf{R} \mathbf{q}^\wedge, \quad \frac{\partial \mathbf{e}_i}{\partial \mathbf{t}} = -\mathbf{I}.  
 \end{equation}
 
 \subsubsection{Implementation}
@@ -260,34 +260,34 @@ Despite its simplicity, point-to-point ICP faces limitations in autonomous drivi
 \subsubsection{Theoretical Foundations}
 Point-to-line and point-to-plane ICP are direct extensions of the standard ICP method. Their principles are similar to the 2D point-to-line ICP introduced in the previous chapter, with the optimization variables extended to 3D space and derivatives handled using manifold representations. 
 
-Following the definitions from the previous section, let's consider two point clouds $S_1$ and $S_2$ with transformation parameters $\bm{R}, \bm{t}$. For each transformed point $\bm{R} \bm{q}_i + \bm{t}$, instead of finding a single nearest neighbor $\bm{p}_i$, we find multiple nearest neighbors and fit either a plane or a line to them.
+Following the definitions from the previous section, let's consider two point clouds $S_1$ and $S_2$ with transformation parameters $\mathbf{R}, \mathbf{t}$. For each transformed point $\mathbf{R} \mathbf{q}_i + \mathbf{t}$, instead of finding a single nearest neighbor $\mathbf{p}_i$, we find multiple nearest neighbors and fit either a plane or a line to them.
 
 \paragraph{Point-to-Plane ICP}  
-For plane fitting, assume the plane parameters are $(\bm{n},d) \in \mathbb{R}^4$, where $\bm{n}$ is the unit normal vector and $d$ is the intercept. For any point $\bm{p}$ on the plane:
+For plane fitting, assume the plane parameters are $(\mathbf{n},d) \in \mathbb{R}^4$, where $\mathbf{n}$ is the unit normal vector and $d$ is the intercept. For any point $\mathbf{p}$ on the plane:
 \begin{equation}\label{key}
-	\bm{n}^\top \bm{p} + d = 0.
+	\mathbf{n}^\top \mathbf{p} + d = 0.
 \end{equation}
-The signed distance from a point $\bm{q}_i$ to the plane is:
+The signed distance from a point $\mathbf{q}_i$ to the plane is:
 \begin{equation}\label{key}
-	e_i = \bm{n}^\top (\bm{R} \bm{q}_i + \bm{t}) + d.
+	e_i = \mathbf{n}^\top (\mathbf{R} \mathbf{q}_i + \mathbf{t}) + d.
 \end{equation}
-Note that since $|\bm{n}|=1$, no normalization is needed. The derivatives with respect to $\bm{R}$ and $\bm{t}$ are:
+Note that since $|\mathbf{n}|=1$, no normalization is needed. The derivatives with respect to $\mathbf{R}$ and $\mathbf{t}$ are:
 \begin{equation}\label{key}
-	\frac{\partial e_i}{\partial \bm{R}} = -\bm{n}^\top \bm{R} \bm{q}_i^\wedge, \quad \frac{\partial e_i}{\partial \bm{t}} = \bm{n}.
+	\frac{\partial e_i}{\partial \mathbf{R}} = -\mathbf{n}^\top \mathbf{R} \mathbf{q}_i^\wedge, \quad \frac{\partial e_i}{\partial \mathbf{t}} = \mathbf{n}.
 \end{equation}
 
 \paragraph{Point-to-Line ICP}  
 For line fitting, parameterize the line as:
 \begin{equation}\label{key}
-	\bm{p} = \bm{d} \tau + \bm{p}_0,
+	\mathbf{p} = \mathbf{d} \tau + \mathbf{p}_0,
 \end{equation}
-where $\bm{d}$ is the unit direction vector, $\bm{p}_0$ is a point on the line, and $\tau$ is a scalar parameter. The perpendicular distance from $\bm{q}_i$ to the line is given by the cross product:
+where $\mathbf{d}$ is the unit direction vector, $\mathbf{p}_0$ is a point on the line, and $\tau$ is a scalar parameter. The perpendicular distance from $\mathbf{q}_i$ to the line is given by the cross product:
 \begin{equation}\label{key}
-	\bm{e}_i = \bm{d} \times (\bm{R} \bm{q}_i + \bm{t} - \bm{p}_0) = \bm{d}^\wedge (\bm{R} \bm{q}_i + \bm{t} - \bm{p}_0).
+	\mathbf{e}_i = \mathbf{d} \times (\mathbf{R} \mathbf{q}_i + \mathbf{t} - \mathbf{p}_0) = \mathbf{d}^\wedge (\mathbf{R} \mathbf{q}_i + \mathbf{t} - \mathbf{p}_0).
 \end{equation}
 The derivatives are:
 \begin{equation}\label{key}
-	\frac{\partial \bm{e}_i}{\partial \bm{R}} = -\bm{d}^\wedge \bm{R} \bm{q}_i^\wedge, \quad \frac{\partial \bm{e}_i}{\partial \bm{t}} = \bm{d}^\wedge.
+	\frac{\partial \mathbf{e}_i}{\partial \mathbf{R}} = -\mathbf{d}^\wedge \mathbf{R} \mathbf{q}_i^\wedge, \quad \frac{\partial \mathbf{e}_i}{\partial \mathbf{t}} = \mathbf{d}^\wedge.
 \end{equation}
 
 These derivatives are straightforward to derive, and we leave their complete derivation as an exercise for the reader.
@@ -385,29 +385,29 @@ This section explains NDT principles using simplified notation, which differs sl
 	\item Iteratively refine the pose estimate using Gauss-Newton or Levenberg-Marquardt.
 \end{enumerate}
 
-The key step is \#3. For a source point $\bm{q}_i$ transformed by $\bm{R}, \bm{t}$ into a voxel with statistics $\boldsymbol{\mu}_i, \boldsymbol{\Sigma}_i$\footnote{In practice, pose errors may place points in adjacent voxels. Most NDT implementations search neighboring voxels to improve convergence.}, we define the voxel residual as:
+The key step is \#3. For a source point $\mathbf{q}_i$ transformed by $\mathbf{R}, \mathbf{t}$ into a voxel with statistics $\boldsymbol{\mu}_i, \boldsymbol{\Sigma}_i$\footnote{In practice, pose errors may place points in adjacent voxels. Most NDT implementations search neighboring voxels to improve convergence.}, we define the voxel residual as:
 \begin{equation}\label{key}
-	\bm{e}_i = \bm{R} \bm{q}_i + \bm{t} - \boldsymbol{\mu}_i,
+	\mathbf{e}_i = \mathbf{R} \mathbf{q}_i + \mathbf{t} - \boldsymbol{\mu}_i,
 \end{equation}
 
-The optimal $\bm{R}, \bm{t}$ solve a weighted least-squares problem:
+The optimal $\mathbf{R}, \mathbf{t}$ solve a weighted least-squares problem:
 \begin{equation}\label{key}
-	(\bm{R},\bm{t})^* = \arg \min\limits_{\bm{R}, \bm{t}} \sum_{i} (\bm{e}_i^\top \boldsymbol{\Sigma}_i^{-1} \bm{e}_i) .
+	(\mathbf{R},\mathbf{t})^* = \arg \min\limits_{\mathbf{R}, \mathbf{t}} \sum_{i} (\mathbf{e}_i^\top \boldsymbol{\Sigma}_i^{-1} \mathbf{e}_i) .
 \end{equation}
 
 From least-squares theory, this equivalently maximizes the probability of each point belonging to its voxel's distribution - a maximum likelihood estimation (MLE)\footnote{Readers unfamiliar should consult Chapter 6 of \textit{14 Lectures}.}:
 \begin{equation}\label{key}
-	(\bm{R},\bm{t})^* = \arg \max\limits_{\bm{R}, \bm{t}} \prod_{i} P(\bm{R} \bm{q}_i + \bm{t})
+	(\mathbf{R},\mathbf{t})^* = \arg \max\limits_{\mathbf{R}, \mathbf{t}} \prod_{i} P(\mathbf{R} \mathbf{q}_i + \mathbf{t})
 \end{equation}
 Here, $\boldsymbol{\Sigma}^{-1}_i$ provides the weighting: tighter distributions demand closer alignment to $\boldsymbol{\mu}_i$, while dispersed distributions tolerate greater deviation.
 
 The Gauss-Newton system becomes:
 \begin{equation}\label{eq:ndt-normal-equation}
-	\sum_{i} (\bm{J}_i^\top \boldsymbol{\Sigma}_i^{-1} \bm{J}_i) \Delta \bm{x} = -\sum_{i} \bm{J}_i^\top \boldsymbol{\Sigma}^{-1}_i \bm{e}_i,
+	\sum_{i} (\mathbf{J}_i^\top \boldsymbol{\Sigma}_i^{-1} \mathbf{J}_i) \Delta \mathbf{x} = -\sum_{i} \mathbf{J}_i^\top \boldsymbol{\Sigma}^{-1}_i \mathbf{e}_i,
 \end{equation}
-where $\Delta \bm{x}$ is the increment and $\bm{J}_i$ the Jacobian:
+where $\Delta \mathbf{x}$ is the increment and $\mathbf{J}_i$ the Jacobian:
 \begin{equation}\label{key}
-	\frac{\partial \bm{e}_i}{\partial \bm{R}} = -\bm{R} \bm{q}_i^\wedge, \quad \frac{\partial \bm{e}_i}{\partial \bm{t}} = \bm{I}.
+	\frac{\partial \mathbf{e}_i}{\partial \mathbf{R}} = -\mathbf{R} \mathbf{q}_i^\wedge, \quad \frac{\partial \mathbf{e}_i}{\partial \mathbf{t}} = \mathbf{I}.
 \end{equation}
 Levenberg-Marquardt can enhance robustness.
 
@@ -934,38 +934,38 @@ However, the current LO pipeline has room for improvement. For example, when add
 Implementing incremental NDT odometry raises two key challenges: maintaining dynamically growing voxels and determining how to update Gaussian parameters within each voxel. We first address the problem of updating statistical estimates within individual voxels. Specifically, given an existing Gaussian distribution estimated from historical points in a voxel, how should we update the distribution parameters when new points are added? This derivation requires basic probability theory.
 
 \paragraph{Incremental Update of Gaussian Distribution}
-Consider a voxel containing $m$ historical points with Gaussian parameters $\boldsymbol{\mu}_H, \boldsymbol{\Sigma}_H$. When adding $n$ new points with statistics $\boldsymbol{\mu}_A, \boldsymbol{\Sigma}_A$, we derive the updated distribution $\boldsymbol{\mu}, \boldsymbol{\Sigma}$. Let historical points be $\bm{x}_1, \ldots, \bm{x}_m$ and new points $\bm{y}_1, \ldots, \bm{y}_n$.
+Consider a voxel containing $m$ historical points with Gaussian parameters $\boldsymbol{\mu}_H, \boldsymbol{\Sigma}_H$. When adding $n$ new points with statistics $\boldsymbol{\mu}_A, \boldsymbol{\Sigma}_A$, we derive the updated distribution $\boldsymbol{\mu}, \boldsymbol{\Sigma}$. Let historical points be $\mathbf{x}_1, \ldots, \mathbf{x}_m$ and new points $\mathbf{y}_1, \ldots, \mathbf{y}_n$.
 
 The mean update is straightforward:
 \begin{equation}\label{key}
-	\boldsymbol{\mu} = \frac{\sum_{i=1}^m \bm{x}_i + \sum_{j=1}^n \bm{y}_j}{m+n} = \frac{m \boldsymbol{\mu}_H + n\boldsymbol{\mu}_A}{m+n}.
+	\boldsymbol{\mu} = \frac{\sum_{i=1}^m \mathbf{x}_i + \sum_{j=1}^n \mathbf{y}_j}{m+n} = \frac{m \boldsymbol{\mu}_H + n\boldsymbol{\mu}_A}{m+n}.
 \end{equation}
 
 For covariance (ignoring Bessel's correction), we start with the sample covariance definition:
 \begin{equation}\label{eq:7.18}
-	\boldsymbol{\Sigma} = \frac{1}{m+n} \left( \sum_{i=1}^{m} (\bm{x}_i - \boldsymbol{\mu})(\bm{x}_i - \boldsymbol{\mu})^\top + \sum_{j=1}^{n} (\bm{y}_j - \boldsymbol{\mu})(\bm{y}_j - \boldsymbol{\mu})^\top \right).
+	\boldsymbol{\Sigma} = \frac{1}{m+n} \left( \sum_{i=1}^{m} (\mathbf{x}_i - \boldsymbol{\mu})(\mathbf{x}_i - \boldsymbol{\mu})^\top + \sum_{j=1}^{n} (\mathbf{y}_j - \boldsymbol{\mu})(\mathbf{y}_j - \boldsymbol{\mu})^\top \right).
 \end{equation}
 
-Expanding the first term using $\bm{x}_i - \boldsymbol{\mu} = (\bm{x}_i - \boldsymbol{\mu}_H) + (\boldsymbol{\mu}_H - \boldsymbol{\mu})$:
+Expanding the first term using $\mathbf{x}_i - \boldsymbol{\mu} = (\mathbf{x}_i - \boldsymbol{\mu}_H) + (\boldsymbol{\mu}_H - \boldsymbol{\mu})$:
 \begin{align}\label{key}
-	\sum_{i=1}^{m} (\bm{x}_i - \boldsymbol{\mu})(\bm{x}_i - \boldsymbol{\mu})^\top &= \sum_{i=1}^{m} \left[ (\bm{x}_i - \boldsymbol{\mu}_H) + (\boldsymbol{\mu}_H - \boldsymbol{\mu}) \right] \left[ (\bm{x}_i - \boldsymbol{\mu}_H) + (\boldsymbol{\mu}_H - \boldsymbol{\mu}) \right]^\top \\
-	&= m\boldsymbol{\Sigma}_H + \sum_{i=1}^m (\bm{x}_i - \boldsymbol{\mu}_H)(\boldsymbol{\mu}_H - \boldsymbol{\mu})^\top \\
-	&\quad + \sum_{i=1}^m (\boldsymbol{\mu}_H - \boldsymbol{\mu})(\bm{x}_i - \boldsymbol{\mu}_H)^\top + m(\boldsymbol{\mu}_H - \boldsymbol{\mu})(\boldsymbol{\mu}_H - \boldsymbol{\mu})^\top.
+	\sum_{i=1}^{m} (\mathbf{x}_i - \boldsymbol{\mu})(\mathbf{x}_i - \boldsymbol{\mu})^\top &= \sum_{i=1}^{m} \left[ (\mathbf{x}_i - \boldsymbol{\mu}_H) + (\boldsymbol{\mu}_H - \boldsymbol{\mu}) \right] \left[ (\mathbf{x}_i - \boldsymbol{\mu}_H) + (\boldsymbol{\mu}_H - \boldsymbol{\mu}) \right]^\top \\
+	&= m\boldsymbol{\Sigma}_H + \sum_{i=1}^m (\mathbf{x}_i - \boldsymbol{\mu}_H)(\boldsymbol{\mu}_H - \boldsymbol{\mu})^\top \\
+	&\quad + \sum_{i=1}^m (\boldsymbol{\mu}_H - \boldsymbol{\mu})(\mathbf{x}_i - \boldsymbol{\mu}_H)^\top + m(\boldsymbol{\mu}_H - \boldsymbol{\mu})(\boldsymbol{\mu}_H - \boldsymbol{\mu})^\top.
 \end{align}
 
 The cross terms vanish since:
 \begin{equation}\label{key}
-	\sum_{i=1}^m (\bm{x}_i - \boldsymbol{\mu}_H) (\boldsymbol{\mu}_H - \boldsymbol{\mu})^\top = \left(\sum_{i=1}^m \bm{x}_i - m\boldsymbol{\mu}_H\right)(\boldsymbol{\mu}_H - \boldsymbol{\mu})^\top = \bm{0}.
+	\sum_{i=1}^m (\mathbf{x}_i - \boldsymbol{\mu}_H) (\boldsymbol{\mu}_H - \boldsymbol{\mu})^\top = \left(\sum_{i=1}^m \mathbf{x}_i - m\boldsymbol{\mu}_H\right)(\boldsymbol{\mu}_H - \boldsymbol{\mu})^\top = \mathbf{0}.
 \end{equation}
 
 Thus we obtain:
 \begin{equation}\label{key}
-	\sum_{i=1}^{m} (\bm{x}_i - \boldsymbol{\mu})(\bm{x}_i - \boldsymbol{\mu})^\top = m \left(\boldsymbol{\Sigma}_H + (\boldsymbol{\mu}_H - \boldsymbol{\mu})(\boldsymbol{\mu}_H - \boldsymbol{\mu})^\top\right).
+	\sum_{i=1}^{m} (\mathbf{x}_i - \boldsymbol{\mu})(\mathbf{x}_i - \boldsymbol{\mu})^\top = m \left(\boldsymbol{\Sigma}_H + (\boldsymbol{\mu}_H - \boldsymbol{\mu})(\boldsymbol{\mu}_H - \boldsymbol{\mu})^\top\right).
 \end{equation}
 
 Similarly for the new points:
 \begin{equation}\label{key}
-	\sum_{j=1}^{n} (\bm{y}_j - \boldsymbol{\mu})(\bm{y}_j - \boldsymbol{\mu})^\top = n \left(\boldsymbol{\Sigma}_A + (\boldsymbol{\mu}_A - \boldsymbol{\mu})(\boldsymbol{\mu}_A - \boldsymbol{\mu})^\top\right).
+	\sum_{j=1}^{n} (\mathbf{y}_j - \boldsymbol{\mu})(\mathbf{y}_j - \boldsymbol{\mu})^\top = n \left(\boldsymbol{\Sigma}_A + (\boldsymbol{\mu}_A - \boldsymbol{\mu})(\boldsymbol{\mu}_A - \boldsymbol{\mu})^\top\right).
 \end{equation}
 
 The final covariance update formula becomes:
@@ -1758,27 +1758,27 @@ In a loosely coupled system, we still maintain a state estimator to compute the 
 In contrast, tightly coupled systems directly incorporate point cloud residual equations as observation models into the estimator. This approach essentially embeds an ICP or NDT process within the filter or optimization algorithm. Since ICP and NDT require iterative updates of their nearest neighbors, the corresponding filter should also support iterative updates. Having introduced various registration methods in this chapter and different inertial navigation approaches in earlier chapters, we can flexibly combine them to create an LIO solution. Here we implement a relatively simple case: using the ESKF from Chapter 3 combined with the incremental NDT odometry from Section \ref{sec:inc-ndt} to build a loosely coupled LIO system. This implementation is relatively simple and suitable for teaching purposes, and readers can replace the LiDAR odometry with ICP or feature-based methods.
 
 \subsection{Coordinate Frame Conventions}
-With the introduction of IMU, we now have three coordinate frames: world frame (W), IMU frame (I), and LiDAR frame (L). The IMU and LiDAR frames are not coincident, with a transformation between them denoted as $\bm{T}_{IL}$. This parameter varies across different datasets depending on sensor mounting. We record $\bm{T}_{IL}$ for each dataset in configuration files and load it during program initialization.
+With the introduction of IMU, we now have three coordinate frames: world frame (W), IMU frame (I), and LiDAR frame (L). The IMU and LiDAR frames are not coincident, with a transformation between them denoted as $\mathbf{T}_{IL}$. This parameter varies across different datasets depending on sensor mounting. We record $\mathbf{T}_{IL}$ for each dataset in configuration files and load it during program initialization.
 
-For point cloud registration, several approaches exist. Since IMU motion models are derived in the IMU frame, we prefer to keep them unchanged without introducing additional variables. Therefore, we choose to transform LiDAR point clouds to the IMU frame using the extrinsic calibration. This makes the IMU frame the central reference for localization and mapping. The local maps in our LiDAR odometry are also maintained in the IMU frame. The transformation is straightforward: for a point $\bm{p}_L$ measured by the LiDAR, its IMU frame coordinates become:
+For point cloud registration, several approaches exist. Since IMU motion models are derived in the IMU frame, we prefer to keep them unchanged without introducing additional variables. Therefore, we choose to transform LiDAR point clouds to the IMU frame using the extrinsic calibration. This makes the IMU frame the central reference for localization and mapping. The local maps in our LiDAR odometry are also maintained in the IMU frame. The transformation is straightforward: for a point $\mathbf{p}_L$ measured by the LiDAR, its IMU frame coordinates become:
 \begin{equation}\label{key}
-	\bm{p}_{I} = \bm{T}_{IL} \bm{p}_L = \bm{R}_{IL} \bm{p}_L + \bm{t}_{IL}.
+	\mathbf{p}_{I} = \mathbf{T}_{IL} \mathbf{p}_L = \mathbf{R}_{IL} \mathbf{p}_L + \mathbf{t}_{IL}.
 \end{equation}
 
-This approach avoids introducing additional extrinsic parameters into the observation model. An alternative method would keep the LiDAR odometry operating in the LiDAR frame while transforming the output pose to the IMU frame via $\bm{T}_{IL}$. However, that would introduce extra $\bm{T}_{IL}$ terms in the observation equations, complicating the Jacobian matrices.
+This approach avoids introducing additional extrinsic parameters into the observation model. An alternative method would keep the LiDAR odometry operating in the LiDAR frame while transforming the output pose to the IMU frame via $\mathbf{T}_{IL}$. However, that would introduce extra $\mathbf{T}_{IL}$ terms in the observation equations, complicating the Jacobian matrices.
 
 \subsection{Motion and Observation Equations for Loosely Coupled LIO}
-Since the entire LIO operates in the IMU frame, the state variable motion equations remain consistent with~\eqref{eq:eskf-F}, which we won't reiterate here. Meanwhile, the pose output from LiDAR odometry can be directly treated as observations of the state variables $\bm{R}, \bm{p}$. This process is essentially identical to the GNSS observations discussed in Chapter~\ref{cpt:ins} equation~\eqref{eq:obs-gnss}. Abstractly written as $\bm{z}=\bm{h}(\bm{x})$, the translation observation is:
+Since the entire LIO operates in the IMU frame, the state variable motion equations remain consistent with~\eqref{eq:eskf-F}, which we won't reiterate here. Meanwhile, the pose output from LiDAR odometry can be directly treated as observations of the state variables $\mathbf{R}, \mathbf{p}$. This process is essentially identical to the GNSS observations discussed in Chapter~\ref{cpt:ins} equation~\eqref{eq:obs-gnss}. Abstractly written as $\mathbf{z}=\mathbf{h}(\mathbf{x})$, the translation observation is:
 \begin{equation}\label{key}
-	\bm{p}_{LO} = \bm{p}.
+	\mathbf{p}_{LO} = \mathbf{p}.
 \end{equation}
 For rotation observations, to facilitate derivative computation, we express it as:
 \begin{equation}\label{key}
-	\delta \boldsymbol{\theta} = \mathrm{Log}(\bm{R}^\top \bm{R}_{LO}).
+	\delta \boldsymbol{\theta} = \mathrm{Log}(\mathbf{R}^\top \mathbf{R}_{LO}).
 \end{equation}
-Here, the observation Jacobian of odometry rotation with respect to error state $\delta \boldsymbol{\theta}$ should be $\bm{I}$, with the residual defined as:
+Here, the observation Jacobian of odometry rotation with respect to error state $\delta \boldsymbol{\theta}$ should be $\mathbf{I}$, with the residual defined as:
 \begin{equation}\label{key}
-	\bm{r}_{\bm{R}} = - \mathrm{Log}( \bm{R}^\top \bm{R}_{LO}).
+	\mathbf{r}_{\mathbf{R}} = - \mathrm{Log}( \mathbf{R}^\top \mathbf{R}_{LO}).
 \end{equation}
 At the implementation level, we'll use the same observation function as GNSS since they fundamentally represent direct observations of rotation and translation.
 
@@ -2052,11 +2052,11 @@ With IMU poses available in the LIO system, we can utilize IMU-predicted poses t
 
 Motion compensation refers to correcting scan distortions caused by vehicle motion. If the LiDAR remains stationary during scanning, the measured distances match the true distances. However, when the LiDAR moves with the vehicle, we must account for the vehicle's motion during scanning. Most LiDARs operate at 10-20Hz with scan durations of 0.1-0.05 seconds. For a vehicle moving at 20m/s, the pose difference between scan start and end could reach 1-2 meters. Faster speeds or larger rotations exacerbate motion distortion. Small autonomous vehicles or robots may also rotate rapidly, potentially causing scan angles to under- or overshoot 360 degrees, resulting in ghosting artifacts within single scans. Therefore, motion compensation becomes essential for fast-moving vehicles.
 
-The principle is straightforward: we need the vehicle poses during scanning. Assume a scan duration $t_s$. Each LiDAR point carries its timestamp (typically provided by the driver, or calculable from beam angles if the LiDAR model is known). Let $\bm{p}_t = (x,y,z)^\top, t \in (0,t_s)$ represent a point's coordinates in the \textbf{LiDAR frame}. Meanwhile, we can query LiDAR poses at any $t \in [0,t_s]$ (typically via IMU pose interpolation). Denote the IMU pose at $t$ as $\bm{T}(t)_{WI}$ and the end pose as $\bm{T}(t_s)_{WI}$. To compensate motion, we transform each point to the scan-end pose:
+The principle is straightforward: we need the vehicle poses during scanning. Assume a scan duration $t_s$. Each LiDAR point carries its timestamp (typically provided by the driver, or calculable from beam angles if the LiDAR model is known). Let $\mathbf{p}_t = (x,y,z)^\top, t \in (0,t_s)$ represent a point's coordinates in the \textbf{LiDAR frame}. Meanwhile, we can query LiDAR poses at any $t \in [0,t_s]$ (typically via IMU pose interpolation). Denote the IMU pose at $t$ as $\mathbf{T}(t)_{WI}$ and the end pose as $\mathbf{T}(t_s)_{WI}$. To compensate motion, we transform each point to the scan-end pose:
 
-Given IMU-LiDAR extrinsics $\bm{T}_{IL}$, the compensation formula is:
+Given IMU-LiDAR extrinsics $\mathbf{T}_{IL}$, the compensation formula is:
 \begin{equation}\label{key}
-	\bm{p}^\prime = \bm{T}_{LI} \bm{T}(t_s)_{IW} \bm{T}(t)_{WI} \bm{T}_{IL} \bm{p}_t.
+	\mathbf{p}^\prime = \mathbf{T}_{LI} \mathbf{T}(t_s)_{IW} \mathbf{T}(t)_{WI} \mathbf{T}_{IL} \mathbf{p}_t.
 \end{equation}
 
 Reading right-to-left, this naturally yields coordinates in the end-time LiDAR frame. Omitting the leftmost matrix gives IMU-frame coordinates.
@@ -2175,9 +2175,9 @@ In the next section, we will focus on tightly coupled LIO systems. We will intro
 
 \section*{Exercises}
 \begin{enumerate}
-	\item Derive the right multiplication derivative of $\bm{R}$ in Equation \eqref{eq:p2p-icp-jacobian}.
+	\item Derive the right multiplication derivative of $\mathbf{R}$ in Equation \eqref{eq:p2p-icp-jacobian}.
 	\item Use std::reduce to parallelize the Hessian matrix accumulation process.
-	\item Derive the derivatives of point-to-plane and point-to-line residuals with respect to $\bm{R}$.
+	\item Derive the derivatives of point-to-plane and point-to-line residuals with respect to $\mathbf{R}$.
 	\item Explain the relationship between weighted least squares problems and maximum likelihood estimation in NDT.
 	\item Design and implement a parallel computation pipeline for calculating laser beam curvature.
 	\item Develop a ground extraction pipeline for the LOAM-like odometry in this book, and apply point-to-plane ICP separately to ground point clouds.

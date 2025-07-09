@@ -125,22 +125,22 @@ Note that the second meaning requires calculating the line from the sensor to th
 
 Under this premise, a single scan can be viewed as a simple 2D point set.
 
-Now let us derive the mathematical model for scan matching algorithms. From the perspective of state estimation, 2D laser scan data can be denoted as observation data $\bm{z}$. It is obtained when the robot at pose $\bm{x}$ observes a certain map $\bm{m}$. Thus, the observation model can be simply expressed as:
+Now let us derive the mathematical model for scan matching algorithms. From the perspective of state estimation, 2D laser scan data can be denoted as observation data $\mathbf{z}$. It is obtained when the robot at pose $\mathbf{x}$ observes a certain map $\mathbf{m}$. Thus, the observation model can be simply expressed as:
 \begin{equation}\label{key}
-	\bm{z} = \bm{h} (\bm{x}, \bm{m}) + \bm{w},
+	\mathbf{z} = \mathbf{h} (\mathbf{x}, \mathbf{m}) + \mathbf{w},
 \end{equation}
-where $\bm{w}$ is the noise term. Our goal is to estimate $\bm{x}$ based on the observed $\bm{z}$ and $\bm{m}$. According to Bayesian estimation theory, $\bm{x}$ can be obtained through \textbf{Maximum a Posteriori} (MAP) or \textbf{Maximum Likelihood Estimation} (MLE):
+where $\mathbf{w}$ is the noise term. Our goal is to estimate $\mathbf{x}$ based on the observed $\mathbf{z}$ and $\mathbf{m}$. According to Bayesian estimation theory, $\mathbf{x}$ can be obtained through \textbf{Maximum a Posteriori} (MAP) or \textbf{Maximum Likelihood Estimation} (MLE):
 \begin{equation}\label{key}
-	\bm{x}_{\mathrm{MLE}} = \arg \max p(\bm{x}|\bm{z}, \bm{m}) = \arg \max p(\bm{z}|\bm{x}, \bm{m}).
+	\mathbf{x}_{\mathrm{MLE}} = \arg \max p(\mathbf{x}|\mathbf{z}, \mathbf{m}) = \arg \max p(\mathbf{z}|\mathbf{x}, \mathbf{m}).
 \end{equation}
 
-If we only consider the scan-to-scan problem, $\bm{m}$ can simply be written as the previous scan data. The key then becomes how to define the detailed form of the observation equation, i.e., how to compute the residual term for each observation. Here we present several typical solutions: point-to-point scan matching (ICP) \cite{Arun1987}, point-to-line scan matching (PL-ICP \cite{Censi2008} or ICL \cite{Alshawa2007}), and the Gaussian likelihood field method (or CSM \cite{Olson2009}). In 3D matching algorithms, we will further introduce other methods such as point-to-plane \cite{Park2003,Low2004} and NDT \cite{Biber2003,Magnusson2009,Rapp2015}. Since 2D scan matching does not involve surface elements, we will only discuss point-to-point and point-to-line algorithms here.
+If we only consider the scan-to-scan problem, $\mathbf{m}$ can simply be written as the previous scan data. The key then becomes how to define the detailed form of the observation equation, i.e., how to compute the residual term for each observation. Here we present several typical solutions: point-to-point scan matching (ICP) \cite{Arun1987}, point-to-line scan matching (PL-ICP \cite{Censi2008} or ICL \cite{Alshawa2007}), and the Gaussian likelihood field method (or CSM \cite{Olson2009}). In 3D matching algorithms, we will further introduce other methods such as point-to-plane \cite{Park2003,Low2004} and NDT \cite{Biber2003,Magnusson2009,Rapp2015}. Since 2D scan matching does not involve surface elements, we will only discuss point-to-point and point-to-line algorithms here.
 
 The specific definition of the observation equation involves several issues:
 \begin{enumerate}
 	\item How to select the points to be matched. In principle, all scanned points should participate in matching, but for efficiency considerations, \textbf{sampling} can be applied. There are many sampling methods, from uniform or random sampling to normal- or feature-based sampling, all of which can be used in practice.
 	\item How to determine which specific map point corresponds to a scan point $(x,y)_i$. This is also known as the \textbf{data association} problem. This problem is typically solved using the nearest neighbor method introduced in the previous section, i.e., assuming that under the current estimated pose, the closest map point to the observed point is the matching point. In field-based methods, grid cells or fields in the map can also be used as matching points.
-	\item After determining the scan point $(x,y)_i$ and its corresponding map point $\bm{m}_i$, how to compute the residual. This involves the modeling of residuals. The complete laser scan noise model (beam model) is complex with many parameters \cite{Cabaleiro2015}, and as a state estimation model, it is not smooth enough. In practice, we usually simplify it, and in the simplest case, we can directly model it as a 2D Gaussian distribution, i.e., $\bm{w} \sim \mathcal{N}(\bm{0}, \boldsymbol{\Sigma})$.
+	\item After determining the scan point $(x,y)_i$ and its corresponding map point $\mathbf{m}_i$, how to compute the residual. This involves the modeling of residuals. The complete laser scan noise model (beam model) is complex with many parameters \cite{Cabaleiro2015}, and as a state estimation model, it is not smooth enough. In practice, we usually simplify it, and in the simplest case, we can directly model it as a 2D Gaussian distribution, i.e., $\mathbf{w} \sim \mathcal{N}(\mathbf{0}, \boldsymbol{\Sigma})$.
 \end{enumerate}
 
 As can be seen, a scan matching algorithm involves many choices at different stages, and there are numerous variants of basic methods in both industry and academia. We will introduce the origins of these variants starting from basic methods, but we will not attempt to cover all scan matching algorithms. To maintain consistency, we will use the same mathematical notation to describe the problems and provide code implementations for each algorithm.
@@ -149,50 +149,50 @@ First, let us look at the simplest point-to-point matching problem, also known a
 
 The pose of a 2D laser is described by translation and rotation angles\footnote{In the program, we use the SE2 interface, which is essentially the same as the SE3 interface. We can use the same notation for SE3 and SE2, such as matrix multiplication. In some literature, 2D poses are also referred to as \textbf{three-degree-of-freedom} poses.}, and can be simply written as:
 \begin{equation}\label{key}
-	\bm{x} = [x, y, \theta]^\top.
+	\mathbf{x} = [x, y, \theta]^\top.
 \end{equation}
 
-Here, $\bm{x}$ describes a transformation from the robot's coordinate frame $B$ to the world frame $W$, denoted as $\bm{x} = \bm{T}_{WB}$ according to the convention of this book. Note that submap frames and their coordinate systems will be introduced later, so it is necessary to clarify the transformation relationship of $\bm{x}$. Suppose a scan point $\bm{p}_i^B$ in the robot's frame has distance and angle $r_i, \rho_i$. Then, based on the current laser pose, it can be transformed to the world frame:
+Here, $\mathbf{x}$ describes a transformation from the robot's coordinate frame $B$ to the world frame $W$, denoted as $\mathbf{x} = \mathbf{T}_{WB}$ according to the convention of this book. Note that submap frames and their coordinate systems will be introduced later, so it is necessary to clarify the transformation relationship of $\mathbf{x}$. Suppose a scan point $\mathbf{p}_i^B$ in the robot's frame has distance and angle $r_i, \rho_i$. Then, based on the current laser pose, it can be transformed to the world frame:
 \begin{equation}\label{key}
-	\bm{p}^W_i = [x+r_i \cos (\rho_i + \theta), y+r_i \sin(\rho_i + \theta)]^\top.
+	\mathbf{p}^W_i = [x+r_i \cos (\rho_i + \theta), y+r_i \sin(\rho_i + \theta)]^\top.
 \end{equation}
 In 3D space, this can be written as:
 \begin{equation}\label{key}
-	\bm{p}^W_i = \bm{T}_{WB} \bm{p}^B_i.
+	\mathbf{p}^W_i = \mathbf{T}_{WB} \mathbf{p}^B_i.
 \end{equation}
 
 In the program, since the SE3 and SE2 interfaces are consistent, we do not deliberately distinguish between 3D and 2D poses in mathematical notation.
 
-Assuming we find a nearest neighbor $\bm{q}_i^W$ near $\bm{p}_i^W$, we can easily construct the residual between $\bm{p}_i^W$ and $\bm{q}_i^W$:
+Assuming we find a nearest neighbor $\mathbf{q}_i^W$ near $\mathbf{p}_i^W$, we can easily construct the residual between $\mathbf{p}_i^W$ and $\mathbf{q}_i^W$:
 \begin{equation}\label{key}
-	\bm{e}_i = \bm{p}_i^W - \bm{q}_i^W,
+	\mathbf{e}_i = \mathbf{p}_i^W - \mathbf{q}_i^W,
 \end{equation}
 
 This residual describes the Euclidean geometric distance between two points. Clearly, this error uses world coordinates and is related to the robot's pose at that time. Thus, the robot pose estimation problem can be transformed into a least-squares problem with variables $x, y, \theta$:
 \begin{equation}\label{key}
-	(x,y,\theta)^* = \arg \min\limits_{\bm{x}} \sum_{i=1}^n \| \bm{e}_i \|_2^2.
+	(x,y,\theta)^* = \arg \min\limits_{\mathbf{x}} \sum_{i=1}^n \| \mathbf{e}_i \|_2^2.
 \end{equation}
 This least-squares problem can be solved by many existing solvers.
 
-To solve the least-squares problem, we should provide the derivatives of $\bm{e}$ with respect to each state variable. The obvious advantage of 2D poses is that we no longer need to use manifold notation and can directly use the decomposed $x, y, \theta$\footnote{Of course, it is possible to unify them using manifold notation, but it is unnecessary.}. Based on the above definitions, we can easily obtain:
+To solve the least-squares problem, we should provide the derivatives of $\mathbf{e}$ with respect to each state variable. The obvious advantage of 2D poses is that we no longer need to use manifold notation and can directly use the decomposed $x, y, \theta$\footnote{Of course, it is possible to unify them using manifold notation, but it is unnecessary.}. Based on the above definitions, we can easily obtain:
 \begin{subequations}\label{key}
 	\begin{align}
-		\frac{\partial{\bm{e}_i}}{\partial x} &= [1, 0]^\top, \\
-		\frac{\partial{\bm{e}_i}}{\partial y} &= [0, 1]^\top, \\
-		\frac{\partial{\bm{e}_i}}{\partial \theta} &= [-r_i \sin (\rho_i + \theta), r_i \cos (\rho_i+\theta)]^\top.
+		\frac{\partial{\mathbf{e}_i}}{\partial x} &= [1, 0]^\top, \\
+		\frac{\partial{\mathbf{e}_i}}{\partial y} &= [0, 1]^\top, \\
+		\frac{\partial{\mathbf{e}_i}}{\partial \theta} &= [-r_i \sin (\rho_i + \theta), r_i \cos (\rho_i+\theta)]^\top.
 	\end{align}
 \end{subequations}
 
 We can organize this into matrix form:
 \begin{equation}\label{eq:dpw-dx}
-	\frac{\partial \bm{e}_i}{\partial \bm{x}} = \begin{bmatrix}
+	\frac{\partial \mathbf{e}_i}{\partial \mathbf{x}} = \begin{bmatrix}
 		1 & 0\\
 		0 & 1\\
 		-r_i \sin (\rho_i + \theta) & r_i \cos (\rho_i+\theta)
 	\end{bmatrix} \in \mathbb{R}^{3\times 2}.
 \end{equation}
 
-In the subsequent experimental section, we will use this Jacobian matrix to solve the Gauss-Newton method. It is important to note that if the state variables $x, y, \theta$ change, $\bm{q}_i$ will also change, altering the entire problem. If the state variables are initially set far from the optimal solution, $\bm{q}_i$ may be an incorrect point, making ICP-like methods highly dependent on the initial value of optimization. We will continue to discuss this issue later.
+In the subsequent experimental section, we will use this Jacobian matrix to solve the Gauss-Newton method. It is important to note that if the state variables $x, y, \theta$ change, $\mathbf{q}_i$ will also change, altering the entire problem. If the state variables are initially set far from the optimal solution, $\mathbf{q}_i$ may be an incorrect point, making ICP-like methods highly dependent on the initial value of optimization. We will continue to discuss this issue later.
 
 \subsection{Implementation of Point-to-Point ICP (Gauss-Newton)}  
 Below we implement a 2D point-to-point ICP method by manually coding the Gauss-Newton approach. In each Gauss-Newton iteration, we recompute the nearest neighbors between points and then solve for the pose increment. The key points here are: (1) implementing nearest neighbor search, and (2) implementing Gauss-Newton iteration.  
@@ -361,7 +361,7 @@ This test program is also compatible with the point-to-plane ICP interface discu
 \subsection{Point-to-Line Scan Matching}  
 In addition to point-to-point methods, ICP can also utilize other error formulations. The most common alternatives are point-to-line or point-to-plane approaches. Since 2D lidar data doesn't contain planes, we focus on the point-to-line formulation (which can be considered a lower-dimensional version of point-to-plane). The overall workflow of point-to-line ICP remains similar to point-to-point ICP, except that during nearest neighbor search, we need to find multiple neighbors (e.g., k neighbors), fit a line to these points, and then compute the perpendicular distance from the target point to this line. This method is called Point-to-line ICP (PL-ICP) \cite{Censi2008}.
 
-Let these k nearest neighbors be $(\bm{x}_1, \ldots, \bm{x}_k), \forall i \in 1, \ldots k, \bm{x}_i \in \mathbb{R}^2$. In 3D space, the fitted line can be described by a direction vector $\bm{d}$ and origin $\bm{p}$, with fitting methods already introduced in Section~\ref{sec:line-fitting}. While lines in 3D space are more complex, in 2D space they can be simplified to a slope-intercept model. Let the line equation be:
+Let these k nearest neighbors be $(\mathbf{x}_1, \ldots, \mathbf{x}_k), \forall i \in 1, \ldots k, \mathbf{x}_i \in \mathbb{R}^2$. In 3D space, the fitted line can be described by a direction vector $\mathbf{d}$ and origin $\mathbf{p}$, with fitting methods already introduced in Section~\ref{sec:line-fitting}. While lines in 3D space are more complex, in 2D space they can be simplified to a slope-intercept model. Let the line equation be:
 \begin{equation}\label{key}
 	a x + by + c = 0,
 \end{equation}
@@ -372,14 +372,14 @@ where $a,b,c$ are line parameters. The line fitting can then be formulated as a 
 
 We simply arrange the point coordinates into a matrix:
 \begin{equation}\label{key}
-	\bm{A} = \begin{bmatrix}
+	\mathbf{A} = \begin{bmatrix}
 		x_1 & y_1 & 1 \\
 		x_2 & y_2 & 1 \\
 		& \ldots &\\
 		x_k & y_k & 1
 	\end{bmatrix},
 \end{equation}
-and find the minimum singular vector of $\bm{A}$.
+and find the minimum singular vector of $\mathbf{A}$.
 
 After obtaining the line parameters $(a,b,c)$ from the nearest neighbors, the perpendicular distance from any point $(x,y)$ to this line can be expressed as:
 \begin{equation}\label{key}
@@ -395,13 +395,13 @@ as the objective function. The line equation also provides the corresponding Jac
 \end{equation}
 Thus, the fitted line results can guide the optimization direction. We will see similar results in 3D point-to-plane ICP later.
 
-Now we incorporate the lidar's pose into the above discussion. Let the lidar's position and orientation be $\bm{x} = (x,y, \theta)$. For a lidar point with distance and angle $(r_i, \rho_i)$, we transform it to world coordinates to get $\bm{p}_i^w$. With line parameters $(a_i, b_i, c_i)$ fitted from its nearest neighbors, the Jacobian matrix of its residual $e_i$ with respect to the pose can be expressed using the chain rule:
+Now we incorporate the lidar's pose into the above discussion. Let the lidar's position and orientation be $\mathbf{x} = (x,y, \theta)$. For a lidar point with distance and angle $(r_i, \rho_i)$, we transform it to world coordinates to get $\mathbf{p}_i^w$. With line parameters $(a_i, b_i, c_i)$ fitted from its nearest neighbors, the Jacobian matrix of its residual $e_i$ with respect to the pose can be expressed using the chain rule:
 \begin{equation}\label{key}
-	\frac{\partial e_i}{\partial \bm{x}} = \frac{\partial e_i}{\partial \bm{p}_i^w} \frac{\partial \bm{p}_i^w}{\partial \bm{x}},
+	\frac{\partial e_i}{\partial \mathbf{x}} = \frac{\partial e_i}{\partial \mathbf{p}_i^w} \frac{\partial \mathbf{p}_i^w}{\partial \mathbf{x}},
 \end{equation} 
 where the latter term is given in Equation \eqref{eq:dpw-dx}, and the former term is determined by the line parameters. Multiplying them together yields:
 \begin{equation}\label{key}
-	\frac{\partial e_i}{\partial \bm{x}} = [a_i, b_i, -a_i r_i \sin(\rho_i + \theta) + b_i r_i \cos(\rho_i + \theta)]^\top.
+	\frac{\partial e_i}{\partial \mathbf{x}} = [a_i, b_i, -a_i r_i \sin(\rho_i + \theta) + b_i r_i \cos(\rho_i + \theta)]^\top.
 \end{equation}
 
 
@@ -543,28 +543,28 @@ The likelihood field method can be used to register either two scan datasets or 
 
 Figure~\ref{fig:likelihood-field} shows a 2D scan dataset and its corresponding likelihood field. Visually, we can observe that the likelihood field radiates from each scan point and gradually decays with distance. We can customize its range and decay characteristics. The likelihood field essentially describes a distance function between each pixel and its nearest scan point, also referred to as a distance transform map in some applications \cite{Felzenszwalb2012}. With the likelihood field, we no longer need nearest neighbor structures like K-d trees to find the closest point for a given point; instead, we can directly use the field's readings.
 
-Next, we derive the scan matching algorithm based on the likelihood field. The readings from the likelihood field can directly serve as the objective function for registration. Consider a point $\bm{p}^B_i$ transformed by pose $\bm{x}$ to obtain $\bm{p}^W_i$ in the world coordinate frame. Simultaneously, there exists a likelihood field $\pi$ in the world coordinate frame\footnote{Note that the likelihood field doesn't necessarily need to be maintained in the world coordinate frame; later discussions will show it is primarily maintained in submap coordinates.}. The reading of this point in the likelihood field $\pi$ is $\pi(\bm{p}^W_i)$. Thus, $\bm{x}$ can be obtained by solving the optimization problem:
+Next, we derive the scan matching algorithm based on the likelihood field. The readings from the likelihood field can directly serve as the objective function for registration. Consider a point $\mathbf{p}^B_i$ transformed by pose $\mathbf{x}$ to obtain $\mathbf{p}^W_i$ in the world coordinate frame. Simultaneously, there exists a likelihood field $\pi$ in the world coordinate frame\footnote{Note that the likelihood field doesn't necessarily need to be maintained in the world coordinate frame; later discussions will show it is primarily maintained in submap coordinates.}. The reading of this point in the likelihood field $\pi$ is $\pi(\mathbf{p}^W_i)$. Thus, $\mathbf{x}$ can be obtained by solving the optimization problem:
 \begin{equation}\label{key}
-	\bm{x}^* = \arg \min_{\bm{x}} \sum_{i=1}^{n} \| \pi(\bm{p}_i^W) \|_2^2.
+	\mathbf{x}^* = \arg \min_{\mathbf{x}} \sum_{i=1}^{n} \| \pi(\mathbf{p}_i^W) \|_2^2.
 \end{equation}
 
-The Jacobian matrix of the $\pi$ function with respect to pose $\bm{x}$ can be decomposed via the chain rule:
+The Jacobian matrix of the $\pi$ function with respect to pose $\mathbf{x}$ can be decomposed via the chain rule:
 \begin{equation}\label{key}
-	\frac{\partial \pi}{\partial \bm{x}} = \frac{\partial \pi}{\partial \bm{p}^W_i} \frac{\partial \bm{p}^W_i}{\partial \bm{x}}.
+	\frac{\partial \pi}{\partial \mathbf{x}} = \frac{\partial \pi}{\partial \mathbf{p}^W_i} \frac{\partial \mathbf{p}^W_i}{\partial \mathbf{x}}.
 \end{equation}
 The latter term is given in Equation \eqref{eq:dpw-dx}, so we focus on the former term.
 
-Since the likelihood field is stored as an image, $\bm{p}^W_i$ must be sampled at a certain resolution. Let the transformation from $\bm{p}^W_i$ to its image coordinates $\bm{p}^f_i$ be:
+Since the likelihood field is stored as an image, $\mathbf{p}^W_i$ must be sampled at a certain resolution. Let the transformation from $\mathbf{p}^W_i$ to its image coordinates $\mathbf{p}^f_i$ be:
 \begin{equation}\label{key}
-	\bm{p}^f_i = \alpha \bm{p}^W_i + \bm{c},
+	\mathbf{p}^f_i = \alpha \mathbf{p}^W_i + \mathbf{c},
 \end{equation}
-where $\alpha$ is the scaling factor and $\bm{c} \in \mathbb{R}^2$ is the offset of the image center. Note that image coordinates typically start from the top-left corner, while object coordinates usually originate from the center, so the offset is typically half the image dimensions. The derivative of function $\pi$ with respect to $\bm{p}^W_i$ is:
+where $\alpha$ is the scaling factor and $\mathbf{c} \in \mathbb{R}^2$ is the offset of the image center. Note that image coordinates typically start from the top-left corner, while object coordinates usually originate from the center, so the offset is typically half the image dimensions. The derivative of function $\pi$ with respect to $\mathbf{p}^W_i$ is:
 \begin{equation}\label{key}
-	\frac{\partial \pi}{\partial \bm{p}^W_i} = \frac{\partial \pi}{\partial \bm{p}^f_i} \frac{\partial \bm{p}^f_i}{\partial \bm{p}^W_i}= \alpha [\Delta \pi_x, \Delta \pi_y]^\top,
+	\frac{\partial \pi}{\partial \mathbf{p}^W_i} = \frac{\partial \pi}{\partial \mathbf{p}^f_i} \frac{\partial \mathbf{p}^f_i}{\partial \mathbf{p}^W_i}= \alpha [\Delta \pi_x, \Delta \pi_y]^\top,
 \end{equation}
 where $[\Delta \pi_x, \Delta \pi_y]$ represents the gradient of the likelihood field in the image. Since we define the likelihood function for each point as a smooth function, its gradient is equally reliable. Multiplying these two matrices yields the Jacobian matrix of each residual with respect to the pose:
 \begin{equation}\label{key}
-	\frac{\partial \pi}{\partial \bm{x}} = [\alpha \Delta \pi_x, \alpha \Delta \pi_y, -\alpha \Delta \pi_x r_i \sin(\rho_i+\theta) + \alpha \Delta \pi_y r_i \cos(\rho_i +\theta)]^\top.
+	\frac{\partial \pi}{\partial \mathbf{x}} = [\alpha \Delta \pi_x, \alpha \Delta \pi_y, -\alpha \Delta \pi_x r_i \sin(\rho_i+\theta) + \alpha \Delta \pi_y r_i \cos(\rho_i +\theta)]^\top.
 \end{equation}
 
 Using this Jacobian matrix, we can implement registration based on the Gauss-Newton method.
@@ -863,13 +863,13 @@ Due to the resolution limitations of grid maps, converting continuous laser beam
 \subsection{Map Generation Based on Bresenham's Algorithm}  
 Bresenham's algorithm is a rasterization method for straight lines, commonly used for vectorization of geometric lines \cite{Cohen-Or1997}. It can be implemented entirely with integer operations, making it highly efficient. Since grid map coordinates are inherently integer-based, Bresenham's algorithm is well-suited for updating grid maps.  
 
-Let the robot's origin in the map coordinate system be $\bm{p}_1$, and an endpoint be $\bm{p}_2$, both with integer coordinates. We aim to fill a straight line from $\bm{p}_1$ to $\bm{p}_2$ in the map, marking these cells as traversable. The Bresenham algorithm proceeds as follows:  
+Let the robot's origin in the map coordinate system be $\mathbf{p}_1$, and an endpoint be $\mathbf{p}_2$, both with integer coordinates. We aim to fill a straight line from $\mathbf{p}_1$ to $\mathbf{p}_2$ in the map, marking these cells as traversable. The Bresenham algorithm proceeds as follows:  
 
 \begin{enumerate}  
 	\item Compute $[dx, dy] = p2 - p1$, representing the direction of coordinate growth.  
 	\item Compare $|dx|$ and $|dy|$, selecting the larger one as the primary growth axis (assume the $x$-axis for now).  
-	\item Initialize $(x, y)$ at $\bm{p}_1$. Since the line's slope is $dy/dx$, each time $x$ increments by 1, the error between the discrete point and the true line increases by $dy/dx$. When this error exceeds 0.5, increment $y$ by 1 and decrease the error by 1.  
-	\item Repeat until $(x, y)$ reaches $\bm{p}_2$.  
+	\item Initialize $(x, y)$ at $\mathbf{p}_1$. Since the line's slope is $dy/dx$, each time $x$ increments by 1, the error between the discrete point and the true line increases by $dy/dx$. When this error exceeds 0.5, increment $y$ by 1 and decrease the error by 1.  
+	\item Repeat until $(x, y)$ reaches $\mathbf{p}_2$.  
 \end{enumerate}  
 
 Step 3 involves floating-point operations, but we prefer integer-only computation. Thus, we multiply all terms and conditions in Step 3 by $2dx$ and subtract $dx$, transforming it into:  
@@ -877,8 +877,8 @@ Step 3 involves floating-point operations, but we prefer integer-only computatio
 \begin{enumerate}  
 	\item Compute $[dx, dy] = p2 - p1$, representing the direction of coordinate growth.  
 	\item Compare $|dx|$ and $|dy|$, selecting the larger one as the primary growth axis (assume the $x$-axis for now).  
-	\item Initialize $(x, y)$ at $\bm{p}_1$ and set the initial error $e = -dx$. Each time $x$ increments by 1, $e$ increases by $2dy$. If $e > 0$, increment $y$ by 1 and subtract $2dx$ from $e$.  
-	\item Repeat until $(x, y)$ reaches $\bm{p}_2$.  
+	\item Initialize $(x, y)$ at $\mathbf{p}_1$ and set the initial error $e = -dx$. Each time $x$ increments by 1, $e$ increases by $2dy$. If $e > 0$, increment $y$ by 1 and subtract $2dx$ from $e$.  
+	\item Repeat until $(x, y)$ reaches $\mathbf{p}_2$.  
 \end{enumerate}  
 
 This avoids floating-point and division operations, using only additions and multiplications. Similarly, if the $y$-axis is the primary growth direction, swap the roles of $x$ and $y$.  
@@ -978,19 +978,19 @@ Next, we integrate the matching algorithm with grid maps, utilizing the grid map
 
 Furthermore, we can group several matched results together to form \textbf{submaps}. Submaps serve as an intermediate data organization level between individual scan data and the global map. They flexibly aggregate multiple scans in chronological order and can be used in both 2D LiDAR SLAM and 3D LiDAR SLAM systems.  
 
-Each submap is assigned an adjustable pose denoted by $\bm{T}_{WS} \in \mathrm{SE}(2)$, where $W$ represents the world coordinate system and $S$ represents the submap coordinate system. During scan matching, the scan-to-map algorithm essentially computes the pose relationship $\bm{T}_{SC}$ between the current LiDAR scan and the submap, where $C$ denotes the current scan coordinate system. Thus, the world coordinate of each scan can be expressed as:  
+Each submap is assigned an adjustable pose denoted by $\mathbf{T}_{WS} \in \mathrm{SE}(2)$, where $W$ represents the world coordinate system and $S$ represents the submap coordinate system. During scan matching, the scan-to-map algorithm essentially computes the pose relationship $\mathbf{T}_{SC}$ between the current LiDAR scan and the submap, where $C$ denotes the current scan coordinate system. Thus, the world coordinate of each scan can be expressed as:  
 \begin{equation}\label{key}  
-\bm{T}_{WC} = \bm{T}_{WS} \bm{T}_{SC}.  
+\mathbf{T}_{WC} = \mathbf{T}_{WS} \mathbf{T}_{SC}.  
 \end{equation}  
 
-This approach decouples the \textbf{submap pose} variable $\bm{T}_{WS}$. During scan matching, we compute $\bm{T}_{SC}$ for the current LiDAR scan, which remains fixed once determined. When adjusting the overall map shape, we only need to modify each submap's $\bm{T}_{WS}$ without altering internal submap contents (i.e., per-scan $\bm{T}_{SC}$). Consequently, loop closure detection can treat submaps as fundamental units without considering individual keyframe poses in the world coordinate system.  
+This approach decouples the \textbf{submap pose} variable $\mathbf{T}_{WS}$. During scan matching, we compute $\mathbf{T}_{SC}$ for the current LiDAR scan, which remains fixed once determined. When adjusting the overall map shape, we only need to modify each submap's $\mathbf{T}_{WS}$ without altering internal submap contents (i.e., per-scan $\mathbf{T}_{SC}$). Consequently, loop closure detection can treat submaps as fundamental units without considering individual keyframe poses in the world coordinate system.  
 
 We implement a submap-based 2D LiDAR SLAM system following this logic:  
 \begin{enumerate}  
 	\item Each submap is associated with a likelihood field and a grid map.  
 	\item The current scan is always matched against the current submap to determine its pose within the submap\footnote{This step is flexible in implementation. With sufficient computational resources, matching against historical submaps is also feasible.}.  
 	\item Keyframes are selected based on travel distance or rotation thresholds.  
-	\item If the robot moves beyond the current submap's bounds or the submap contains excessive keyframes, a new submap is created. The new submap centers on the current frame with $\bm{T}_{WS} = \bm{T}_{WC}$, initially empty. For matching convenience, recent keyframes from the old submap are copied to the new one.  
+	\item If the robot moves beyond the current submap's bounds or the submap contains excessive keyframes, a new submap is created. The new submap centers on the current frame with $\mathbf{T}_{WS} = \mathbf{T}_{WC}$, initially empty. For matching convenience, recent keyframes from the old submap are copied to the new one.  
 	\item Merging all submaps' grid maps yields the global map.  
 \end{enumerate}  
 
@@ -1258,10 +1258,10 @@ While we demonstrate coarse-to-fine registration, other methods like branch-and-
 \subsection{Submap-Based Loop Closure Correction}  
 If loop closure detection successfully establishes the registration relationship between the current frame and a historical submap, we initiate a loop closure correction. This problem can again be modeled as a pose graph problem on $\mathrm{SE}(2)$. Moreover, since we have already constructed submaps earlier, the pose graph problem can utilize only submap poses as optimization nodes.
 
-Consider the relationship between the current frame and a historical submap. We compute the pose of the current frame within the historical submap through multi-resolution matching. Let the pose of the historical submap $S_1$ itself be $\bm{T}_{W S_1}$, the pose of the current frame be $\bm{T}_{WC}$, and the pose of the submap $S_2$ containing the current frame be $\bm{T}_{W S_2}$. The multi-resolution matching actually computes the relative pose $\bm{T}_{S_1 C}$. Thus, we can convert this result into the pose transformation between the historical submap and the current submap:
+Consider the relationship between the current frame and a historical submap. We compute the pose of the current frame within the historical submap through multi-resolution matching. Let the pose of the historical submap $S_1$ itself be $\mathbf{T}_{W S_1}$, the pose of the current frame be $\mathbf{T}_{WC}$, and the pose of the submap $S_2$ containing the current frame be $\mathbf{T}_{W S_2}$. The multi-resolution matching actually computes the relative pose $\mathbf{T}_{S_1 C}$. Thus, we can convert this result into the pose transformation between the historical submap and the current submap:
 
 \begin{equation}\label{key}
-	\bm{T}_{S_1 S_2} = \bm{T}_{S_1 C} \bm{T}_{WC}^{-1} \bm{T}_{W S_2}
+	\mathbf{T}_{S_1 S_2} = \mathbf{T}_{S_1 C} \mathbf{T}_{WC}^{-1} \mathbf{T}_{W S_2}
 \end{equation}
 Thereby obtaining the relative pose relationship between $S_1$ and $S_2$. This process is illustrated in Figure~\ref{fig:submap-pose-graph}.
 
@@ -1272,9 +1272,9 @@ Thereby obtaining the relative pose relationship between $S_1$ and $S_2$. This p
 	\label{fig:submap-pose-graph}
 \end{figure}
 
-In loop closure optimization, we treat each submap pose as an optimization variable and construct a pose graph for optimization. The observations in this pose graph primarily come from two sources: first, the relative pose observations between adjacent submaps, and second, the relative pose relationships between two submaps computed by loop closure detection. Again considering the relative pose between submap 1 and submap 2, assuming the relative pose observation computed by loop closure detection is $\bm{T}_{S_1 S_2}$, its residual term is:
+In loop closure optimization, we treat each submap pose as an optimization variable and construct a pose graph for optimization. The observations in this pose graph primarily come from two sources: first, the relative pose observations between adjacent submaps, and second, the relative pose relationships between two submaps computed by loop closure detection. Again considering the relative pose between submap 1 and submap 2, assuming the relative pose observation computed by loop closure detection is $\mathbf{T}_{S_1 S_2}$, its residual term is:
 \begin{equation}\label{key}
-	\bm{e} = \mathrm{Log}( \bm{T}_{W S_1}^{-1} \bm{T}_{W S_2} \bm{T}_{S_1 S_2}^{-1}) \in \mathbb{R}^3.
+	\mathbf{e} = \mathrm{Log}( \mathbf{T}_{W S_1}^{-1} \mathbf{T}_{W S_2} \mathbf{T}_{S_1 S_2}^{-1}) \in \mathbb{R}^3.
 \end{equation}
 
 Its Jacobian matrix is rather cumbersome, so we leave it to automatic differentiation. To prevent incorrect loop closures, we also add a loop closure verification process: the accumulated error after correction should not be too large, otherwise the loop closure will be rejected as an outlier. The implementation code for loop closure detection is as follows:

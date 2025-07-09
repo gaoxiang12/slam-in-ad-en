@@ -18,61 +18,61 @@ So what specific advantages does tight coupling offer? Based on the author's exp
 
 In a tightly-coupled LIO system, the IMU and LiDAR point cloud registration share the same state model, motion equations, and observation equations. Thus, the most straightforward fusion method is to incorporate both into the EKF model, where the IMU provides constraints during motion and the LiDAR point cloud provides constraints for the observation equation. However, whether using ICP or NDT, LiDAR point cloud registration often requires multiple nearest-neighbor iterations to converge to the correct solution—a point readers should have grasped from the earlier chapters on ICP and NDT. Therefore, we must also adapt the traditional EKF filter into its iterative version: the Iterated Extended Kalman Filter (IEKF). The theory of IEKF is slightly more complex than EKF, but fortunately, we have already derived the error-state Kalman filter in Chapter~\ref{cpt:ins}. This section will focus on the iteration process and the integration of LiDAR residuals.  
 
-First, let us revisit the ESKF theory introduced earlier. For convenience, we denote its high-dimensional state variables uniformly as $\bm{x}$, defined in a high-dimensional manifold space $\mathcal{M}$:  
+First, let us revisit the ESKF theory introduced earlier. For convenience, we denote its high-dimensional state variables uniformly as $\mathbf{x}$, defined in a high-dimensional manifold space $\mathcal{M}$:  
 \begin{equation}\label{eq:def-of-state-variable}  
-	\bm{x} = [\bm{p}, \bm{v}, \bm{R}, \bm{b}_g, \bm{b}_a, \bm{g}]^\top \in \mathcal{M}.  
+	\mathbf{x} = [\mathbf{p}, \mathbf{v}, \mathbf{R}, \mathbf{b}_g, \mathbf{b}_a, \mathbf{g}]^\top \in \mathcal{M}.  
 \end{equation}  
 
-We know that its error state can be defined in the usual vector space, i.e., the tangent space of $\mathcal{M}$ near the operating point: $\delta \bm{x} \in \mathbb{R}^{18}$. When IMU data arrives, the filter propagates the state variables based on the IMU readings and the current state. The motion process consists of two parts:  
+We know that its error state can be defined in the usual vector space, i.e., the tangent space of $\mathcal{M}$ near the operating point: $\delta \mathbf{x} \in \mathbb{R}^{18}$. When IMU data arrives, the filter propagates the state variables based on the IMU readings and the current state. The motion process consists of two parts:  
 
-1. **State Propagation Using IMU Readings**: Given the IMU readings $\tilde{\boldsymbol{\omega}}, \tilde{\bm{a}}$ between time $t$ and $t+\Delta t$, the discrete-time propagation can be written as:  
+1. **State Propagation Using IMU Readings**: Given the IMU readings $\tilde{\boldsymbol{\omega}}, \tilde{\mathbf{a}}$ between time $t$ and $t+\Delta t$, the discrete-time propagation can be written as:  
 \begin{subequations}\label{key}  
 	\begin{align}  
-		\bm{p}(t+\Delta t) &= \bm{p}(t) + \bm{v} \Delta t + \frac{1}{2}   
-		\left(\bm{R}(\tilde{\bm{a}}-\bm{b}_a) \right) \Delta t^2 + \frac{1}{2} \bm{g} \Delta t^2, \\  
-		\bm{v}(t+\Delta t) &= \bm{v}(t) + \bm{R} (\tilde{\bm{a}} - \bm{b}_a) \Delta t + \bm{g} \Delta t, \\  
-		\bm{R}(t+\Delta t) &= \bm{R}(t) \mathrm{Exp} \left( (\tilde{\boldsymbol{\omega}}-\bm{b}_g)   
+		\mathbf{p}(t+\Delta t) &= \mathbf{p}(t) + \mathbf{v} \Delta t + \frac{1}{2}   
+		\left(\mathbf{R}(\tilde{\mathbf{a}}-\mathbf{b}_a) \right) \Delta t^2 + \frac{1}{2} \mathbf{g} \Delta t^2, \\  
+		\mathbf{v}(t+\Delta t) &= \mathbf{v}(t) + \mathbf{R} (\tilde{\mathbf{a}} - \mathbf{b}_a) \Delta t + \mathbf{g} \Delta t, \\  
+		\mathbf{R}(t+\Delta t) &= \mathbf{R}(t) \mathrm{Exp} \left( (\tilde{\boldsymbol{\omega}}-\mathbf{b}_g)   
 		\Delta t \right), \\  
-		\bm{b}_g(t+\Delta t) &= \bm{b}_g(t), \\  
-		\bm{b}_a(t+\Delta t) &= \bm{b}_a(t), \\  
-		\bm{g}(t+\Delta t) &= \bm{g}(t) .  
+		\mathbf{b}_g(t+\Delta t) &= \mathbf{b}_g(t), \\  
+		\mathbf{b}_a(t+\Delta t) &= \mathbf{b}_a(t), \\  
+		\mathbf{g}(t+\Delta t) &= \mathbf{g}(t) .  
 	\end{align}  
 \end{subequations}  
 
 2. **Observation Process**: While the nominal state is updated according to the above equations, the mean of the error state remains zero, and only its covariance needs to be updated:  
 \begin{equation}\label{key}  
-	\bm{P}_{\text{pred}} = \bm{F} \bm{P} \bm{F}^\top + \bm{Q},  
+	\mathbf{P}_{\text{pred}} = \mathbf{F} \mathbf{P} \mathbf{F}^\top + \mathbf{Q},  
 \end{equation}  
-where $\bm{Q}$ is the noise matrix, $\bm{P}$ is the state covariance from the previous time step, and the $\bm{F}$ matrix is derived from the linear form of error kinematics:  
+where $\mathbf{Q}$ is the noise matrix, $\mathbf{P}$ is the state covariance from the previous time step, and the $\mathbf{F}$ matrix is derived from the linear form of error kinematics:  
 \begin{equation}  
-	\bm{F} = \begin{bmatrix}  
-		\bm{I} & \bm{I} \Delta t & \bm{0} & \bm{0} & \bm{0} & \bm{0} \\  
-		\bm{0} & \bm{I} & - \bm{R}(\tilde{\bm{a}} - \bm{b}_a)^\wedge \Delta t & \bm{0} & -\bm{R} \Delta t & \bm{I} \Delta t \\  
-		\bm{0} & \bm{0} & \mathrm{Exp}\left( -(\tilde{\boldsymbol{\omega}} - \bm{b}_g) \Delta t \right)   
-		& -\bm{I} \Delta t & \bm{0} &\bm{0} \\  
-		\bm{0} & \bm{0} & \bm{0} & \bm{I} & \bm{0} & \bm{0} \\  
-		\bm{0} & \bm{0} & \bm{0} & \bm{0} & \bm{I} & \bm{0} \\  
-		\bm{0} & \bm{0} & \bm{0} & \bm{0} & \bm{0} & \bm{I}  
+	\mathbf{F} = \begin{bmatrix}  
+		\mathbf{I} & \mathbf{I} \Delta t & \mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{0} \\  
+		\mathbf{0} & \mathbf{I} & - \mathbf{R}(\tilde{\mathbf{a}} - \mathbf{b}_a)^\wedge \Delta t & \mathbf{0} & -\mathbf{R} \Delta t & \mathbf{I} \Delta t \\  
+		\mathbf{0} & \mathbf{0} & \mathrm{Exp}\left( -(\tilde{\boldsymbol{\omega}} - \mathbf{b}_g) \Delta t \right)   
+		& -\mathbf{I} \Delta t & \mathbf{0} &\mathbf{0} \\  
+		\mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{I} & \mathbf{0} & \mathbf{0} \\  
+		\mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{I} & \mathbf{0} \\  
+		\mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{I}  
 	\end{bmatrix}.  
 \end{equation}  
 
-These details were introduced earlier (see Equation~\eqref{eq:eskf-F}). For the reader's convenience, they are restated here. Since the LiDAR frequency is typically lower than the IMU frequency, multiple IMU readings may exist between two LiDAR data points. We simply propagate the state multiple times using the above equations. For brevity, we omit subscripts and superscripts for multiple propagation steps and denote the propagated state estimate as $\bm{x}_{\mathrm{pred}}, \bm{P}_{\mathrm{pred}}$. Before applying the observation equation for correction, the estimated mean and covariance are these two quantities.
+These details were introduced earlier (see Equation~\eqref{eq:eskf-F}). For the reader's convenience, they are restated here. Since the LiDAR frequency is typically lower than the IMU frequency, multiple IMU readings may exist between two LiDAR data points. We simply propagate the state multiple times using the above equations. For brevity, we omit subscripts and superscripts for multiple propagation steps and denote the propagated state estimate as $\mathbf{x}_{\mathrm{pred}}, \mathbf{P}_{\mathrm{pred}}$. Before applying the observation equation for correction, the estimated mean and covariance are these two quantities.
 
 \subsection{Iterative Process in the Observation Equation}  
 
 In a tightly-coupled system, we incorporate the ICP or NDT residuals from the LiDAR as observation equations into the EKF model. However, since both ICP and NDT require iterations to converge, we should also introduce an **iterative process** for the EKF observation step. This iterative process has the following key points:  
 
-1. **Linearization of the Error State**: The iterative process first **linearizes** the **error state**. That is, the nominal state starts from \(\bm{x}_{\mathrm{pred}}\) and is continuously updated by the error state \(\delta \bm{x}\). Since the update \(\delta \bm{x}\) varies with each iteration, we denote the error state at the \(k\)-th iteration as \(\delta \bm{x}_k\) and its covariance as \(\bm{P}_k\)\footnote{Note that in Chapter 3 of this book, the subscript \(k\) was used to denote the \(k\)-th time step. Here, however, we focus on the state within a single time step and use \(k\) to represent the iteration count rather than the time step. Adding additional superscripts or subscripts for iterations would make the notation overly cumbersome.}. At \(k=0\), we initialize the process as: \(\delta \bm{x}_{0} = \bm{0}, \bm{P}_0 = \bm{P}_{\mathrm{pred}}\).  
+1. **Linearization of the Error State**: The iterative process first **linearizes** the **error state**. That is, the nominal state starts from \(\mathbf{x}_{\mathrm{pred}}\) and is continuously updated by the error state \(\delta \mathbf{x}\). Since the update \(\delta \mathbf{x}\) varies with each iteration, we denote the error state at the \(k\)-th iteration as \(\delta \mathbf{x}_k\) and its covariance as \(\mathbf{P}_k\)\footnote{Note that in Chapter 3 of this book, the subscript \(k\) was used to denote the \(k\)-th time step. Here, however, we focus on the state within a single time step and use \(k\) to represent the iteration count rather than the time step. Adding additional superscripts or subscripts for iterations would make the notation overly cumbersome.}. At \(k=0\), we initialize the process as: \(\delta \mathbf{x}_{0} = \mathbf{0}, \mathbf{P}_0 = \mathbf{P}_{\mathrm{pred}}\).  
 
-2. **Recomputing Kalman Gain and Update**: Since the observation equation requires iteration, the Kalman gain and update process must also be recomputed at each step. Thus, quantities related to the update are also subscripted with \(k\), denoted as \(\bm{K}_k, \bm{H}_k\). Before updating, we denote the working point as \(\bm{x}_k\), which is essentially obtained by incrementally adding \(\delta \bm{x}_k\) to \(\bm{x}_0\). From the perspective of nominal and error states, the nominal state at the \(k\)-th iteration is \(\bm{x}_k\), while the error state is \(\bm{0}\).  
+2. **Recomputing Kalman Gain and Update**: Since the observation equation requires iteration, the Kalman gain and update process must also be recomputed at each step. Thus, quantities related to the update are also subscripted with \(k\), denoted as \(\mathbf{K}_k, \mathbf{H}_k\). Before updating, we denote the working point as \(\mathbf{x}_k\), which is essentially obtained by incrementally adding \(\delta \mathbf{x}_k\) to \(\mathbf{x}_0\). From the perspective of nominal and error states, the nominal state at the \(k\)-th iteration is \(\mathbf{x}_k\), while the error state is \(\mathbf{0}\).  
 
-3. **Practical Tricks for \(\bm{P}\) Updates**: During IEKF iterations before convergence, we can consider the filter as still in progress, merely shifting the working point. Thus, \(\bm{P}\) does not need to be recalculated at every iteration—only the initial \(\bm{P}_{\mathrm{pred}}\) needs to be projected into the current tangent space. The final \(\bm{P}\) update is performed only after the last iteration, projecting it to the new working point.  
+3. **Practical Tricks for \(\mathbf{P}\) Updates**: During IEKF iterations before convergence, we can consider the filter as still in progress, merely shifting the working point. Thus, \(\mathbf{P}\) does not need to be recalculated at every iteration—only the initial \(\mathbf{P}_{\mathrm{pred}}\) needs to be projected into the current tangent space. The final \(\mathbf{P}\) update is performed only after the last iteration, projecting it to the new working point.  
 
-4. **Differences Due to Repeated Linearization**: In EKF, linearization is performed only once at \(\bm{x}_{\mathrm{pred}}\). In IEKF, however, the \(k\)-th linearization is computed at \(\bm{x}_k\). Traditional EKF describes how to update \(\bm{x}_{\mathrm{pred}}, \bm{P}_{\mathrm{pred}}\) to \(\bm{x}, \bm{P}\), whereas IEKF focuses on updating \(\bm{x}_{k-1}, \bm{P}_{k-1}\) to \(\bm{x}_{k}, \bm{P}_k\) (though, as noted earlier, \(\bm{P}_k\) does not need to be explicitly computed). This difference leads to significant variations in the update process between EKF and IEKF, which will be reflected in later implementations.  
+4. **Differences Due to Repeated Linearization**: In EKF, linearization is performed only once at \(\mathbf{x}_{\mathrm{pred}}\). In IEKF, however, the \(k\)-th linearization is computed at \(\mathbf{x}_k\). Traditional EKF describes how to update \(\mathbf{x}_{\mathrm{pred}}, \mathbf{P}_{\mathrm{pred}}\) to \(\mathbf{x}, \mathbf{P}\), whereas IEKF focuses on updating \(\mathbf{x}_{k-1}, \mathbf{P}_{k-1}\) to \(\mathbf{x}_{k}, \mathbf{P}_k\) (though, as noted earlier, \(\mathbf{P}_k\) does not need to be explicitly computed). This difference leads to significant variations in the update process between EKF and IEKF, which will be reflected in later implementations.  
 
 5. **Dynamic Observation Model**: Like ICP and NDT, tightly-coupled LIO should update the nearest-neighbor relationships for each matched point in every iteration. This results in an IEKF observation model **with a variable number of equations**, unlike standard EKF, which has a fixed observation dimension\footnote{This is specific to LIO and does not imply that IEKF generally alters the number of observation equations.}. When the observation dimension is large, certain algebraic transformations are applied to EKF formulas to handle high-dimensional computations.  
 
-The overall process is illustrated in Figure~\ref{fig:iekf-iters}. Starting from \(\bm{x}_0, \bm{P}_0\), we iteratively refine the observation model, compute the incremental update \(\delta \bm{x}\), and update \(\bm{x}\) and \(\bm{P}\) until convergence.  
+The overall process is illustrated in Figure~\ref{fig:iekf-iters}. Starting from \(\mathbf{x}_0, \mathbf{P}_0\), we iteratively refine the observation model, compute the incremental update \(\delta \mathbf{x}\), and update \(\mathbf{x}\) and \(\mathbf{P}\) until convergence.  
 
 \begin{figure}[!htp]  
 	\centering  
@@ -81,114 +81,114 @@ The overall process is illustrated in Figure~\ref{fig:iekf-iters}. Starting from
 	\label{fig:iekf-iters}  
 \end{figure}  
 
-Next, we derive this process. Consider the \(k\)-th iteration, where the working point is \(\bm{x}_{k}, \bm{P}_{k}\), and we aim to compute the incremental update \(\delta \bm{x}_{k+1}\). First, we clarify the relationship between \(\bm{x}_{k}, \bm{P}_{k}\) and \(\bm{x}_0, \bm{P}_0\). While \(\bm{x}_{k}\) is straightforward (obtained by accumulating incremental updates), \(\bm{P}_{k}\) requires a tangent space projection, as discussed in Chapter~\ref{cpt:ins} and Equation~\eqref{eq:tangent-space-projection}. We denote the tangent space Jacobian at the \(k\)-th iteration as \(\bm{J}_k\):  
+Next, we derive this process. Consider the \(k\)-th iteration, where the working point is \(\mathbf{x}_{k}, \mathbf{P}_{k}\), and we aim to compute the incremental update \(\delta \mathbf{x}_{k+1}\). First, we clarify the relationship between \(\mathbf{x}_{k}, \mathbf{P}_{k}\) and \(\mathbf{x}_0, \mathbf{P}_0\). While \(\mathbf{x}_{k}\) is straightforward (obtained by accumulating incremental updates), \(\mathbf{P}_{k}\) requires a tangent space projection, as discussed in Chapter~\ref{cpt:ins} and Equation~\eqref{eq:tangent-space-projection}. We denote the tangent space Jacobian at the \(k\)-th iteration as \(\mathbf{J}_k\):  
 \begin{equation}\label{key}  
-	\bm{J}_k = \mathrm{diag}(\bm{I}_3, \bm{I}_3, \bm{J}_{\boldsymbol{\theta}}, \bm{I}_3, \bm{I}_3, \bm{I}_3), \quad \bm{J}_{\boldsymbol{\theta}} = \bm{I} - \frac{1}{2} \delta \boldsymbol{\theta}_k^\wedge, \quad \delta \boldsymbol{\theta}_k = \mathrm{Log}(\bm{R}_0^\top \bm{R}_k).  
+	\mathbf{J}_k = \mathrm{diag}(\mathbf{I}_3, \mathbf{I}_3, \mathbf{J}_{\boldsymbol{\theta}}, \mathbf{I}_3, \mathbf{I}_3, \mathbf{I}_3), \quad \mathbf{J}_{\boldsymbol{\theta}} = \mathbf{I} - \frac{1}{2} \delta \boldsymbol{\theta}_k^\wedge, \quad \delta \boldsymbol{\theta}_k = \mathrm{Log}(\mathbf{R}_0^\top \mathbf{R}_k).  
 \end{equation}  
 
-This \(\bm{J}_k\) describes the transformation from \(\bm{P}_{\mathrm{pred}}\) to \(\bm{P}_k\). Thus, from the perspective of \(\bm{x}_{k}\), the prior distribution is:  
+This \(\mathbf{J}_k\) describes the transformation from \(\mathbf{P}_{\mathrm{pred}}\) to \(\mathbf{P}_k\). Thus, from the perspective of \(\mathbf{x}_{k}\), the prior distribution is:  
 \begin{equation}\label{key}  
-	\delta \bm{x}_k \sim \mathcal{N}(\bm{0}, \bm{J}_k \bm{P}_{\mathrm{pred}} \bm{J}_k^\top).  
+	\delta \mathbf{x}_k \sim \mathcal{N}(\mathbf{0}, \mathbf{J}_k \mathbf{P}_{\mathrm{pred}} \mathbf{J}_k^\top).  
 \end{equation}  
 
-We denote \(\bm{P}_k = \bm{J}_k \bm{P}_{\mathrm{pred}} \bm{J}_k^\top\). The observation model for iterative EKF is the same as standard EKF. Referring to the EKF update formula~\eqref{eq:eskf-obs-correction}, the update process for the iterated Kalman filter is:  
+We denote \(\mathbf{P}_k = \mathbf{J}_k \mathbf{P}_{\mathrm{pred}} \mathbf{J}_k^\top\). The observation model for iterative EKF is the same as standard EKF. Referring to the EKF update formula~\eqref{eq:eskf-obs-correction}, the update process for the iterated Kalman filter is:  
 \begin{subequations}\label{eq:ieskf-obs-correction}  
 	\begin{align}  
-		\bm{K}_k &= \bm{P}_{k} \bm{H}_k^\top(\bm{H}_k \bm{P}_{k}   
-		\bm{H}_k^\top + \bm{V})^{-1} ,\\  
-		\delta \bm{x}_k &= \bm{K}_k (\bm{z} - \bm{h}(\bm{x}_k)).  
+		\mathbf{K}_k &= \mathbf{P}_{k} \mathbf{H}_k^\top(\mathbf{H}_k \mathbf{P}_{k}   
+		\mathbf{H}_k^\top + \mathbf{V})^{-1} ,\\  
+		\delta \mathbf{x}_k &= \mathbf{K}_k (\mathbf{z} - \mathbf{h}(\mathbf{x}_k)).  
 	\end{align}  
 \end{subequations}  
 
-If the filter has not yet converged, \(\bm{P}\) is not updated—instead, \(\bm{J}_{k+1}\) is computed from \(\bm{x}_{k+1}\), and the initial distribution is projected accordingly. Upon convergence, \(\bm{P}_{k+1}\) is updated using the Kalman formula:  
+If the filter has not yet converged, \(\mathbf{P}\) is not updated—instead, \(\mathbf{J}_{k+1}\) is computed from \(\mathbf{x}_{k+1}\), and the initial distribution is projected accordingly. Upon convergence, \(\mathbf{P}_{k+1}\) is updated using the Kalman formula:  
 \begin{equation}\label{eq:update-of-iekf}  
-	\bm{P}_{k+1} = (\bm{I} - \bm{K}_k \bm{H}_k)\bm{J}_k \bm{P}_{\mathrm{pred}} \bm{J}_k^\top.  
+	\mathbf{P}_{k+1} = (\mathbf{I} - \mathbf{K}_k \mathbf{H}_k)\mathbf{J}_k \mathbf{P}_{\mathrm{pred}} \mathbf{J}_k^\top.  
 \end{equation}  
 
-In other words, from a covariance perspective, **only the final iteration** is considered effective. The Kalman gain \(\bm{K}_k\) and linearization matrix \(\bm{H}_k\) influence only the last update. Intermediate iterations merely adjust the starting point.  
+In other words, from a covariance perspective, **only the final iteration** is considered effective. The Kalman gain \(\mathbf{K}_k\) and linearization matrix \(\mathbf{H}_k\) influence only the last update. Intermediate iterations merely adjust the starting point.  
 
-If IEKF completes the iteration, \(\bm{P}_{k+1}\) should also be projected into the tangent space at the final step to maintain consistency. Overall, each IEKF iteration solves a least-squares problem with a prior:  
+If IEKF completes the iteration, \(\mathbf{P}_{k+1}\) should also be projected into the tangent space at the final step to maintain consistency. Overall, each IEKF iteration solves a least-squares problem with a prior:  
 \begin{equation}\label{key}  
-	\delta \bm{x}_k = \arg \min\limits_{\delta \bm{x}} \| \bm{z} - \bm{H}_k(\bm{x}_k \boxplus \delta \bm{x}) \|_{\bm{V}}^2 + \| \delta \bm{x}_k \|_{\bm{P}_k}^2.  
+	\delta \mathbf{x}_k = \arg \min\limits_{\delta \mathbf{x}} \| \mathbf{z} - \mathbf{H}_k(\mathbf{x}_k \boxplus \delta \mathbf{x}) \|_{\mathbf{V}}^2 + \| \delta \mathbf{x}_k \|_{\mathbf{P}_k}^2.  
 \end{equation}  
 
-The first term represents the observation residual, while the second term is the prior residual projected into the tangent space. This derivation differs slightly from similar works (e.g.,~\cite{he2021kalman,Barfoot2016}) but is simpler overall. A full implementation would update \(\bm{P}_k\) at every iteration rather than projecting \(\bm{P}_{\mathrm{pred}}\), but this would complicate the notation. Alternatively, all increments and covariances could be considered at \(\bm{x}_0\), but this would make the mathematics even more involved.
+The first term represents the observation residual, while the second term is the prior residual projected into the tangent space. This derivation differs slightly from similar works (e.g.,~\cite{he2021kalman,Barfoot2016}) but is simpler overall. A full implementation would update \(\mathbf{P}_k\) at every iteration rather than projecting \(\mathbf{P}_{\mathrm{pred}}\), but this would complicate the notation. Alternatively, all increments and covariances could be considered at \(\mathbf{x}_0\), but this would make the mathematics even more involved.
 
 \subsection{Efficient Handling of High-Dimensional Observations}  
 
-In tightly-coupled systems, we directly incorporate NDT or ICP residuals into the observation equation, which significantly increases the dimensionality of the observation space. In traditional integrated navigation systems like RTK, observation equations are typically 3D or 6D. However, when point clouds are included, the observation equation can easily reach thousands or even tens of thousands of dimensions. If we compute the Kalman gain using Equation~\eqref{eq:ieskf-obs-correction}(a), we inevitably encounter the inversion of a very large matrix. Suppose the residual dimension is \( m \), then \(\bm{H}_k\) becomes an \( m \times 18 \) matrix, and the term \((\bm{H}_k \bm{P}_{k} \bm{H}_k^\top + \bm{V})\) in the Kalman gain requires the inversion of an \( m \times m \) matrix—an operation we must avoid.  
+In tightly-coupled systems, we directly incorporate NDT or ICP residuals into the observation equation, which significantly increases the dimensionality of the observation space. In traditional integrated navigation systems like RTK, observation equations are typically 3D or 6D. However, when point clouds are included, the observation equation can easily reach thousands or even tens of thousands of dimensions. If we compute the Kalman gain using Equation~\eqref{eq:ieskf-obs-correction}(a), we inevitably encounter the inversion of a very large matrix. Suppose the residual dimension is \( m \), then \(\mathbf{H}_k\) becomes an \( m \times 18 \) matrix, and the term \((\mathbf{H}_k \mathbf{P}_{k} \mathbf{H}_k^\top + \mathbf{V})\) in the Kalman gain requires the inversion of an \( m \times m \) matrix—an operation we must avoid.  
 
 In Kalman filters, the **Sherman-Morrison-Woodbury (SMW) identity** \cite{Sherman1950,Barfoot2016} is a widely used algebraic transformation that proves highly useful in various Kalman filter derivations. The SMW identity has four equivalent forms, one of which is:  
 \begin{equation}\label{key}  
-	\bm{A} \bm{B} (\bm{D} + \bm{C} \bm{A} \bm{B})^{-1} = (\bm{A}^{-1} + \bm{B} \bm{D}^{-1} \bm{C})^{-1} \bm{B} \bm{D}^{-1},  
+	\mathbf{A} \mathbf{B} (\mathbf{D} + \mathbf{C} \mathbf{A} \mathbf{B})^{-1} = (\mathbf{A}^{-1} + \mathbf{B} \mathbf{D}^{-1} \mathbf{C})^{-1} \mathbf{B} \mathbf{D}^{-1},  
 \end{equation}  
-where \(\bm{A}, \bm{B}, \bm{C}, \bm{D}\) are matrix blocks satisfying standard matrix multiplication rules. Substituting \(\bm{P}_k, \bm{H}_k, \bm{V}\) into this identity yields:  
+where \(\mathbf{A}, \mathbf{B}, \mathbf{C}, \mathbf{D}\) are matrix blocks satisfying standard matrix multiplication rules. Substituting \(\mathbf{P}_k, \mathbf{H}_k, \mathbf{V}\) into this identity yields:  
 \begin{equation}\label{eq:8.11}  
-	\bm{K}_k  = (\bm{P}_k^{-1} + \bm{H}_k^\top \bm{V}^{-1} \bm{H}_k)^{-1} \bm{H}_k^\top \bm{V}^{-1}.  
+	\mathbf{K}_k  = (\mathbf{P}_k^{-1} + \mathbf{H}_k^\top \mathbf{V}^{-1} \mathbf{H}_k)^{-1} \mathbf{H}_k^\top \mathbf{V}^{-1}.  
 \end{equation}  
 
-Note that the inversion inside this formula is now \( 18 \times 18 \), drastically reducing the computational burden. When dealing with high-dimensional observations, we should prefer this form for computing the Kalman gain. Moreover, comparing this with the linear increment equation in NDT (Equation~\eqref{eq:ndt-normal-equation}), we observe a striking similarity: The term \((\bm{H}_k^\top \bm{V}^{-1} \bm{H})^{-1}\) in the Kalman gain corresponds exactly to the coefficient matrix in the normal equation, while \(\bm{H}^\top \bm{V}^{-1}\) aligns with the residual term on the right-hand side of \eqref{eq:ndt-normal-equation}. This highlights the fundamental nature of the Kalman filter as a balance between prior information and observations.  
+Note that the inversion inside this formula is now \( 18 \times 18 \), drastically reducing the computational burden. When dealing with high-dimensional observations, we should prefer this form for computing the Kalman gain. Moreover, comparing this with the linear increment equation in NDT (Equation~\eqref{eq:ndt-normal-equation}), we observe a striking similarity: The term \((\mathbf{H}_k^\top \mathbf{V}^{-1} \mathbf{H})^{-1}\) in the Kalman gain corresponds exactly to the coefficient matrix in the normal equation, while \(\mathbf{H}^\top \mathbf{V}^{-1}\) aligns with the residual term on the right-hand side of \eqref{eq:ndt-normal-equation}. This highlights the fundamental nature of the Kalman filter as a balance between prior information and observations.  
 
-To further clarify the connection between NDT and the Kalman filter, let us examine their formulations. The Kalman filter's incremental update \(\delta \bm{x}_k\) is:  
+To further clarify the connection between NDT and the Kalman filter, let us examine their formulations. The Kalman filter's incremental update \(\delta \mathbf{x}_k\) is:  
 \begin{equation}\label{eq:kalman-delta-x}  
-	\delta \bm{x}_k = \bm{K}_k (\bm{z} - \bm{h}(\bm{x}_k)),  
+	\delta \mathbf{x}_k = \mathbf{K}_k (\mathbf{z} - \mathbf{h}(\mathbf{x}_k)),  
 \end{equation}  
 
 whereas the least-squares increment in NDT or ICP is:  
 \begin{equation}\label{eq:ndt-normal}  
-	\sum_{i} (\bm{J}_i^\top \boldsymbol{\Sigma}_i^{-1} \bm{J}_i) \Delta \bm{x} = -\sum_{i} \bm{J}_i^\top \boldsymbol{\Sigma}^{-1}_i \bm{e}_i.  
+	\sum_{i} (\mathbf{J}_i^\top \boldsymbol{\Sigma}_i^{-1} \mathbf{J}_i) \Delta \mathbf{x} = -\sum_{i} \mathbf{J}_i^\top \boldsymbol{\Sigma}^{-1}_i \mathbf{e}_i.  
 \end{equation}  
 
 Observant readers will notice the equivalence between these two equations. The matrix inversion in \eqref{eq:ndt-normal} matches the Kalman gain in \eqref{eq:8.11} when the prior is omitted. The key difference is that the Kalman gain is expressed in matrix form, while ICP or NDT uses summation notation. For later discussions on NDT-LIO, we derive how NDT residuals are incorporated into the Kalman gain. In the experimental section, we will follow this derivation rather than the matrix-based Kalman gain.  
 
-Consider the NDT registration of a point cloud with \( N \) points. For the \( j \)-th point, its residual \(\bm{r}_j\) is computed based on the voxel it falls into in the target point cloud, with an associated information matrix \(\boldsymbol{\Sigma}^{-1}_j\) (the inverse covariance of the voxel's Gaussian distribution). The squared error \(\bm{e}_j\) is:  
+Consider the NDT registration of a point cloud with \( N \) points. For the \( j \)-th point, its residual \(\mathbf{r}_j\) is computed based on the voxel it falls into in the target point cloud, with an associated information matrix \(\boldsymbol{\Sigma}^{-1}_j\) (the inverse covariance of the voxel's Gaussian distribution). The squared error \(\mathbf{e}_j\) is:  
 \begin{equation}\label{key}  
-	\bm{e}_j = \bm{r}_j^\top \boldsymbol{\Sigma}^{-1}_j \bm{r}_j.  
+	\mathbf{e}_j = \mathbf{r}_j^\top \boldsymbol{\Sigma}^{-1}_j \mathbf{r}_j.  
 \end{equation}  
 
-The Jacobian of \(\bm{r}_j\) with respect to rotation and translation is:  
+The Jacobian of \(\mathbf{r}_j\) with respect to rotation and translation is:  
 \begin{equation}\label{key}  
-	\frac{\partial \bm{r}_j}{\partial \bm{R}} = -\bm{R} \bm{q}_j^\wedge, \quad \frac{\partial \bm{r}_j}{\partial \bm{t}} = \bm{I}.  
+	\frac{\partial \mathbf{r}_j}{\partial \mathbf{R}} = -\mathbf{R} \mathbf{q}_j^\wedge, \quad \frac{\partial \mathbf{r}_j}{\partial \mathbf{t}} = \mathbf{I}.  
 \end{equation}  
 Following the state variable definition in \eqref{eq:def-of-state-variable}, we expand the Jacobian to match the state dimensions:  
 \begin{equation}\label{key}  
-	\bm{J}_j = \left[\frac{\partial \bm{r}_j}{\partial \bm{t}}, \bm{0}_{3}, \frac{\partial \bm{r}_j}{\partial \bm{R}}, \bm{0}_3, \bm{0}_3, \bm{0}_3 \right].  
+	\mathbf{J}_j = \left[\frac{\partial \mathbf{r}_j}{\partial \mathbf{t}}, \mathbf{0}_{3}, \frac{\partial \mathbf{r}_j}{\partial \mathbf{R}}, \mathbf{0}_3, \mathbf{0}_3, \mathbf{0}_3 \right].  
 \end{equation}  
 
-This Jacobian was introduced in Chapter 7, and we pad it with zero blocks to align with the state vector. In the filter, the \( j \)-th block row of \(\bm{H}_k\)\footnote{Strictly speaking, it should be the \( 3 \times j \)-th row since \(\bm{J}_j\) has 3 rows. Interpreted as a block matrix, this is correct.} is \(\bm{J}_j\), and the noise matrix \(\bm{V}\) is a block-diagonal matrix composed of \(\boldsymbol{\Sigma}^{-1}_j\):  
+This Jacobian was introduced in Chapter 7, and we pad it with zero blocks to align with the state vector. In the filter, the \( j \)-th block row of \(\mathbf{H}_k\)\footnote{Strictly speaking, it should be the \( 3 \times j \)-th row since \(\mathbf{J}_j\) has 3 rows. Interpreted as a block matrix, this is correct.} is \(\mathbf{J}_j\), and the noise matrix \(\mathbf{V}\) is a block-diagonal matrix composed of \(\boldsymbol{\Sigma}^{-1}_j\):  
 \begin{equation}\label{key}  
-	\bm{H}_k = \begin{bmatrix}  
+	\mathbf{H}_k = \begin{bmatrix}  
 		\cdots, \\  
-		\bm{J}_j, \\  
+		\mathbf{J}_j, \\  
 		\cdots  
-	\end{bmatrix}, \quad \bm{V} = \mathrm{diag}(\cdots, \boldsymbol{\Sigma}_j, \cdots).  
+	\end{bmatrix}, \quad \mathbf{V} = \mathrm{diag}(\cdots, \boldsymbol{\Sigma}_j, \cdots).  
 \end{equation}  
 
-Since \(\bm{V}\) is block-diagonal, the term \(\bm{H}_k^\top \bm{V}^{-1} \bm{H}_k\) in the Kalman gain can be rewritten as a summation:  
+Since \(\mathbf{V}\) is block-diagonal, the term \(\mathbf{H}_k^\top \mathbf{V}^{-1} \mathbf{H}_k\) in the Kalman gain can be rewritten as a summation:  
 \begin{equation}\label{key}  
-	\bm{H}_k^\top \bm{V}^{-1} \bm{H}_k = \sum\limits_{j} \bm{J}_j^\top \boldsymbol{\Sigma}_j^{-1} \bm{J}_j.  
+	\mathbf{H}_k^\top \mathbf{V}^{-1} \mathbf{H}_k = \sum\limits_{j} \mathbf{J}_j^\top \boldsymbol{\Sigma}_j^{-1} \mathbf{J}_j.  
 \end{equation}  
 
-Similarly, multiplying \(\bm{H}_k^\top \bm{V}^{-1}\) by \((\bm{z} - \bm{h}(\bm{x}_k))\) gives:  
+Similarly, multiplying \(\mathbf{H}_k^\top \mathbf{V}^{-1}\) by \((\mathbf{z} - \mathbf{h}(\mathbf{x}_k))\) gives:  
 \begin{align}\label{key}  
-	\bm{H}_k^\top \bm{V}^{-1} (\bm{z} - \bm{h}(\bm{x}_k)) &= \left[\cdots, \bm{J}_j^\top, \cdots \right] \mathrm{diag}(\cdots, \boldsymbol{\Sigma}_j^{-1}, \cdots) \begin{bmatrix}  
-		\cdots \\ \bm{r}_j \\ \cdots  
+	\mathbf{H}_k^\top \mathbf{V}^{-1} (\mathbf{z} - \mathbf{h}(\mathbf{x}_k)) &= \left[\cdots, \mathbf{J}_j^\top, \cdots \right] \mathrm{diag}(\cdots, \boldsymbol{\Sigma}_j^{-1}, \cdots) \begin{bmatrix}  
+		\cdots \\ \mathbf{r}_j \\ \cdots  
 	\end{bmatrix}, \\  
-	&= \sum\limits_{j} \bm{J}_j^\top \boldsymbol{\Sigma}_j^{-1} \bm{r}_j.  
+	&= \sum\limits_{j} \mathbf{J}_j^\top \boldsymbol{\Sigma}_j^{-1} \mathbf{r}_j.  
 \end{align}  
 
-For the covariance update in \eqref{eq:update-of-iekf}, substituting \(\bm{K}\) into \(\bm{I} - \bm{K}_k \bm{H}_k\) yields:  
+For the covariance update in \eqref{eq:update-of-iekf}, substituting \(\mathbf{K}\) into \(\mathbf{I} - \mathbf{K}_k \mathbf{H}_k\) yields:  
 \begin{equation}\label{key}  
-	\bm{P}_{k+1} = (\bm{I} - (\bm{P}_k^{-1} + \bm{H}_k^\top \bm{V}^{-1} \bm{H}_k)^{-1} \bm{H}_k^\top \bm{V}^{-1} \bm{H}_k) \bm{J}_k \bm{P}_{\mathrm{pred}} \bm{J}_k^\top,  
+	\mathbf{P}_{k+1} = (\mathbf{I} - (\mathbf{P}_k^{-1} + \mathbf{H}_k^\top \mathbf{V}^{-1} \mathbf{H}_k)^{-1} \mathbf{H}_k^\top \mathbf{V}^{-1} \mathbf{H}_k) \mathbf{J}_k \mathbf{P}_{\mathrm{pred}} \mathbf{J}_k^\top,  
 \end{equation}  
-where \(\bm{H}_k^\top \bm{V}^{-1} \bm{H}_k\) can again be replaced with the summation form from NDT. Thus, the entire iterative Kalman filter computation is tightly linked with NDT. In this sense, the tightly-coupled system can be viewed as a high-dimensional NDT or ICP with IMU predictions, where these predictions are propagated to the next time step.
+where \(\mathbf{H}_k^\top \mathbf{V}^{-1} \mathbf{H}_k\) can again be replaced with the summation form from NDT. Thus, the entire iterative Kalman filter computation is tightly linked with NDT. In this sense, the tightly-coupled system can be viewed as a high-dimensional NDT or ICP with IMU predictions, where these predictions are propagated to the next time step.
 \
 \section{Implementation of IEKF-based LIO}
 \label{sec:iekf-lio}
 
 Next we implement the IEKF and its corresponding LIO system. As mentioned earlier, tightly-coupled LIO can compute point cloud residuals through various methods such as point-to-line, point-to-plane, NDT, etc. This section implements an NDT-LIO based on IEKF, while readers may also refer to this book or literature \cite{Bai2022,Xu2021,xu2021fast} to implement point-to-plane ICP based LIO.
 
-We modify the ESKF from Chapter 3 to design the IEKF interface. Since we want NDT to directly provide Jacobian and information matrices, at the IEKF implementation level, we expect NDT to compute $\bm{H}^\top \bm{V}^{-1} \bm{H}$ and $\bm{H}^\top \bm{V}^{-1} \bm{r}$ (these quantities are calculated internally by NDT), then IESKF uses its return values to iterate the entire filter:
+We modify the ESKF from Chapter 3 to design the IEKF interface. Since we want NDT to directly provide Jacobian and information matrices, at the IEKF implementation level, we expect NDT to compute $\mathbf{H}^\top \mathbf{V}^{-1} \mathbf{H}$ and $\mathbf{H}^\top \mathbf{V}^{-1} \mathbf{r}$ (these quantities are calculated internally by NDT), then IESKF uses its return values to iterate the entire filter:
 
 \begin{lstlisting}[language=c++,caption=src/ch8/lio-iekf/iekf.hpp]
 /**
@@ -243,10 +243,10 @@ bool UpdateUsingCustomObserve(CustomObsFunc obs) {
 }
 \end{lstlisting}
 
-This function provides a current estimate $\bm{x}_k$ for external algorithms to compute the corresponding $\bm{H}_k^\top \bm{V}^{-1} \bm{H}_k$ and $\bm{H}_k^\top \bm{V}^{-1} \bm{r}_k$, which are then substituted into the IEKF calculation formula to obtain the current time increment $\delta \bm{x}_k$, finally applied to the nominal state variables. Note we denote $(\bm{P}_k^{-1} + \bm{H}_k^\top \bm{V}^{-1} \bm{H})^{-1}$ as intermediate variable $\bm{Q}_k$ in the code. This variable allows us to more simply compute the Kalman filter error state and covariance:
+This function provides a current estimate $\mathbf{x}_k$ for external algorithms to compute the corresponding $\mathbf{H}_k^\top \mathbf{V}^{-1} \mathbf{H}_k$ and $\mathbf{H}_k^\top \mathbf{V}^{-1} \mathbf{r}_k$, which are then substituted into the IEKF calculation formula to obtain the current time increment $\delta \mathbf{x}_k$, finally applied to the nominal state variables. Note we denote $(\mathbf{P}_k^{-1} + \mathbf{H}_k^\top \mathbf{V}^{-1} \mathbf{H})^{-1}$ as intermediate variable $\mathbf{Q}_k$ in the code. This variable allows us to more simply compute the Kalman filter error state and covariance:
 \begin{align}\label{key}
-	\delta \bm{x}_k &= \bm{Q}_k \bm{H}_k^\top \bm{V}^{-1} \bm{r}_k, \\
-	\bm{P}_{k+1} &= (\bm{I} - \bm{Q}_k \bm{H}^\top_k \bm{V}^{-1} \bm{H}_k) \bm{P}_k.
+	\delta \mathbf{x}_k &= \mathbf{Q}_k \mathbf{H}_k^\top \mathbf{V}^{-1} \mathbf{r}_k, \\
+	\mathbf{P}_{k+1} &= (\mathbf{I} - \mathbf{Q}_k \mathbf{H}^\top_k \mathbf{V}^{-1} \mathbf{H}_k) \mathbf{P}_k.
 \end{align}
 
 Following the previous derivation, we add an interface to Chapter 7's NDT to compute the corresponding matrices and return the results. The entire computation flow is completely consistent with the previous NDT, except NDT no longer needs to compute the updates itself.
@@ -341,7 +341,7 @@ void IncNdt3d::ComputeResidualAndJacobians(const SE3& input_pose, Mat18d& HTVH, 
 }
 \end{lstlisting}
 
-Here we compute the distributions within NDT voxels in parallel, collect the Jacobians and residuals for each point, and accumulate them into the two output matrices: $\bm{H}_k^\top \bm{V}^{-1} \bm{H}_k$ should be an $18 \times 18$ matrix after accumulation, while $\bm{H}_k \bm{V}^{-1} \bm{r}_k$ should be an $18\times 1$ vector after accumulation, which readers can verify through the code. Since NDT typically has significantly more points than the prediction equation, this may bias the estimation toward NDT. We add a scaling factor (0.01) to the information matrix $\boldsymbol{\Sigma}^{-1}$ here to make the updates more balanced. Readers may adjust this parameter.
+Here we compute the distributions within NDT voxels in parallel, collect the Jacobians and residuals for each point, and accumulate them into the two output matrices: $\mathbf{H}_k^\top \mathbf{V}^{-1} \mathbf{H}_k$ should be an $18 \times 18$ matrix after accumulation, while $\mathbf{H}_k \mathbf{V}^{-1} \mathbf{r}_k$ should be an $18\times 1$ vector after accumulation, which readers can verify through the code. Since NDT typically has significantly more points than the prediction equation, this may bias the estimation toward NDT. We add a scaling factor (0.01) to the information matrix $\boldsymbol{\Sigma}^{-1}$ here to make the updates more balanced. Readers may adjust this parameter.
 
 At the LIO level, we retain the loosely-coupled framework and only need to modify the registration process to the tightly-coupled form:
 
@@ -392,9 +392,9 @@ Next, we introduce an LIO system based on preintegration and point cloud registr
 \end{figure}
 
 \begin{enumerate}
-	\item Preintegrated factors typically connect high-dimensional states (typically 15-dimensional) between two keyframes. When converting to a graph optimization problem, we can choose to separate the vertices, e.g., having $\mathrm{SE}(3)$ as one vertex and $\bm{v}$ as another, with a preintegration edge connecting 8 vertices. Alternatively, we can combine the high-dimensional state into a single vertex, with preintegration edges connecting two vertices but containing many zero blocks in the Jacobian matrix. In practice, we adopt the former approach, which results in more vertex types but lower-dimensional edges.
+	\item Preintegrated factors typically connect high-dimensional states (typically 15-dimensional) between two keyframes. When converting to a graph optimization problem, we can choose to separate the vertices, e.g., having $\mathrm{SE}(3)$ as one vertex and $\mathbf{v}$ as another, with a preintegration edge connecting 8 vertices. Alternatively, we can combine the high-dimensional state into a single vertex, with preintegration edges connecting two vertices but containing many zero blocks in the Jacobian matrix. In practice, we adopt the former approach, which results in more vertex types but lower-dimensional edges.
 	
-	\item Since preintegrated factors involve many variables and most measurements are differences between state variables, sufficient observations and constraints on the state variables are necessary to prevent free movement in the null space. For example, the preintegrated velocity observation $\Delta \tilde{\bm{v}}_{ij}$ describes the difference between velocities at two keyframes. If we add a constant increment to both keyframe velocities, the velocity error remains unchanged, while adjustments to the displacement terms can keep displacement observations consistent. Therefore, in practice, we impose prior constraints on the previous keyframe and observation constraints on the subsequent keyframe to confine the optimization problem within reasonable bounds.
+	\item Since preintegrated factors involve many variables and most measurements are differences between state variables, sufficient observations and constraints on the state variables are necessary to prevent free movement in the null space. For example, the preintegrated velocity observation $\Delta \tilde{\mathbf{v}}_{ij}$ describes the difference between velocities at two keyframes. If we add a constant increment to both keyframe velocities, the velocity error remains unchanged, while adjustments to the displacement terms can keep displacement observations consistent. Therefore, in practice, we impose prior constraints on the previous keyframe and observation constraints on the subsequent keyframe to confine the optimization problem within reasonable bounds.
 	
 	\item The graph optimization model with preintegration is shown in Figure~\ref{fig:preinteg-graph}. When optimizing two keyframes, we add a prior factor to the previous keyframe, then include preintegration factors and bias random walk factors between the frames, and finally add NDT pose constraints to the next keyframe. After optimization, we use marginalization to compute the covariance of the next keyframe's pose, which serves as the prior factor for the next optimization round.
 	
@@ -648,7 +648,7 @@ Most of the code here is dedicated to constructing the graph optimization struct
 	};
 \end{lstlisting}
 
-Finally, we process the $\bm{H}$ matrix with the math::Marginalize function to marginalize rows 0-14, obtaining the information matrix (15×15 dimension) for the next frame's state. This matrix is then used as prior information in the next optimization problem. Running the test\_lio\_preinteg program displays the LIO's real-time point cloud, as shown in Figure~\ref{fig:lio-preinteg}.
+Finally, we process the $\mathbf{H}$ matrix with the math::Marginalize function to marginalize rows 0-14, obtaining the information matrix (15×15 dimension) for the next frame's state. This matrix is then used as prior information in the next optimization problem. Running the test\_lio\_preinteg program displays the LIO's real-time point cloud, as shown in Figure~\ref{fig:lio-preinteg}.
 
 \begin{figure}[!htp]
 	\centering

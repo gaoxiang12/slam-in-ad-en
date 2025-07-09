@@ -21,35 +21,35 @@ Based on the kinematics introduced earlier, we can simply write down the kinemat
 
 \begin{subequations}\label{eq:motion-equation}
 	\begin{align}
-		\dot{\bm{R}} &= \bm{R} \boldsymbol{\omega}^\wedge, \quad \text{or} \  \dot{\bm{q}} = \frac{1}{2} 
-		\bm{q} \boldsymbol{\omega}, \\
-		\dot{\bm{p}} &= \bm{v}, \\
-		\dot{\bm{v}} &= \bm{a}.
+		\dot{\mathbf{R}} &= \mathbf{R} \boldsymbol{\omega}^\wedge, \quad \text{or} \  \dot{\mathbf{q}} = \frac{1}{2} 
+		\mathbf{q} \boldsymbol{\omega}, \\
+		\dot{\mathbf{p}} &= \mathbf{v}, \\
+		\dot{\mathbf{v}} &= \mathbf{a}.
 	\end{align}
 \end{subequations}
-The rotational part can be represented either by a rotation matrix, as seen in Equation \eqref{eq:rotation-matrix-kinematics}, or by quaternions, as seen in Equation \eqref{eq:quaternion-kinematics}. These physical quantities, when annotated with subscripts, should be denoted as $\bm{R}_{wb}$ and $\bm{p}_{wb}$. Since $\bm{p}_{wb}$ corresponds to the vehicle's world coordinates, after differentiation, it becomes the velocity and acceleration of the vehicle in the world coordinate system, denoted as $\bm{v}_w$ and $\bm{a}_w$. This notation is intuitive, so subsequent text will omit the subscripts related to coordinate systems. Other materials may define variables such as $_w \bm{v}_{wb}$ to distinguish between world-frame velocity and body-frame velocity, but this book uniformly uses quantities in the world frame, with special cases mentioned separately.
+The rotational part can be represented either by a rotation matrix, as seen in Equation \eqref{eq:rotation-matrix-kinematics}, or by quaternions, as seen in Equation \eqref{eq:quaternion-kinematics}. These physical quantities, when annotated with subscripts, should be denoted as $\mathbf{R}_{wb}$ and $\mathbf{p}_{wb}$. Since $\mathbf{p}_{wb}$ corresponds to the vehicle's world coordinates, after differentiation, it becomes the velocity and acceleration of the vehicle in the world coordinate system, denoted as $\mathbf{v}_w$ and $\mathbf{a}_w$. This notation is intuitive, so subsequent text will omit the subscripts related to coordinate systems. Other materials may define variables such as $_w \mathbf{v}_{wb}$ to distinguish between world-frame velocity and body-frame velocity, but this book uniformly uses quantities in the world frame, with special cases mentioned separately.
 
-The above equations assume that the world frame is fixed, akin to outer space or virtual space. When we do not consider the Earth's rotation, we can simply regard the surface the vehicle travels on as a fixed world coordinate system. In this case, the measured values of IMU, $\tilde{\boldsymbol{\omega}}$ and $\tilde{\bm{a}}$, are the vehicle's own angular velocity and acceleration in the body frame\footnote{We need a notation to distinguish between \textbf{state variables} and \textbf{measurement values}. They can refer to the same physical quantity. However, state variables are estimable and variable, while measurement values are the readings of instruments and are constant. Later text generally uses variables with a tilde to express measurement values, while those without denote state variables.}:
+The above equations assume that the world frame is fixed, akin to outer space or virtual space. When we do not consider the Earth's rotation, we can simply regard the surface the vehicle travels on as a fixed world coordinate system. In this case, the measured values of IMU, $\tilde{\boldsymbol{\omega}}$ and $\tilde{\mathbf{a}}$, are the vehicle's own angular velocity and acceleration in the body frame\footnote{We need a notation to distinguish between \textbf{state variables} and \textbf{measurement values}. They can refer to the same physical quantity. However, state variables are estimable and variable, while measurement values are the readings of instruments and are constant. Later text generally uses variables with a tilde to express measurement values, while those without denote state variables.}:
 \begin{subequations}\label{key}
 	\begin{align}
-		\tilde{\bm{a}} &= \bm{R}^\top \bm{a}, \\
+		\tilde{\mathbf{a}} &= \mathbf{R}^\top \mathbf{a}, \\
 		\tilde{\boldsymbol{\omega}} &= \boldsymbol{\omega}.
 	\end{align}
 \end{subequations}
-Note that $\bm{R}^\top$ with the subscript denotes $\bm{R}_{bw}$, which transforms quantities from the world frame to the body frame.
+Note that $\mathbf{R}^\top$ with the subscript denotes $\mathbf{R}_{bw}$, which transforms quantities from the world frame to the body frame.
 
 However, real vehicles and robots operate on the surface of the Earth. These systems are influenced by gravity, so we should include gravity in the system equations. In most IMU systems, we can ignore the disturbance caused by the Earth's rotation\footnote{In some high-precision systems, IMUs can measure the Earth's rotation, but in platforms such as vehicles and drones, we usually choose to ignore these physical quantities.}, thus writing the IMU measurements as:
 \begin{subequations}\label{eq:3.2}
 	\begin{align}
-		\tilde{\bm{a}} &= \bm{R}^\top (\bm{a} - \bm{g}), \\
+		\tilde{\mathbf{a}} &= \mathbf{R}^\top (\mathbf{a} - \mathbf{g}), \\
 		\tilde{\boldsymbol{\omega}} &= \boldsymbol{\omega}.
 	\end{align}
 \end{subequations}
-Here, $\bm{g}$ represents the gravity of the Earth. Of course, if measuring the object's acceleration in a zero-gravity environment, the gravity term would not appear.
+Here, $\mathbf{g}$ represents the gravity of the Earth. Of course, if measuring the object's acceleration in a zero-gravity environment, the gravity term would not appear.
 
-Note that the sign of $\bm{g}$ is related to the definition of the coordinate system. In our coordinate system, both the body frame and the world frame have the $Z$-axis pointing upwards, so $\bm{g}$ typically takes the value $(0, 0, -9.8)^\top$. However, in some books, the $Z$-axis can be defined as pointing towards the center of the Earth, in which case the value of $\bm{g}$ itself or the sign here might be reversed. According to the coordinate system definition in this book, the term in the measurement equation should be $\bm{a}-\bm{g}$.
+Note that the sign of $\mathbf{g}$ is related to the definition of the coordinate system. In our coordinate system, both the body frame and the world frame have the $Z$-axis pointing upwards, so $\mathbf{g}$ typically takes the value $(0, 0, -9.8)^\top$. However, in some books, the $Z$-axis can be defined as pointing towards the center of the Earth, in which case the value of $\mathbf{g}$ itself or the sign here might be reversed. According to the coordinate system definition in this book, the term in the measurement equation should be $\mathbf{a}-\mathbf{g}$.
 
-To aid understanding, readers can also imagine a horizontally placed IMU (see Figure \ref{fig:imu}). If the IMU is stationary, since the measurement of object acceleration is actually obtained by measuring the force applied, the IMU should experience a supporting force in the opposite direction. Therefore, it should measure a gravity in the $-\bm{g}$ direction. If the IMU is flipped upside down, $\bm{R}^\top$ changes, and a positive gravity $\bm{g}$ would be measured. On the other hand, if the IMU is in free fall, the sensors themselves would not detect any external force influence, so $\bm{a}-\bm{g}=\bm{0}$, and the accelerometer should output a zero measurement.
+To aid understanding, readers can also imagine a horizontally placed IMU (see Figure \ref{fig:imu}). If the IMU is stationary, since the measurement of object acceleration is actually obtained by measuring the force applied, the IMU should experience a supporting force in the opposite direction. Therefore, it should measure a gravity in the $-\mathbf{g}$ direction. If the IMU is flipped upside down, $\mathbf{R}^\top$ changes, and a positive gravity $\mathbf{g}$ would be measured. On the other hand, if the IMU is in free fall, the sensors themselves would not detect any external force influence, so $\mathbf{a}-\mathbf{g}=\mathbf{0}$, and the accelerometer should output a zero measurement.
 
 \begin{figure}
 	\centering
@@ -64,7 +64,7 @@ Note that Equation \eqref{eq:3.2} is written under the assumption of \textbf{no 
 
 Here, we provide some explanations for the IMU measurement equations mentioned earlier, which might be areas where many students encounter issues in engineering practice.
 
-In theory, according to Newton's second law, the force acting on an object is directly proportional to its acceleration, with the coefficient being the object's mass. For an object located in outer space or in free fall, unaffected by external forces, this is indeed the case. We can also imagine an IMU using springs to measure force. In outer space or during free fall, the springs should be in a relaxed state, and no force should be detected. However, most of the time, we are concerned with real moving objects such as vehicles and robots, which mostly operate on the Earth's surface. Due to the Earth's gravitational force, these objects are naturally subjected to an external force $\bm{g}$. If an object is stationary on the Earth's surface, although the net force acting on it is zero, the IMU still naturally detects a supporting force in the opposite direction. At this time, although the object is not accelerating, the IMU can still read the opposite gravity. Hence, we have a $-\bm{g}$ term in the measurement equation. If we consider an IMU in space, we would remove this gravity term from the measurement equation. Alternatively, if the gravity at a particular location differs from elsewhere, we should adjust the value of $\bm{g}$. However, in some materials, gravity is not included in the measurement equation, and real-world IMUs may remove gravity when outputting data. Readers should be aware of such cases.
+In theory, according to Newton's second law, the force acting on an object is directly proportional to its acceleration, with the coefficient being the object's mass. For an object located in outer space or in free fall, unaffected by external forces, this is indeed the case. We can also imagine an IMU using springs to measure force. In outer space or during free fall, the springs should be in a relaxed state, and no force should be detected. However, most of the time, we are concerned with real moving objects such as vehicles and robots, which mostly operate on the Earth's surface. Due to the Earth's gravitational force, these objects are naturally subjected to an external force $\mathbf{g}$. If an object is stationary on the Earth's surface, although the net force acting on it is zero, the IMU still naturally detects a supporting force in the opposite direction. At this time, although the object is not accelerating, the IMU can still read the opposite gravity. Hence, we have a $-\mathbf{g}$ term in the measurement equation. If we consider an IMU in space, we would remove this gravity term from the measurement equation. Alternatively, if the gravity at a particular location differs from elsewhere, we should adjust the value of $\mathbf{g}$. However, in some materials, gravity is not included in the measurement equation, and real-world IMUs may remove gravity when outputting data. Readers should be aware of such cases.
 
 Furthermore, if the IMU is not placed at the center of the vehicle, when the vehicle rotates and moves, the IMU should also measure the centrifugal force, Coriolis force, and angular acceleration caused by the vehicle's rotation, reflected in the accelerometer readings. Some vehicles also experience various mechanical vibrations, such as suspension systems, moving parts of the vehicle (brushes, rollers, mechanical arms, etc.), which can also affect IMU readings. Therefore, the complete equation should include these terms. However, if all these small terms are included in the subsequent state estimation equations, the equations will become excessively long, which is not conducive to teaching. In practice, these readings themselves are small, and by ensuring that the IMU is installed as close to the vehicle's center as possible, we can avoid the problems caused by misalignment between the IMU and the vehicle's coordinate system. For these reasons, we will continue to use this simplified IMU measurement model in the subsequent discussions.
 
@@ -72,34 +72,34 @@ Furthermore, if the IMU is not placed at the center of the vehicle, when the veh
 \subsection{Noise Model in IMU Measurement Equations}
 \label{sec:imu-noise}
 
-In most systems, we consider the noise in an Inertial Measurement Unit (IMU) to consist of two parts: \textbf{measurement noise} and \textbf{bias}. Why do we do this? Due to various reasons, even when a vehicle is stationary, the output of angular velocity and acceleration from an IMU may not form a white noise with a mean of $\bm{0}$, but rather have some \textbf{offset}. This offset is caused by the electromechanical measuring devices within the IMU; some IMUs have small offsets while others may have larger ones. Additionally, this offset is also influenced by factors such as temperature and changes over time. Mathematically, we model it and consider \textbf{bias} as a state variable of the system, which undergoes random changes over time. However, readers should understand that this is a \textbf{mathematical model}, not the \textbf{essence of the system}. We do not derive the variation relationship of bias from the mechanical or physical characteristics of the IMU, nor do we physically describe the relationship between IMU bias and temperature, even if such a relationship objectively exists. We simply \textbf{assume} that the mathematical model is such, and then observe if it significantly differs from the actual readings of the IMU device\footnote{Therefore, readers should not assume that there objectively exists a physically measurable quantity termed bias inside the IMU, and then this quantity is superimposed on the measurement values.}. In most systems, such modeling relationships are sufficient. However, if not, we can also add various compensation parameters as needed to accurately describe the variation of bias.
+In most systems, we consider the noise in an Inertial Measurement Unit (IMU) to consist of two parts: \textbf{measurement noise} and \textbf{bias}. Why do we do this? Due to various reasons, even when a vehicle is stationary, the output of angular velocity and acceleration from an IMU may not form a white noise with a mean of $\mathbf{0}$, but rather have some \textbf{offset}. This offset is caused by the electromechanical measuring devices within the IMU; some IMUs have small offsets while others may have larger ones. Additionally, this offset is also influenced by factors such as temperature and changes over time. Mathematically, we model it and consider \textbf{bias} as a state variable of the system, which undergoes random changes over time. However, readers should understand that this is a \textbf{mathematical model}, not the \textbf{essence of the system}. We do not derive the variation relationship of bias from the mechanical or physical characteristics of the IMU, nor do we physically describe the relationship between IMU bias and temperature, even if such a relationship objectively exists. We simply \textbf{assume} that the mathematical model is such, and then observe if it significantly differs from the actual readings of the IMU device\footnote{Therefore, readers should not assume that there objectively exists a physically measurable quantity termed bias inside the IMU, and then this quantity is superimposed on the measurement values.}. In most systems, such modeling relationships are sufficient. However, if not, we can also add various compensation parameters as needed to accurately describe the variation of bias.
 
-Let the measurement noise of the gyroscope and accelerometer be denoted as $\boldsymbol{\eta}_g, \boldsymbol{\eta}_a$, and let the biases be denoted as $\bm{b}_g, \bm{b}_a$, where the subscript $g$ represents the gyroscope and $a$ represents the accelerometer. Then, these parameters manifest in the measurement equations as follows:
+Let the measurement noise of the gyroscope and accelerometer be denoted as $\boldsymbol{\eta}_g, \boldsymbol{\eta}_a$, and let the biases be denoted as $\mathbf{b}_g, \mathbf{b}_a$, where the subscript $g$ represents the gyroscope and $a$ represents the accelerometer. Then, these parameters manifest in the measurement equations as follows:
 \begin{subequations}\label{eq:imu-measurement}
 	\begin{align}
-		\tilde{\bm{a}} &= \bm{R}^\top (\bm{a} - \bm{g}) + \bm{b}_a + \boldsymbol{\eta}_a, \\
-		\tilde{\boldsymbol{\omega}} &= \boldsymbol{\omega} + \bm{b}_g + \boldsymbol{\eta}_g.
+		\tilde{\mathbf{a}} &= \mathbf{R}^\top (\mathbf{a} - \mathbf{g}) + \mathbf{b}_a + \boldsymbol{\eta}_a, \\
+		\tilde{\boldsymbol{\omega}} &= \boldsymbol{\omega} + \mathbf{b}_g + \boldsymbol{\eta}_g.
 	\end{align}
 \end{subequations}
 
 In continuous time, we consider the IMU measurement noise to be a zero-mean white Gaussian process with variances $\mathrm{Cov}(\boldsymbol{\eta}_g)$ and $\mathrm{Cov}(\boldsymbol{\eta}_a)$\footnote{For basic information on Gaussian processes, readers can refer to Section 2.3 in \cite{Barfoot2016}.}. Additionally, we regard the biases as Wiener processes, also known as Brownian motion or random walk. These are common and classical stochastic processes.
 
-A zero-mean white Gaussian process random variable $\bm{w}(t)$ with covariance $\boldsymbol{\Sigma}$ can be expressed as:
+A zero-mean white Gaussian process random variable $\mathbf{w}(t)$ with covariance $\boldsymbol{\Sigma}$ can be expressed as:
 \begin{equation}\label{eq:white-gaussian-process}
-	\bm{w}(t) \sim \mathcal{GP}(\bm{0}, \boldsymbol{\Sigma} \delta (t-t')),
+	\mathbf{w}(t) \sim \mathcal{GP}(\mathbf{0}, \boldsymbol{\Sigma} \delta (t-t')),
 \end{equation}
 where $\boldsymbol{\Sigma}$ is termed the \textbf{energy spectral density matrix}, and $\delta$ denotes the Dirac delta function. The presence of the Dirac delta function enables us to easily derive the IMU measurement noise after discrete-time sampling from the continuous-time Gaussian process. For detailed derivations, please refer to the appendix of \cite{Crassidis2006}, and we will also discuss this in the subsequent sections when introducing the discrete-time model.
 
-On the other hand, a typical random walk process for a bias $\bm{b}$ can be modeled as:
+On the other hand, a typical random walk process for a bias $\mathbf{b}$ can be modeled as:
 \begin{equation}\label{eq:random-walk}
-	\dot{\bm{b}}(t) = \boldsymbol{\eta}_b (t),
+	\dot{\mathbf{b}}(t) = \boldsymbol{\eta}_b (t),
 \end{equation}
-where $\boldsymbol{\eta}_b (t)$ is also a Gaussian process. Therefore, the random walks for $\bm{b}_a$ and $\bm{b}_g$ can be modeled as follows:
+where $\boldsymbol{\eta}_b (t)$ is also a Gaussian process. Therefore, the random walks for $\mathbf{b}_a$ and $\mathbf{b}_g$ can be modeled as follows:
 \begin{subequations}\label{eq:bias-random-walk}
 	\begin{align}
-		\dot{\bm{b}}_a (t) &= \boldsymbol{\eta}_{ba}(t) \sim \mathcal{GP}(\bm{0}, 
+		\dot{\mathbf{b}}_a (t) &= \boldsymbol{\eta}_{ba}(t) \sim \mathcal{GP}(\mathbf{0}, 
 		\mathrm{Cov}(\boldsymbol{b}_a) \delta (t-t')), \\
-		\dot{\bm{b}}_g (t) &= \boldsymbol{\eta}_{bg}(t) \sim \mathcal{GP}(\bm{0}, 
+		\dot{\mathbf{b}}_g (t) &= \boldsymbol{\eta}_{bg}(t) \sim \mathcal{GP}(\mathbf{0}, 
 		\mathrm{Cov}(\boldsymbol{b}_g) \delta (t-t')).
 	\end{align}
 \end{subequations}
@@ -123,13 +123,13 @@ Although the noise equations for IMUs in continuous time are relatively complex,
 As for the bias part, it can be written as:
 \begin{subequations}\label{eq:discrete-bias}
 	\begin{align}
-		\bm{b}_g(k+1) - \bm{b}_g(k) &\sim \mathcal{N}(\bm{0}, \Delta t \ \mathrm{Cov}(\bm{b}_g)), \\
-		\bm{b}_a(k+1) - \bm{b}_a(k) &\sim \mathcal{N}(\bm{0}, \Delta t \ \mathrm{Cov}(\bm{b}_a)).
+		\mathbf{b}_g(k+1) - \mathbf{b}_g(k) &\sim \mathcal{N}(\mathbf{0}, \Delta t \ \mathrm{Cov}(\mathbf{b}_g)), \\
+		\mathbf{b}_a(k+1) - \mathbf{b}_a(k) &\sim \mathcal{N}(\mathbf{0}, \Delta t \ \mathrm{Cov}(\mathbf{b}_a)).
 	\end{align}
 \end{subequations}
 
 Therefore, in discrete-time systems (which is what we usually deal with), both noises are very easy to handle. In many system implementations, even the \textbf{covariance matrices} are not used to express the IMU measurement noise and bias random walk. Instead, they are simply represented as \textbf{diagonal matrices}, effectively ignoring the correlation between different axes. In programming, parameters such as $\sigma_g, \sigma_a$ are often used to express the \textbf{standard deviations} of IMU noise, and parameters $\sigma_{bg}, \sigma_{ba}$ are used to express the \textbf{standard deviations} of bias drift. In this case, the standard deviations of noise in discrete time should be written as:
-\begin{subequations}\label{eq:noise-std-dev}
+\begin{subequations}\label{eq:noise-std-dev}\label{eq:imu-noise-relationship}
 	\begin{align}
 		\sigma_{g}(k) &= \frac{1}{\sqrt{\Delta t}} \sigma_g , \quad	\sigma_{a}(k) = \frac{1}{\sqrt{\Delta t}} 
 		\sigma_a, \\
@@ -164,8 +164,8 @@ Note that units can be converted between similar units, such as radians to degre
 
 \begin{figure}
 	\centering
-	\includegraphics[width=1.0\linewidth]{./ins/imu-datasheet-cn.png}
-	\caption{Datasheet of Real IMUs \emph{TODO: replace}}
+	\includegraphics[width=1.0\linewidth]{./ins/imu-datasheet.png}
+	\caption{Datasheet of Real IMUs}
 	\label{fig:imu-datasheet}
 \end{figure}
 
@@ -192,28 +192,28 @@ We have introduced the kinematic model of the IMU system itself in Section \ref{
 
 \begin{subequations}\label{key}
 	\begin{align}
-		\dot{\bm{R}} &= \bm{R} (\tilde{\boldsymbol{\omega}} - \bm{b}_g )^\wedge, \quad \text{or} \ 
-		\dot{\bm{q}} = \bm{q} \left[0, \frac{1}{2} \left( \tilde{\boldsymbol{\omega}} -\bm{b}_g\right) 
+		\dot{\mathbf{R}} &= \mathbf{R} (\tilde{\boldsymbol{\omega}} - \mathbf{b}_g )^\wedge, \quad \text{or} \ 
+		\dot{\mathbf{q}} = \mathbf{q} \left[0, \frac{1}{2} \left( \tilde{\boldsymbol{\omega}} -\mathbf{b}_g\right) 
 		\right], \\
-		\dot{\bm{p}} &= \bm{v}, \\
-		\dot{\bm{v}} &= \bm{R} (\tilde{\bm{a}} - \bm{b}_a) + \bm{g}.
+		\dot{\mathbf{p}} &= \mathbf{v}, \\
+		\dot{\mathbf{v}} &= \mathbf{R} (\tilde{\mathbf{a}} - \mathbf{b}_a) + \mathbf{g}.
 	\end{align}
 \end{subequations}
 
-Sometimes we also refer to $\bm{p}, \bm{v}, \bm{q}$ as the PVQ state. This equation can be integrated from time $t$ to $t+\Delta t$ to derive the state at the next moment:
+Sometimes we also refer to $\mathbf{p}, \mathbf{v}, \mathbf{q}$ as the PVQ state. This equation can be integrated from time $t$ to $t+\Delta t$ to derive the state at the next moment:
 
 \begin{subequations}\label{eq:3.14}
 	\begin{align}
-		\bm{R}(t+\Delta t) &= \bm{R}(t) \mathrm{Exp} \left( (\tilde{\boldsymbol{\omega}}-\bm{b}_g) \Delta 
-		t \right),\quad \text{or} \ \bm{q}(t+\Delta t) = \bm{q}(t) \left[ 1, \frac{1}{2} \left( 
-		\tilde{\boldsymbol{\omega}} - \bm{b}_g\right) \Delta t\right], \\
-		\bm{p}(t+\Delta t) &= \bm{p}(t) + \bm{v} \Delta t + \frac{1}{2} \left(\bm{R}(t)(\tilde{\bm{a}}-\bm{b}_a) 
-		\right) \Delta t^2 + \frac{1}{2} \bm{g} \Delta t^2, \\
-		\bm{v}(t+\Delta t) &= \bm{v}(t) + \bm{R}(t) (\tilde{\bm{a}} - \bm{b}_a) \Delta t + \bm{g} \Delta t	.
+		\mathbf{R}(t+\Delta t) &= \mathbf{R}(t) \mathrm{Exp} \left( (\tilde{\boldsymbol{\omega}}-\mathbf{b}_g) \Delta 
+		t \right),\quad \text{or} \ \mathbf{q}(t+\Delta t) = \mathbf{q}(t) \left[ 1, \frac{1}{2} \left( 
+		\tilde{\boldsymbol{\omega}} - \mathbf{b}_g\right) \Delta t\right], \\
+		\mathbf{p}(t+\Delta t) &= \mathbf{p}(t) + \mathbf{v} \Delta t + \frac{1}{2} \left(\mathbf{R}(t)(\tilde{\mathbf{a}}-\mathbf{b}_a) 
+		\right) \Delta t^2 + \frac{1}{2} \mathbf{g} \Delta t^2, \\
+		\mathbf{v}(t+\Delta t) &= \mathbf{v}(t) + \mathbf{R}(t) (\tilde{\mathbf{a}} - \mathbf{b}_a) \Delta t + \mathbf{g} \Delta t	.
 	\end{align}
 \end{subequations}
 
-With this equation, we can use the state at one moment plus the IMU data at the next moment to infer the state at the next moment. This approach is generally referred to as \textbf{propagation}. From the perspective of numerical integration\footnote{Readers unfamiliar with numerical computation can refer to \cite{LiQinYang2001}.}, it corresponds to the Euler method in numerical integration (Figure~\ref{fig:integ-method}).
+With this equation, we can use the state at one moment plus the IMU data at the next moment to infer the state at the next moment. This approach is generally referred to as \textbf{propagation}. From the perspective of numerical integration, it corresponds to the Euler method in numerical integration (Figure~\ref{fig:integ-method}).
 
 \begin{figure}
 	\centering
@@ -222,23 +222,23 @@ With this equation, we can use the state at one moment plus the IMU data at the 
 	\label{fig:integ-method}
 \end{figure}
 
-Different numerical integration methods vary, with the Euler method being the simplest. The rotation and translation of an object itself are continuous, while the IMU samples at fixed time intervals. During the sampling interval $\Delta t$, there are several approaches to handling the angular velocity and acceleration within this small time frame. The Euler method adopts the simplest approach: it assumes that during the time from $t$ to $t+\Delta t$, the object's angular velocity is entirely equal to $\boldsymbol{\omega}(t)$, and the acceleration is equal to $\bm{a}(t)$. This is equivalent to using the starting point of the interval as the function value for the integration rectangle in numerical integration. Other methods, such as the midpoint method, trapezoidal rule, and higher-order interpolation methods (most notably the Runge-Kutta method \cite{Liu2020}), can also be employed. These methods are not overly complex in practice—they simply replace the measurements in the above equations with interpolated values $\tilde{\boldsymbol{\omega}}, \tilde{\bm{a}}$ for the recursion. Theoretically, the midpoint and trapezoidal methods should be more accurate than the simplest Euler integration, while interpolation methods introduce additional computational overhead. Whether the improvement in accuracy justifies the increased computation depends on the specific application.
+Different numerical integration methods vary, with the Euler method being the simplest. The rotation and translation of an object itself are continuous, while the IMU samples at fixed time intervals. During the sampling interval $\Delta t$, there are several approaches to handling the angular velocity and acceleration within this small time frame. The Euler method adopts the simplest approach: it assumes that during the time from $t$ to $t+\Delta t$, the object's angular velocity is entirely equal to $\boldsymbol{\omega}(t)$, and the acceleration is equal to $\mathbf{a}(t)$. This is equivalent to using the starting point of the interval as the function value for the integration rectangle in numerical integration. Other methods, such as the midpoint method, trapezoidal rule, and higher-order interpolation methods (most notably the Runge-Kutta method \cite{Liu2020}), can also be employed. These methods are not overly complex in practice—they simply replace the measurements in the above equations with interpolated values $\tilde{\boldsymbol{\omega}}, \tilde{\mathbf{a}}$ for the recursion. Theoretically, the midpoint and trapezoidal methods should be more accurate than the simplest Euler integration, while interpolation methods introduce additional computational overhead. Whether the improvement in accuracy justifies the increased computation depends on the specific application.
 
 The above equations can also be accumulated further, such as from time $i$ to time $j$. We only need to aggregate the IMU readings in between:
 
 \begin{subequations}\label{eq:imu-dead-reckoning}
 	\begin{align}
-		\bm{R}_j &= \bm{R}_i \prod_{k=i}^{j-1}\mathrm{Exp} \left(\left(\tilde{\boldsymbol{\omega}}_k - 
-		\bm{b}_{g,k}\right) \Delta t\right) \quad \text{or}\quad \bm{q}_j = \bm{q}_i \prod_{k=i}^{j-1} \left[1, 
-		\frac{1}{2} \left(\tilde{\boldsymbol{\omega}}_k - \bm{b}_{g,k}\right) \Delta t \right], \\
-		\bm{p}_j &= \bm{p}_k + \sum_{k=i}^{j-1} \left[\bm{v}_k \Delta t + \frac{1}{2} \bm{g} \Delta t^2\right] + 
-		\frac{1}{2} \sum_{k=i}^{j-1} \bm{R}_k \left(\tilde{\bm{a}}_k - \bm{b}_{a,k} \right) \Delta t^2, \\
-		\bm{v}_j &= \bm{v}_i + \sum_{k=i}^{j-1}\left[ \bm{R}_k\left(\tilde{\bm{a}}_k - \bm{b}_{a,k} \right) 
-		\Delta t+ \bm{g} \Delta t  \right].
+		\mathbf{R}_j &= \mathbf{R}_i \prod_{k=i}^{j-1}\mathrm{Exp} \left(\left(\tilde{\boldsymbol{\omega}}_k - 
+		\mathbf{b}_{g,k}\right) \Delta t\right) \quad \text{or}\quad \mathbf{q}_j = \mathbf{q}_i \prod_{k=i}^{j-1} \left[1, 
+		\frac{1}{2} \left(\tilde{\boldsymbol{\omega}}_k - \mathbf{b}_{g,k}\right) \Delta t \right], \\
+		\mathbf{p}_j &= \mathbf{p}_k + \sum_{k=i}^{j-1} \left[\mathbf{v}_k \Delta t + \frac{1}{2} \mathbf{g} \Delta t^2\right] + 
+		\frac{1}{2} \sum_{k=i}^{j-1} \mathbf{R}_k \left(\tilde{\mathbf{a}}_k - \mathbf{b}_{a,k} \right) \Delta t^2, \\
+		\mathbf{v}_j &= \mathbf{v}_i + \sum_{k=i}^{j-1}\left[ \mathbf{R}_k\left(\tilde{\mathbf{a}}_k - \mathbf{b}_{a,k} \right) 
+		\Delta t+ \mathbf{g} \Delta t  \right].
 	\end{align}
 \end{subequations}
 
-Note that we have not yet considered the influence of noise. In Chapter~\ref{cpt:preinteg}, we will further examine the impact of measurement noise and bias noise on IMU integration. Here, we focus only on its recursive form. Observe that the above equations are essentially \textbf{incremental}: each $\bm{R}_k, \bm{v}_k$ can serve as the computation result for the next time step. Therefore, in code implementation, when an IMU frame arrives, we can use the result from the previous frame to compute the recursion for the next frame, without waiting for all data to arrive before performing the accumulation as per the formula. For rotation, there is no fundamental difference between using quaternions or rotation matrices, though the rotation matrix representation is more concise mathematically and does not require frequent normalization. In this chapter, we retain both notations for readers to compare. However, in subsequent chapters, we will primarily use the rotation matrix representation.
+Note that we have not yet considered the influence of noise. In Chapter~\ref{cpt:preinteg}, we will further examine the impact of measurement noise and bias noise on IMU integration. Here, we focus only on its recursive form. Observe that the above equations are essentially \textbf{incremental}: each $\mathbf{R}_k, \mathbf{v}_k$ can serve as the computation result for the next time step. Therefore, in code implementation, when an IMU frame arrives, we can use the result from the previous frame to compute the recursion for the next frame, without waiting for all data to arrive before performing the accumulation as per the formula. For rotation, there is no fundamental difference between using quaternions or rotation matrices, though the rotation matrix representation is more concise mathematically and does not require frequent normalization. In this chapter, we retain both notations for readers to compare. However, in subsequent chapters, we will primarily use the rotation matrix representation.
 
 \subsection{Code Experiment for IMU Recursion}
 Below, we conduct an experiment to demonstrate how to use IMU data for trajectory propagation. Without external observations, we can only use Equation (\ref{eq:imu-dead-reckoning}) to perform double integration and obtain the position and attitude information of the moving object. This integration typically diverges rapidly, making IMU unsuitable for standalone dead reckoning. Our experiment will illustrate this.
@@ -562,7 +562,7 @@ bool ConvertGps2UTM(GNSS& gps_msg, const Vec2d& antenna_pos, const double& anten
 
 The latitude-longitude to UTM conversion is handled by the library function, while we need to transform the UTM coordinates from the GNSS frame to the vehicle's observed pose, considering the RTK's extrinsic parameters. The dual-antenna RTK installation used in this section is shown in Figure~\ref{fig:dual-rtk-coor}, where the blue axes $x_B, y_B, O_B$ represent the vehicle body frame, and the red axes $x_G, y_G, O_G$ represent the GNSS receiver frame.
 
-Mathematically, we can treat the RTK's UTM coordinate reading as $\bm{T}_{WG}$, where $W$ represents the world frame and $G$ represents the GNSS receiver frame. To facilitate subsequent fusion localization, we transform it to $\bm{T}_{WB}$, where $B$ is the vehicle body frame. Thus, the extrinsic parameters between the GNSS receiver and the vehicle can be described by either $\bm{T}_{GB}$ or $\bm{T}_{BG}$.
+Mathematically, we can treat the RTK's UTM coordinate reading as $\mathbf{T}_{WG}$, where $W$ represents the world frame and $G$ represents the GNSS receiver frame. To facilitate subsequent fusion localization, we transform it to $\mathbf{T}_{WB}$, where $B$ is the vehicle body frame. Thus, the extrinsic parameters between the GNSS receiver and the vehicle can be described by either $\mathbf{T}_{GB}$ or $\mathbf{T}_{BG}$.
 
 \begin{figure}
 	\centering
@@ -571,32 +571,32 @@ Mathematically, we can treat the RTK's UTM coordinate reading as $\bm{T}_{WG}$, 
 	\label{fig:dual-rtk-coor}
 \end{figure}
 
-In the calibration parameters, we specify the installation offset $\bm{a}_t$ as the vector from $O_B$ to $O_G$ expressed in the $B$ frame, which essentially corresponds to the translational component of $\bm{T}_{BG}$. Simultaneously, the installation angle $a_{\theta}$ is defined as the rotation angle from the $x$-axis of the $B$ frame to the $x$-axis of the $G$ frame. Substituting $\bm{a}_t$ and $a_{\theta}$ into $\bm{T}_{BG}$, we obtain:
+In the calibration parameters, we specify the installation offset $\mathbf{a}_t$ as the vector from $O_B$ to $O_G$ expressed in the $B$ frame, which essentially corresponds to the translational component of $\mathbf{T}_{BG}$. Simultaneously, the installation angle $a_{\theta}$ is defined as the rotation angle from the $x$-axis of the $B$ frame to the $x$-axis of the $G$ frame. Substituting $\mathbf{a}_t$ and $a_{\theta}$ into $\mathbf{T}_{BG}$, we obtain:
 
 \begin{equation}\label{key}
-	\bm{T}_{BG} = \begin{bmatrix}
-		\bm{R}_Z (a_{\theta}) & \bm{a}_t \\
-		\bm{0}^\top & 1
+	\mathbf{T}_{BG} = \begin{bmatrix}
+		\mathbf{R}_Z (a_{\theta}) & \mathbf{a}_t \\
+		\mathbf{0}^\top & 1
 	\end{bmatrix},
 \end{equation}
 
-where $\bm{R}_Z$ represents the rotation matrix about the $Z$-axis.
+where $\mathbf{R}_Z$ represents the rotation matrix about the $Z$-axis.
 
-It's important to note that this definition of \textbf{installation angle} and \textbf{installation offset} is intuitive but not unique. The specific definition should prioritize operational convenience. These parameters could alternatively be defined in the opposite direction, as long as calibration personnel can measure them easily. We typically align mathematical notation with practical conventions rather than forcing real-world operations to conform to mathematical definitions. While calibration personnel might struggle to directly measure $\bm{R}_{BG}$ or $\bm{t}_{BG}$, they can easily measure the connection between two points or the angle between two lines.
+It's important to note that this definition of \textbf{installation angle} and \textbf{installation offset} is intuitive but not unique. The specific definition should prioritize operational convenience. These parameters could alternatively be defined in the opposite direction, as long as calibration personnel can measure them easily. We typically align mathematical notation with practical conventions rather than forcing real-world operations to conform to mathematical definitions. While calibration personnel might struggle to directly measure $\mathbf{R}_{BG}$ or $\mathbf{t}_{BG}$, they can easily measure the connection between two points or the angle between two lines.
 
-The transformation matrix $\bm{T}_{WB}$ from the vehicle body frame to the world frame can be derived from RTK measurements and its extrinsic parameters:
+The transformation matrix $\mathbf{T}_{WB}$ from the vehicle body frame to the world frame can be derived from RTK measurements and its extrinsic parameters:
 
 \begin{equation}\label{key}
-	\bm{T}_{WB} = \bm{T}_{WG} \bm{T}_{GB}.
+	\mathbf{T}_{WB} = \mathbf{T}_{WG} \mathbf{T}_{GB}.
 \end{equation}
 
 Expanding the rotation and translation components yields:
 
 \begin{equation}\label{key}
-	\bm{R}_{WB} = \bm{R}_{WG} \bm{R}_{GB}, \quad \bm{t}_{WB} = \bm{R}_{WG} \bm{t}_{GB} + \bm{t}_{WG}.
+	\mathbf{R}_{WB} = \mathbf{R}_{WG} \mathbf{R}_{GB}, \quad \mathbf{t}_{WB} = \mathbf{R}_{WG} \mathbf{t}_{GB} + \mathbf{t}_{WG}.
 \end{equation}
 
-An important consideration: even with known RTK extrinsic parameters $\bm{t}_{GB}$, determining the vehicle coordinates $\bm{t}_{WB}$ requires knowledge of the RTK orientation $\bm{R}_{WG}$. In a single-antenna configuration with non-zero installation offset $\bm{t}_{GB}$, \textbf{the vehicle's world coordinates cannot be precisely determined when the vehicle orientation is unknown}. However, in state estimation algorithms where the vehicle attitude $\bm{R}_{WB}$ is estimated, we can use $\bm{R}_{WB} \bm{R}_{BG}$ as the current $\bm{R}_{WG}$.
+An important consideration: even with known RTK extrinsic parameters $\mathbf{t}_{GB}$, determining the vehicle coordinates $\mathbf{t}_{WB}$ requires knowledge of the RTK orientation $\mathbf{R}_{WG}$. In a single-antenna configuration with non-zero installation offset $\mathbf{t}_{GB}$, \textbf{the vehicle's world coordinates cannot be precisely determined when the vehicle orientation is unknown}. However, in state estimation algorithms where the vehicle attitude $\mathbf{R}_{WB}$ is estimated, we can use $\mathbf{R}_{WB} \mathbf{R}_{BG}$ as the current $\mathbf{R}_{WG}$.
 
 Additionally, the conversion program handles the transformation between \textbf{ENU} (East-North-Up) and \textbf{NED} (North-East-Down) coordinate systems. Different RTK manufacturers may output angles according to their predefined schemes, potentially causing inconsistencies in angle definitions. This book uses UTM coordinates with east and north as $XY$ axes (ENU frame), while the RTK manufacturer outputs NED coordinates. The former uses east as zero degrees, while the latter uses north as zero degrees with opposite rotation direction. Therefore, an azimuth angle $h$ in the NED frame converts to angle $h'$ in the ENU frame as:
 
@@ -736,30 +736,30 @@ We have previously introduced the observation model of IMU devices. Now we need 
 
 We define the state variables as:
 \begin{equation}\label{key}
-	\bm{x} = [\bm{p}, \bm{v}, \bm{R}, \bm{b}_g, \bm{b}_a, \bm{g}]^\top,
+	\mathbf{x} = [\mathbf{p}, \mathbf{v}, \mathbf{R}, \mathbf{b}_g, \mathbf{b}_a, \mathbf{g}]^\top,
 \end{equation}
-where all variables default to subscript $()_{WB}$, with $\bm{p}$ representing translation, $\bm{v}$ velocity, $\bm{R}$ rotation, $\bm{b}_g, \bm{b}_a$ biases, and $\bm{g}$ gravity. According to the kinematic equations \eqref{eq:motion-equation} we introduced earlier and substituting IMU measurements, the continuous-time motion equations for the state variables are:
+where all variables default to subscript $()_{WB}$, with $\mathbf{p}$ representing translation, $\mathbf{v}$ velocity, $\mathbf{R}$ rotation, $\mathbf{b}_g, \mathbf{b}_a$ biases, and $\mathbf{g}$ gravity. According to the kinematic equations \eqref{eq:motion-equation} we introduced earlier and substituting IMU measurements, the continuous-time motion equations for the state variables are:
 \begin{subequations}\label{eq:ekf-continous}
 	\begin{align}
-		\dot{\bm{p}} &= \bm{v}, \\
-		\dot{\bm{v}} &= \bm{R} (\tilde{\bm{a}} - \bm{b}_{a} - \boldsymbol{\eta}_a) + \bm{g}, \\
-		\dot{\bm{R}} &= \bm{R} \left( \tilde{\boldsymbol{\omega}} - \bm{b}_{g} - \boldsymbol{\eta}_g 
+		\dot{\mathbf{p}} &= \mathbf{v}, \\
+		\dot{\mathbf{v}} &= \mathbf{R} (\tilde{\mathbf{a}} - \mathbf{b}_{a} - \boldsymbol{\eta}_a) + \mathbf{g}, \\
+		\dot{\mathbf{R}} &= \mathbf{R} \left( \tilde{\boldsymbol{\omega}} - \mathbf{b}_{g} - \boldsymbol{\eta}_g 
 		\right)^\wedge, \\
-		\dot{\bm{b}}_{g} & = \boldsymbol{\eta}_{bg}, \\
-		\dot{\bm{b}}_{a} & = \boldsymbol{\eta}_{ba}, \\ 
-		\dot{\bm{g}} &= \bm{0}.
+		\dot{\mathbf{b}}_{g} & = \boldsymbol{\eta}_{bg}, \\
+		\dot{\mathbf{b}}_{a} & = \boldsymbol{\eta}_{ba}, \\ 
+		\dot{\mathbf{g}} &= \mathbf{0}.
 	\end{align}
 \end{subequations}
 
 To predict the covariance in the EKF prediction step, we need to linearize these equations. Theoretically, the discrete-time linearized form is:
 \begin{equation}\label{key}
-	\bm{x}_{k+1} = \bm{f} (\bm{x}_k) + \bm{F} \mathrm{d} \bm{x} + \bm{w},
+	\mathbf{x}_{k+1} = \mathbf{f} (\mathbf{x}_k) + \mathbf{F} \mathrm{d} \mathbf{x} + \mathbf{w},
 \end{equation}
-where $\bm{F} = \left. \frac{\partial \bm{f}}{\partial \bm{x}} \right|_{\bm{x}_{k}}$ is the coefficient matrix. However, we encounter a practical problem: on one hand, $\bm{F}$ needs to compute the derivative of the rotation matrix $\bm{R}$ relative to some perturbation, and without introducing tensors, we cannot express the derivative of a matrix with respect to a vector. Traditional algorithms often compromise by using Euler angles or four scalars of quaternions as state variables\cite{crassidis2006sigma}, but this approach cannot elegantly utilize methods on manifolds. On the other hand, if we consider integrating inertial navigation systems with satellite navigation systems, the translation variables in $\bm{x}$ should use a global coordinate system. This makes the numerical values in $\bm{x}$ very large, potentially exceeding the effective digit range of floating-point numbers in some scenarios, leading to common computational failures like "large number swallowing small number" in numerical calculations\cite{bonnans2006numerical}.
+where $\mathbf{F} = \left. \frac{\partial \mathbf{f}}{\partial \mathbf{x}} \right|_{\mathbf{x}_{k}}$ is the coefficient matrix. However, we encounter a practical problem: on one hand, $\mathbf{F}$ needs to compute the derivative of the rotation matrix $\mathbf{R}$ relative to some perturbation, and without introducing tensors, we cannot express the derivative of a matrix with respect to a vector. Traditional algorithms often compromise by using Euler angles or four scalars of quaternions as state variables\cite{crassidis2006sigma}, but this approach cannot elegantly utilize methods on manifolds. On the other hand, if we consider integrating inertial navigation systems with satellite navigation systems, the translation variables in $\mathbf{x}$ should use a global coordinate system. This makes the numerical values in $\mathbf{x}$ very large, potentially exceeding the effective digit range of floating-point numbers in some scenarios, leading to common computational failures like "large number swallowing small number" in numerical calculations\cite{bonnans2006numerical}.
 
-This leads us to consider: can we avoid directly using $\bm{x}$ and $\bm{P}$ to express the mean and covariance of the state when deriving the motion and observation equations? Can we use the \textbf{update quantity} from the original Kalman filter to derive these two equations? Recall the observation part of the Kalman filter:
+This leads us to consider: can we avoid directly using $\mathbf{x}$ and $\mathbf{P}$ to express the mean and covariance of the state when deriving the motion and observation equations? Can we use the \textbf{update quantity} from the original Kalman filter to derive these two equations? Recall the observation part of the Kalman filter:
 \begin{equation}\label{key}
-	\bm{x}_k = \bm{x}_{k, \text{pred}} + \bm{K}_k \underbrace{(\bm{z}_k - \bm{H}_k \bm{x}_{k, \text{pred}})}_{\text{update quantity}}.
+	\mathbf{x}_k = \mathbf{x}_{k, \text{pred}} + \mathbf{K}_k \underbrace{(\mathbf{z}_k - \mathbf{H}_k \mathbf{x}_{k, \text{pred}})}_{\text{update quantity}}.
 \end{equation}
 
 In the context of manifolds, the update quantity on the right side should be a vector in the tangent space, and the addition in the middle should be the generalized addition of the manifold and the exponential map of the tangent space. However, we can also treat the update quantity (or error state) as the state variable of the filter to derive the motion and observation models. This leads to the \textbf{Error-State Kalman Filter}. Furthermore, not just for translation and rotation, we express all states in terms of error states, which is the typical approach of ESKF.
@@ -775,58 +775,58 @@ In ESKF, we typically refer to the original state variables as \textbf{nominal s
 
 The ESKF workflow is as follows: When IMU measurement data arrives, we integrate it into the nominal state variables. Since this approach doesn't account for noise, the results naturally drift quickly, so we treat the error component as error variables. During motion, the nominal state propagates with IMU data, while the error state grows due to Gaussian noise. At this point, the mean and covariance of ESKF's error state describe the specific magnitude of error state expansion (treated as a Gaussian distribution)\footnote{However, as we'll see later, since all noise terms are zero-mean white noise, the mean of the error state remains zero in the motion equations, only the covariance increases.}. Additionally, ESKF's update process relies on sensor observations beyond IMU. During updates, we use sensor data to update the \textbf{posterior} mean and covariance of the error state. We can then \textbf{merge} this error into the nominal state variables and reset ESKF to zero, completing one predict-update cycle.
 
-Let's derive the two processes of ESKF. We define the true state of ESKF as: $\bm{x}_t = [\bm{p}_t, \bm{v}_t, \bm{R}_t, \bm{b}_{at}, \bm{b}_{gt}, \bm{g}_t]^\top$. The subscript $t$ denotes $\text{true}$, i.e., the true state. This state changes over time and can be denoted as $\bm{x}_t(t)$. In continuous time, we record IMU readings as $\tilde{\boldsymbol{\omega}}, \tilde{\bm{a}}$, allowing us to write the relationship between state variable derivatives and observations:
+Let's derive the two processes of ESKF. We define the true state of ESKF as: $\mathbf{x}_t = [\mathbf{p}_t, \mathbf{v}_t, \mathbf{R}_t, \mathbf{b}_{at}, \mathbf{b}_{gt}, \mathbf{g}_t]^\top$. The subscript $t$ denotes $\text{true}$, i.e., the true state. This state changes over time and can be denoted as $\mathbf{x}_t(t)$. In continuous time, we record IMU readings as $\tilde{\boldsymbol{\omega}}, \tilde{\mathbf{a}}$, allowing us to write the relationship between state variable derivatives and observations:
 
 \begin{subequations}\label{eq:eskf-true-state}
 	\begin{align}
-		\dot{\bm{p}}_t &= \bm{v}_t, \\
-		\dot{\bm{v}}_t &= \bm{R}_t (\tilde{\bm{a}} - \bm{b}_{at} - \boldsymbol{\eta}_a) + \bm{g}_t, \\
-		\dot{\bm{R}}_t &= \bm{R}_t \left( \tilde{\boldsymbol{\omega}} - \bm{b}_{gt} - \boldsymbol{\eta}_g \right)^\wedge, \\
-		\dot{\bm{b}}_{gt} &= \boldsymbol{\eta}_{bg}, \\
-		\dot{\bm{b}}_{at} &= \boldsymbol{\eta}_{ba}, \\ 
-		\dot{\bm{g}}_t &= \bm{0}.
+		\dot{\mathbf{p}}_t &= \mathbf{v}_t, \\
+		\dot{\mathbf{v}}_t &= \mathbf{R}_t (\tilde{\mathbf{a}} - \mathbf{b}_{at} - \boldsymbol{\eta}_a) + \mathbf{g}_t, \\
+		\dot{\mathbf{R}}_t &= \mathbf{R}_t \left( \tilde{\boldsymbol{\omega}} - \mathbf{b}_{gt} - \boldsymbol{\eta}_g \right)^\wedge, \\
+		\dot{\mathbf{b}}_{gt} &= \boldsymbol{\eta}_{bg}, \\
+		\dot{\mathbf{b}}_{at} &= \boldsymbol{\eta}_{ba}, \\ 
+		\dot{\mathbf{g}}_t &= \mathbf{0}.
 	\end{align}
 \end{subequations}
 
-This is consistent with Equation \eqref{eq:ekf-continous} mentioned earlier. Note that including gravity $\bm{g}$ mainly facilitates determining the IMU's initial attitude. If we don't express gravity in the state equation, we must determine the IMU's initial orientation $\bm{R}(0)$ beforehand to perform subsequent calculations. In this case, the IMU's attitude is described relative to the initial horizontal plane. By explicitly expressing gravity, we can set the IMU's initial attitude as the identity matrix $\bm{R}=\bm{I}$, treating the gravity direction as a measure of the IMU's current attitude relative to the horizontal plane. Both methods are feasible, but separately expressing gravity makes initial attitude representation simpler and increases some linearity\cite{Lupton2009}.
+This is consistent with Equation \eqref{eq:ekf-continous} mentioned earlier. Note that including gravity $\mathbf{g}$ mainly facilitates determining the IMU's initial attitude. If we don't express gravity in the state equation, we must determine the IMU's initial orientation $\mathbf{R}(0)$ beforehand to perform subsequent calculations. In this case, the IMU's attitude is described relative to the initial horizontal plane. By explicitly expressing gravity, we can set the IMU's initial attitude as the identity matrix $\mathbf{R}=\mathbf{I}$, treating the gravity direction as a measure of the IMU's current attitude relative to the horizontal plane. Both methods are feasible, but separately expressing gravity makes initial attitude representation simpler and increases some linearity\cite{Lupton2009}.
 
 If we organize observations and noise into a vector, we can express the above in matrix form. However, such a matrix would contain many zero entries without significant simplification over the current form, so we'll continue using these expanded equations. Next, we derive the error state equations. First, define the error state variables as:
 
 \begin{subequations}\label{eq:eskf-true-to-error}
 	\begin{align}
-		\bm{p}_t &= \bm{p} + \delta \bm{p}, \\
-		\bm{v}_t &= \bm{v} + \delta \bm{v}, \\
-		\bm{R}_t &= \bm{R} \delta \bm{R} \quad \text{or} \ \bm{q}_t = \bm{q} \delta \bm{q}, \\
-		\bm{b}_{gt} &= \bm{b}_g + \delta \bm{b}_g, \\
-		\bm{b}_{at} &= \bm{b}_a + \delta \bm{b}_a, \\
-		\bm{g}_t &= \bm{g} + \delta \bm{g}.
+		\mathbf{p}_t &= \mathbf{p} + \delta \mathbf{p}, \\
+		\mathbf{v}_t &= \mathbf{v} + \delta \mathbf{v}, \\
+		\mathbf{R}_t &= \mathbf{R} \delta \mathbf{R} \quad \text{or} \ \mathbf{q}_t = \mathbf{q} \delta \mathbf{q}, \\
+		\mathbf{b}_{gt} &= \mathbf{b}_g + \delta \mathbf{b}_g, \\
+		\mathbf{b}_{at} &= \mathbf{b}_a + \delta \mathbf{b}_a, \\
+		\mathbf{g}_t &= \mathbf{g} + \delta \mathbf{g}.
 	\end{align}
 \end{subequations}
 
-The terms without subscripts are the \textbf{nominal state variables} in Equation (\ref{eq:eskf-true-state}). The kinematic equations for nominal state variables are identical to the true values, except they \textbf{ignore noise} (since noise is considered in the error state equations). For the rotation part, $\delta \bm{R}$ can be represented by its Lie algebra $\mathrm{Exp}(\delta \boldsymbol{\theta})$, requiring Equation (c) to be expressed in exponential form.
+The terms without subscripts are the \textbf{nominal state variables} in Equation (\ref{eq:eskf-true-state}). The kinematic equations for nominal state variables are identical to the true values, except they \textbf{ignore noise} (since noise is considered in the error state equations). For the rotation part, $\delta \mathbf{R}$ can be represented by its Lie algebra $\mathrm{Exp}(\delta \boldsymbol{\theta})$, requiring Equation (c) to be expressed in exponential form.
 
 For error state Equations (a,d,e,f), taking time derivatives on both sides easily yields corresponding derivative expressions:
 
 \begin{subequations}
 	\begin{align}
-		\delta \dot{\bm{p}} &= \delta \bm{v}, \\
-		\delta \dot{\bm{b}_g} &= \boldsymbol{\eta}_{bg}, \\
-		\delta \dot{\bm{b}_a} &= \boldsymbol{\eta}_{ba}, \\
-		\delta \dot{\bm{g}} &= \bm{0}.
+		\delta \dot{\mathbf{p}} &= \delta \mathbf{v}, \\
+		\delta \dot{\mathbf{b}_g} &= \boldsymbol{\eta}_{bg}, \\
+		\delta \dot{\mathbf{b}_a} &= \boldsymbol{\eta}_{ba}, \\
+		\delta \dot{\mathbf{g}} &= \mathbf{0}.
 	\end{align}
 \end{subequations}
 
-Equations (b) and (c) are slightly more complex due to their relationship with $\delta \bm{R}$, and we provide their separate derivation below.
+Equations (b) and (c) are slightly more complex due to their relationship with $\delta \mathbf{R}$, and we provide their separate derivation below.
 
 \subsubsection{Error State Rotation Term}
 Taking the time derivative of both sides of Equation (\ref{eq:eskf-true-to-error})(c) yields:
 
 \begin{equation}\label{eq:eskf-3.19}
 	\begin{aligned}
-		\dot{\bm{R}}_t &= \dot{\bm{R}} \mathrm{Exp} (\delta \boldsymbol{\theta}) + \bm{R} 
+		\dot{\mathbf{R}}_t &= \dot{\mathbf{R}} \mathrm{Exp} (\delta \boldsymbol{\theta}) + \mathbf{R} 
 		\dot{\mathrm{Exp}(\delta \boldsymbol{\theta})},  \\
-		&\buildrel{\ref{eq:eskf-true-state}(c)}\over=  \bm{R}_t \left( \tilde{\boldsymbol{\omega}} - 
-		\bm{b}_{gt} - \boldsymbol{\eta}_g \right) ^\wedge.
+		&\buildrel{\ref{eq:eskf-true-state}(c)}\over=  \mathbf{R}_t \left( \tilde{\boldsymbol{\omega}} - 
+		\mathbf{b}_{gt} - \boldsymbol{\eta}_g \right) ^\wedge.
 	\end{aligned}
 \end{equation}
 
@@ -838,142 +838,142 @@ Note that the term $\dot{\mathrm{Exp}(\delta \boldsymbol{\theta})}$ on the right
 
 Thus, the first expression in \eqref{eq:eskf-3.19} can be written as:
 \begin{equation}\label{key}
-	\dot{\bm{R}} \mathrm{Exp} (\delta \boldsymbol{\theta}) + \bm{R} \dot{\mathrm{Exp}(\delta 
-		\boldsymbol{\theta})} = \bm{R} (\tilde{\boldsymbol{\omega}}-\bm{b}_g)^\wedge 
-	\mathrm{Exp}(\delta \boldsymbol{\theta}) + \bm{R} \mathrm{Exp}(\delta \boldsymbol{\theta} ) 
+	\dot{\mathbf{R}} \mathrm{Exp} (\delta \boldsymbol{\theta}) + \mathbf{R} \dot{\mathrm{Exp}(\delta 
+		\boldsymbol{\theta})} = \mathbf{R} (\tilde{\boldsymbol{\omega}}-\mathbf{b}_g)^\wedge 
+	\mathrm{Exp}(\delta \boldsymbol{\theta}) + \mathbf{R} \mathrm{Exp}(\delta \boldsymbol{\theta} ) 
 	\delta \dot{\boldsymbol{\theta}}^\wedge.
 \end{equation}
 
 While the second expression becomes:
 \begin{equation}\label{key}
 	\begin{aligned}
-		\bm{R}_t \left( \tilde{\boldsymbol{\omega}} - \bm{b}_{gt} - \boldsymbol{\eta}_g \right)^\wedge 
-		&= \bm{R}  \mathrm{Exp} (\delta \boldsymbol{\theta}) \left( \tilde{\boldsymbol{\omega}} - 
-		\bm{b}_{gt} - \boldsymbol{\eta}_g \right)^\wedge.
+		\mathbf{R}_t \left( \tilde{\boldsymbol{\omega}} - \mathbf{b}_{gt} - \boldsymbol{\eta}_g \right)^\wedge 
+		&= \mathbf{R}  \mathrm{Exp} (\delta \boldsymbol{\theta}) \left( \tilde{\boldsymbol{\omega}} - 
+		\mathbf{b}_{gt} - \boldsymbol{\eta}_g \right)^\wedge.
 	\end{aligned}
 \end{equation}
 
-By comparing these two expressions, moving $\delta \dot{\boldsymbol{\theta}}^\wedge$ to one side, canceling $\bm{R}$ on both sides, and organizing similar terms, we obtain:
+By comparing these two expressions, moving $\delta \dot{\boldsymbol{\theta}}^\wedge$ to one side, canceling $\mathbf{R}$ on both sides, and organizing similar terms, we obtain:
 \begin{equation}
 	\begin{aligned}
 		\mathrm{Exp} (\delta \boldsymbol{\theta}) \delta \dot{\boldsymbol{\theta}}^\wedge &= 
-		\mathrm{Exp} (\delta \boldsymbol{\theta}) \left( \tilde{\boldsymbol{\omega}} - \bm{b}_{gt} - 
-		\boldsymbol{\eta}_g \right)^\wedge - (\tilde{\boldsymbol{\omega}}-\bm{b}_g)^\wedge 
+		\mathrm{Exp} (\delta \boldsymbol{\theta}) \left( \tilde{\boldsymbol{\omega}} - \mathbf{b}_{gt} - 
+		\boldsymbol{\eta}_g \right)^\wedge - (\tilde{\boldsymbol{\omega}}-\mathbf{b}_g)^\wedge 
 		\mathrm{Exp}(\delta \boldsymbol{\theta}).
 	\end{aligned}
 \end{equation}
 
 Noting that $\mathrm{Exp}(\delta \boldsymbol{\theta})$ itself is an $\mathrm{SO}(3)$ matrix, we utilize the adjoint property of $\mathrm{SO}(3)$:
 \begin{equation}\label{key}
-	\boldsymbol{\phi}^\wedge \bm{R} = \bm{R} (\bm{R}^\top \boldsymbol{\phi})^\wedge
+	\boldsymbol{\phi}^\wedge \mathbf{R} = \mathbf{R} (\mathbf{R}^\top \boldsymbol{\phi})^\wedge
 \end{equation}
 to interchange $\mathrm{Exp}(\delta \boldsymbol{\theta})$ above:
 \begin{equation}\label{key}
 	\begin{aligned}
 		\mathrm{Exp} (\delta \boldsymbol{\theta}) \delta \dot{\boldsymbol{\theta}}^\wedge &= 
-		\mathrm{Exp} (\delta \boldsymbol{\theta}) \left( \tilde{\boldsymbol{\omega}} - \bm{b}_{gt} - 
+		\mathrm{Exp} (\delta \boldsymbol{\theta}) \left( \tilde{\boldsymbol{\omega}} - \mathbf{b}_{gt} - 
 		\boldsymbol{\eta}_g \right)^\wedge - \mathrm{Exp} (\delta \boldsymbol{\theta})  \left( 
-		\mathrm{Exp} (-\delta \boldsymbol{\theta})  (\tilde{\boldsymbol{\omega}}-\bm{b}_g) 
+		\mathrm{Exp} (-\delta \boldsymbol{\theta})  (\tilde{\boldsymbol{\omega}}-\mathbf{b}_g) 
 		\right)^\wedge \\
-		&=  \mathrm{Exp} (\delta \boldsymbol{\theta}) \left[ (\tilde{\boldsymbol{\omega}} - \bm{b}_{gt} - 
+		&=  \mathrm{Exp} (\delta \boldsymbol{\theta}) \left[ (\tilde{\boldsymbol{\omega}} - \mathbf{b}_{gt} - 
 		\boldsymbol{\eta}_g)^\wedge - (\mathrm{Exp} (-\delta \boldsymbol{\theta})  
-		(\tilde{\boldsymbol{\omega}}-\bm{b}_g) )^\wedge \right] \\
+		(\tilde{\boldsymbol{\omega}}-\mathbf{b}_g) )^\wedge \right] \\
 		&\approx \mathrm{Exp} (\delta \boldsymbol{\theta}) \left[ (\tilde{\boldsymbol{\omega}} - 
-		\bm{b}_{gt} - \boldsymbol{\eta}_g)^\wedge - \left((\bm{I} - \delta 
-		\boldsymbol{\theta}^\wedge)(\tilde{\boldsymbol{\omega}}-\bm{b}_g )\right)^\wedge \right] \\
-		&=  \mathrm{Exp} (\delta \boldsymbol{\theta}) \left[ \bm{b}_g - \bm{b}_{gt} -\boldsymbol{\eta}_g 
+		\mathbf{b}_{gt} - \boldsymbol{\eta}_g)^\wedge - \left((\mathbf{I} - \delta 
+		\boldsymbol{\theta}^\wedge)(\tilde{\boldsymbol{\omega}}-\mathbf{b}_g )\right)^\wedge \right] \\
+		&=  \mathrm{Exp} (\delta \boldsymbol{\theta}) \left[ \mathbf{b}_g - \mathbf{b}_{gt} -\boldsymbol{\eta}_g 
 		+ \delta \boldsymbol{\theta}^\wedge \tilde{\boldsymbol{\omega}} - \delta 
-		\boldsymbol{\theta}^\wedge \bm{b}_{g} \right]^\wedge \\
+		\boldsymbol{\theta}^\wedge \mathbf{b}_{g} \right]^\wedge \\
 		&= \mathrm{Exp} (\delta \boldsymbol{\theta}) \left[ 
-		(-\tilde{\boldsymbol{\omega}}+\bm{b}_g)^\wedge \delta \boldsymbol{\theta} - \delta \bm{b}_g - 
+		(-\tilde{\boldsymbol{\omega}}+\mathbf{b}_g)^\wedge \delta \boldsymbol{\theta} - \delta \mathbf{b}_g - 
 		\boldsymbol{\eta}_g \right]^\wedge.
 	\end{aligned}
 \end{equation}
 
 After canceling the coefficients on the left side, we get:
 \begin{equation}\label{key}
-	\delta \dot{\boldsymbol{\theta}} \approx -(\tilde{\boldsymbol{\omega}} - \bm{b}_g)^\wedge \delta 
-	\boldsymbol{\theta} - \delta \bm{b}_g - \boldsymbol{\eta}_g. 
+	\delta \dot{\boldsymbol{\theta}} \approx -(\tilde{\boldsymbol{\omega}} - \mathbf{b}_g)^\wedge \delta 
+	\boldsymbol{\theta} - \delta \mathbf{b}_g - \boldsymbol{\eta}_g. 
 \end{equation}
 
 The $\approx$ in this equation comes from the expansion of $\mathrm{Exp}(-\delta \boldsymbol{\theta})$. If we ignore second-order small quantities of $\delta \boldsymbol{\theta}$, the equation can also be written with an equality sign.
 
 \subsubsection{Velocity Term of the Error State}
-Next, we consider the error form of Equation (\ref{eq:eskf-true-to-error})(b). Similarly, by taking the time derivative of both sides, we can obtain the expression for $\delta \dot{\bm{v}}$. The left-hand side of the equation is:
+Next, we consider the error form of Equation (\ref{eq:eskf-true-to-error})(b). Similarly, by taking the time derivative of both sides, we can obtain the expression for $\delta \dot{\mathbf{v}}$. The left-hand side of the equation is:
 \begin{equation}
 	\begin{aligned}
-		\dot{\bm{v}}_t &= \bm{R}_t(\tilde{\bm{a}} - \bm{b}_{at} - \boldsymbol{\eta}_a) + \bm{g}_t \\
-		&= \bm{R} \mathrm{Exp}(\delta \boldsymbol{\theta}) (\tilde{\bm{a}} - \bm{b}_a - \delta \bm{b}_a 
-		- \boldsymbol{\eta}_a ) + \bm{g} + \delta \bm{g} \\
-		&\approx \bm{R} (\bm{I} + \delta \boldsymbol{\theta}^\wedge ) (\tilde{\bm{a}} - \bm{b}_a - \delta 
-		\bm{b}_a - \boldsymbol{\eta}_a) + \bm{g} + \delta \bm{g} \\
-		&\approx \bm{R} \tilde{\bm{a}} - \bm{R} \bm{b}_a - \bm{R} \delta \bm{b}_a - \bm{R} 
-		\boldsymbol{\eta}_a + \bm{R} \delta \boldsymbol{\theta}^\wedge \tilde{\bm{a}} - \bm{R} \delta 
-		\boldsymbol{\theta}^\wedge \bm{b}_a + \bm{g} + \delta \bm{g} \\
-		&= \bm{R} \tilde{\bm{a}} - \bm{R} \bm{b}_a - \bm{R} \delta \bm{b}_a - \bm{R} 
-		\boldsymbol{\eta}_a - \bm{R} \tilde{\bm{a}}^\wedge \delta \boldsymbol{\theta}  + \bm{R} 
-		\bm{b}_a^\wedge  \delta\boldsymbol{\theta}  + \bm{g} + \delta \bm{g}.
+		\dot{\mathbf{v}}_t &= \mathbf{R}_t(\tilde{\mathbf{a}} - \mathbf{b}_{at} - \boldsymbol{\eta}_a) + \mathbf{g}_t \\
+		&= \mathbf{R} \mathrm{Exp}(\delta \boldsymbol{\theta}) (\tilde{\mathbf{a}} - \mathbf{b}_a - \delta \mathbf{b}_a 
+		- \boldsymbol{\eta}_a ) + \mathbf{g} + \delta \mathbf{g} \\
+		&\approx \mathbf{R} (\mathbf{I} + \delta \boldsymbol{\theta}^\wedge ) (\tilde{\mathbf{a}} - \mathbf{b}_a - \delta 
+		\mathbf{b}_a - \boldsymbol{\eta}_a) + \mathbf{g} + \delta \mathbf{g} \\
+		&\approx \mathbf{R} \tilde{\mathbf{a}} - \mathbf{R} \mathbf{b}_a - \mathbf{R} \delta \mathbf{b}_a - \mathbf{R} 
+		\boldsymbol{\eta}_a + \mathbf{R} \delta \boldsymbol{\theta}^\wedge \tilde{\mathbf{a}} - \mathbf{R} \delta 
+		\boldsymbol{\theta}^\wedge \mathbf{b}_a + \mathbf{g} + \delta \mathbf{g} \\
+		&= \mathbf{R} \tilde{\mathbf{a}} - \mathbf{R} \mathbf{b}_a - \mathbf{R} \delta \mathbf{b}_a - \mathbf{R} 
+		\boldsymbol{\eta}_a - \mathbf{R} \tilde{\mathbf{a}}^\wedge \delta \boldsymbol{\theta}  + \mathbf{R} 
+		\mathbf{b}_a^\wedge  \delta\boldsymbol{\theta}  + \mathbf{g} + \delta \mathbf{g}.
 	\end{aligned}
 \end{equation}
-When moving from the third line to the fourth line, it is necessary to neglect the second-order small quantities resulting from the multiplication of $\delta \boldsymbol{\theta}^\wedge$ with $\delta \bm{b}_a$ and $\boldsymbol{\eta}_a$. The transition from the fourth line to the fifth line utilizes the property that the cross-product symbol changes sign when the order is swapped. On the other hand, the right-hand side of the equation is:
+When moving from the third line to the fourth line, it is necessary to neglect the second-order small quantities resulting from the multiplication of $\delta \boldsymbol{\theta}^\wedge$ with $\delta \mathbf{b}_a$ and $\boldsymbol{\eta}_a$. The transition from the fourth line to the fifth line utilizes the property that the cross-product symbol changes sign when the order is swapped. On the other hand, the right-hand side of the equation is:
 
 \begin{equation}\label{key}
-	\dot{\bm{v}} + \delta \dot{\bm{v}} = \bm{R}(\tilde{\bm{a}} - \bm{b}_a) + \bm{g} + \delta \dot{\bm{v}}.
+	\dot{\mathbf{v}} + \delta \dot{\mathbf{v}} = \mathbf{R}(\tilde{\mathbf{a}} - \mathbf{b}_a) + \mathbf{g} + \delta \dot{\mathbf{v}}.
 \end{equation}
 
 Since the two expressions above are equal, we obtain:
 \begin{equation}\label{key}
-	\delta \dot{\bm{v}} = - \bm{R}(\tilde{\bm{a}} - \bm{b}_a)^\wedge \delta \boldsymbol{\theta} - 
-	\bm{R} \delta \bm{b}_a  - \bm{R} \boldsymbol{\eta}_a + \delta \bm{g}.
+	\delta \dot{\mathbf{v}} = - \mathbf{R}(\tilde{\mathbf{a}} - \mathbf{b}_a)^\wedge \delta \boldsymbol{\theta} - 
+	\mathbf{R} \delta \mathbf{b}_a  - \mathbf{R} \boldsymbol{\eta}_a + \delta \mathbf{g}.
 \end{equation}
 
-Thus, we have derived the kinematic model for $\delta \bm{v}$. It is worth noting that since $\boldsymbol{\eta}_a$ is a zero-mean white noise, multiplying it by any rotation matrix still results in a zero-mean white noise. Moreover, because $\bm{R}^\top \bm{R} = \bm{I}$, it is straightforward to show that its covariance matrix remains unchanged (left as an exercise). Therefore, the above equation can also be simplified as:
+Thus, we have derived the kinematic model for $\delta \mathbf{v}$. It is worth noting that since $\boldsymbol{\eta}_a$ is a zero-mean white noise, multiplying it by any rotation matrix still results in a zero-mean white noise. Moreover, because $\mathbf{R}^\top \mathbf{R} = \mathbf{I}$, it is straightforward to show that its covariance matrix remains unchanged (left as an exercise). Therefore, the above equation can also be simplified as:
 \begin{equation}\label{key}
-	\delta \dot{\bm{v}} = - \bm{R}(\tilde{\bm{a}} - \bm{b}_a)^\wedge \delta \boldsymbol{\theta} - 
-	\bm{R} \delta \bm{b}_a  - \boldsymbol{\eta}_a + \delta \bm{g}.
+	\delta \dot{\mathbf{v}} = - \mathbf{R}(\tilde{\mathbf{a}} - \mathbf{b}_a)^\wedge \delta \boldsymbol{\theta} - 
+	\mathbf{R} \delta \mathbf{b}_a  - \boldsymbol{\eta}_a + \delta \mathbf{g}.
 \end{equation}
 
 At this point, we can summarize the kinematic equations for the error variables as follows:
 \begin{subequations}\label{eq:eskf-error-state-continuous-time}
 	\begin{align}
-		\delta \dot{\bm{p}} &= \delta \bm{v}, \\
-		\delta \dot{\bm{v}} &= - \bm{R}(\tilde{\bm{a}} - \bm{b}_a)^\wedge \delta \boldsymbol{\theta} - 
-		\bm{R} \delta \bm{b}_a  - \boldsymbol{\eta}_a + \delta \bm{g}, \\
-		\delta \dot{\boldsymbol{\theta}} &= -(\tilde{\boldsymbol{\omega}} - \bm{b}_g)^\wedge \delta 
-		\boldsymbol{\theta} - \delta \bm{b}_g - \boldsymbol{\eta}_g, \\
-		\delta \dot{\bm{b}_g} &= \boldsymbol{\eta}_{bg}, \\
-		\delta \dot{\bm{b}_a} &= \boldsymbol{\eta}_{ba}, \\
-		\delta \dot{\bm{g}} &= \bm{0} .
+		\delta \dot{\mathbf{p}} &= \delta \mathbf{v}, \\
+		\delta \dot{\mathbf{v}} &= - \mathbf{R}(\tilde{\mathbf{a}} - \mathbf{b}_a)^\wedge \delta \boldsymbol{\theta} - 
+		\mathbf{R} \delta \mathbf{b}_a  - \boldsymbol{\eta}_a + \delta \mathbf{g}, \\
+		\delta \dot{\boldsymbol{\theta}} &= -(\tilde{\boldsymbol{\omega}} - \mathbf{b}_g)^\wedge \delta 
+		\boldsymbol{\theta} - \delta \mathbf{b}_g - \boldsymbol{\eta}_g, \\
+		\delta \dot{\mathbf{b}_g} &= \boldsymbol{\eta}_{bg}, \\
+		\delta \dot{\mathbf{b}_a} &= \boldsymbol{\eta}_{ba}, \\
+		\delta \dot{\mathbf{g}} &= \mathbf{0} .
 	\end{align}
 \end{subequations}
 \subsection{Discrete-Time ESKF Kinematic Equations}  
 Deriving the discrete-time state equations from the continuous-time state equations is straightforward. Let us directly present them. The discrete-time kinematic equations for the \textbf{nominal state variables} can be written as:  
 \begin{subequations}\label{key}  
 	\begin{align}  
-		\bm{p}(t+\Delta t) &= \bm{p}(t) + \bm{v} \Delta t + \frac{1}{2}   
-		\left(\bm{R}(\tilde{\bm{a}}-\bm{b}_a) \right) \Delta t^2 + \frac{1}{2} \bm{g} \Delta t^2, \\  
-		\bm{v}(t+\Delta t) &= \bm{v}(t) + \bm{R} (\tilde{\bm{a}} - \bm{b}_a) \Delta t + \bm{g} \Delta t,	\\  
-		\bm{R}(t+\Delta t) &= \bm{R}(t) \mathrm{Exp} \left( (\tilde{\boldsymbol{\omega}}-\bm{b}_g)   
+		\mathbf{p}(t+\Delta t) &= \mathbf{p}(t) + \mathbf{v} \Delta t + \frac{1}{2}   
+		\left(\mathbf{R}(\tilde{\mathbf{a}}-\mathbf{b}_a) \right) \Delta t^2 + \frac{1}{2} \mathbf{g} \Delta t^2, \\  
+		\mathbf{v}(t+\Delta t) &= \mathbf{v}(t) + \mathbf{R} (\tilde{\mathbf{a}} - \mathbf{b}_a) \Delta t + \mathbf{g} \Delta t,	\\  
+		\mathbf{R}(t+\Delta t) &= \mathbf{R}(t) \mathrm{Exp} \left( (\tilde{\boldsymbol{\omega}}-\mathbf{b}_g)   
 		\Delta t \right),\\  
-		\bm{b}_g(t+\Delta t) &= \bm{b}_g(t), \\  
-		\bm{b}_a(t+\Delta t) &= \bm{b}_a(t), \\  
-		\bm{g}(t+\Delta t) &= \bm{g}(t) .  
+		\mathbf{b}_g(t+\Delta t) &= \mathbf{b}_g(t), \\  
+		\mathbf{b}_a(t+\Delta t) &= \mathbf{b}_a(t), \\  
+		\mathbf{g}(t+\Delta t) &= \mathbf{g}(t) .  
 	\end{align}  
 \end{subequations}  
 This equation is obtained by simply adding the bias terms and gravity term to Equation \eqref{eq:3.14}. Note that the third line is essentially the integration formula for angular velocity. The discrete form of the \textbf{error state} is very similar to that of the \textbf{nominal state}, but special attention must be paid to the angular velocity part:  
 
 \begin{subequations}\label{eq:eskf-motion-equation}  
 	\begin{align}  
-		\delta \bm{p}(t+\Delta t) &= \delta \bm{p} + \delta \bm{v} \Delta t, \\  
-		\delta \bm{v}(t+\Delta t) &= \delta \bm{v} + \left( - \bm{R}(\tilde{\bm{a}} - \bm{b}_a)^\wedge   
-		\delta \boldsymbol{\theta} - \bm{R} \delta \bm{b}_a  + \delta \bm{g} \right) \Delta t -  
+		\delta \mathbf{p}(t+\Delta t) &= \delta \mathbf{p} + \delta \mathbf{v} \Delta t, \\  
+		\delta \mathbf{v}(t+\Delta t) &= \delta \mathbf{v} + \left( - \mathbf{R}(\tilde{\mathbf{a}} - \mathbf{b}_a)^\wedge   
+		\delta \boldsymbol{\theta} - \mathbf{R} \delta \mathbf{b}_a  + \delta \mathbf{g} \right) \Delta t -  
 		\boldsymbol{\eta}_{v}, \\  
 		\delta \boldsymbol{\theta} (t+\Delta t) &= \mathrm{Exp}\left( -(\tilde{\boldsymbol{\omega}} -   
-		\bm{b}_g) \Delta t \right) \delta \boldsymbol{\theta} - \delta \bm{b}_g \Delta t -   
+		\mathbf{b}_g) \Delta t \right) \delta \boldsymbol{\theta} - \delta \mathbf{b}_g \Delta t -   
 		\boldsymbol{\eta}_{\theta}, \\  
-		\delta \bm{b}_g (t+\Delta t) &= \delta \bm{b}_g + \boldsymbol{\eta}_{bg}, \\  
-		\delta \bm{b}_a (t+\Delta t)&= \delta \bm{b}_a + \boldsymbol{\eta}_{ba}, \\  
-		\delta \bm{g} (t+\Delta t) &= \delta \bm{g}.  
+		\delta \mathbf{b}_g (t+\Delta t) &= \delta \mathbf{b}_g + \boldsymbol{\eta}_{bg}, \\  
+		\delta \mathbf{b}_a (t+\Delta t)&= \delta \mathbf{b}_a + \boldsymbol{\eta}_{ba}, \\  
+		\delta \mathbf{g} (t+\Delta t) &= \delta \mathbf{g}.  
 	\end{align}  
 \end{subequations}  
 
@@ -992,29 +992,29 @@ Notes:
 
 At this point, we have described the process of IMU propagation in the ESKF, corresponding to the state equation in the Kalman filter. To ensure the convergence of the filter, external observations are needed to correct the Kalman filter, which is the so-called integrated navigation. Of course, there are many methods for integrated navigation, ranging from traditional EKF to the ESKF introduced in this section, as well as the pre-integration and graph optimization techniques to be discussed in later chapters, all of which can be applied to integrated navigation \cite{Wen2021}. In this section, we take the fusion of GNSS observations as an example to demonstrate how to integrate these observation data into the ESKF to form a convergent Kalman filter. In the application chapters at the end of this book, we will also introduce filter solutions that fuse LiDAR point clouds or LiDAR positioning data.
 \subsection{Motion Process of ESKF}
-Based on the above discussion, we can formulate the motion process of ESKF. The discrete-time motion equation for the error state variable $\delta \bm{x}$ has been given in Eq. \eqref{eq:eskf-motion-equation}, which can be expressed as:
+Based on the above discussion, we can formulate the motion process of ESKF. The discrete-time motion equation for the error state variable $\delta \mathbf{x}$ has been given in Eq. \eqref{eq:eskf-motion-equation}, which can be expressed as:
 \begin{equation}\label{eq:eskf-motion-process}
-	\delta \bm{x}_{k+1} = \bm{f} (\delta \bm{x}_{k}) + \bm{w}, \quad \bm{w} \sim \mathcal{N}(\bm{0}, \bm{Q}),
+	\delta \mathbf{x}_{k+1} = \mathbf{f} (\delta \mathbf{x}_{k}) + \mathbf{w}, \quad \mathbf{w} \sim \mathcal{N}(\mathbf{0}, \mathbf{Q}),
 \end{equation}
-where $\bm{w}$ is the noise term. According to the previous definition, the noise covariance matrix $\bm{Q}$ should be:
+where $\mathbf{w}$ is the noise term. According to the previous definition, the noise covariance matrix $\mathbf{Q}$ should be:
 \begin{equation}\label{eq:eskf-Q-matrix}
-	\bm{Q} = \mathrm{diag}\left(\bm{0}_3, \mathrm{Cov}(\boldsymbol{\eta}_v), \mathrm{Cov}(\boldsymbol{\eta}_{\theta}), \mathrm{Cov}(\boldsymbol{\eta}_{bg}), \mathrm{Cov}(\boldsymbol{\eta}_{ba}), \bm{0}_3\right),
+	\mathbf{Q} = \mathrm{diag}\left(\mathbf{0}_3, \mathrm{Cov}(\boldsymbol{\eta}_v), \mathrm{Cov}(\boldsymbol{\eta}_{\theta}), \mathrm{Cov}(\boldsymbol{\eta}_{bg}), \mathrm{Cov}(\boldsymbol{\eta}_{ba}), \mathbf{0}_3\right),
 \end{equation}
 where the zero matrices at the beginning and end are due to the fact that the position and gravity error equations themselves contain no noise.
 
 To maintain consistency with EKF notation, we compute the linearized form of the motion equation:
 \begin{equation}\label{eq:eskf-linearized}
-	\delta \bm{x}(t+\Delta t) = \underbrace{\bm{f}(\delta \bm{x}(t))}_{=\bm{0}} + \bm{F} \delta \bm{x} + \bm{w},
+	\delta \mathbf{x}(t+\Delta t) = \underbrace{\mathbf{f}(\delta \mathbf{x}(t))}_{=\mathbf{0}} + \mathbf{F} \delta \mathbf{x} + \mathbf{w},
 \end{equation}
-where $\bm{F}$ is the state transition Jacobian matrix. Since Eq. \eqref{eq:eskf-motion-equation} is already explicitly linearized, we can directly extract the coefficient matrix (note the variable order):
+where $\mathbf{F}$ is the state transition Jacobian matrix. Since Eq. \eqref{eq:eskf-motion-equation} is already explicitly linearized, we can directly extract the coefficient matrix (note the variable order):
 \begin{equation}\label{eq:eskf-F-matrix}
-	\bm{F} = \begin{bmatrix}
-		\bm{I} & \bm{I} \Delta t & \bm{0} & \bm{0} & \bm{0} & \bm{0} \\
-		\bm{0} & \bm{I} & - \bm{R}(\tilde{\bm{a}} - \bm{b}_a)^\wedge \Delta t & \bm{0} & -\bm{R} \Delta t & \bm{I} \Delta t \\
-		\bm{0} & \bm{0} & \mathrm{Exp}\left( -(\tilde{\boldsymbol{\omega}} - \bm{b}_g) \Delta t \right) &  -\bm{I} \Delta t & \bm{0} & \bm{0} \\
-		\bm{0} & \bm{0} & \bm{0} & \bm{I} & \bm{0} & \bm{0} \\
-		\bm{0} & \bm{0} & \bm{0} & \bm{0} & \bm{I} & \bm{0} \\
-		\bm{0} & \bm{0} & \bm{0} & \bm{0} & \bm{0} & \bm{I} 
+	\mathbf{F} = \begin{bmatrix}
+		\mathbf{I} & \mathbf{I} \Delta t & \mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{0} \\
+		\mathbf{0} & \mathbf{I} & - \mathbf{R}(\tilde{\mathbf{a}} - \mathbf{b}_a)^\wedge \Delta t & \mathbf{0} & -\mathbf{R} \Delta t & \mathbf{I} \Delta t \\
+		\mathbf{0} & \mathbf{0} & \mathrm{Exp}\left( -(\tilde{\boldsymbol{\omega}} - \mathbf{b}_g) \Delta t \right) &  -\mathbf{I} \Delta t & \mathbf{0} & \mathbf{0} \\
+		\mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{I} & \mathbf{0} & \mathbf{0} \\
+		\mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{I} & \mathbf{0} \\
+		\mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{0} & \mathbf{I} 
 	\end{bmatrix}.
 \end{equation}
 
@@ -1025,57 +1025,57 @@ On this basis, we implement the prediction process of ESKF. The prediction proce
 \end{itemize}
 \begin{subequations}\label{eq:motion-eskf}
 	\begin{align}
-		\delta \bm{x}_{\mathrm{pred}} &= \bm{F} \delta \bm{x}, \\
-		\bm{P}_{\mathrm{pred}} &= \bm{F} \bm{P} \bm{F}^\top + \bm{Q}.
+		\delta \mathbf{x}_{\mathrm{pred}} &= \mathbf{F} \delta \mathbf{x}, \\
+		\mathbf{P}_{\mathrm{pred}} &= \mathbf{F} \mathbf{P} \mathbf{F}^\top + \mathbf{Q}.
 	\end{align}
 \end{subequations}
 
-However, since the error state of ESKF is reset to $\delta \bm{x} = \bm{0}$ after each update, the mean part of the motion equation (i.e., Eq. \eqref{eq:motion-eskf}(a)) is not particularly meaningful. The covariance part describes the distribution of the entire error estimate. Intuitively, the noise covariance $\bm{Q}$ added in the motion equation can be interpreted as an \textbf{increase} in uncertainty during the prediction process.
+However, since the error state of ESKF is reset to $\delta \mathbf{x} = \mathbf{0}$ after each update, the mean part of the motion equation (i.e., Eq. \eqref{eq:motion-eskf}(a)) is not particularly meaningful. The covariance part describes the distribution of the entire error estimate. Intuitively, the noise covariance $\mathbf{Q}$ added in the motion equation can be interpreted as an \textbf{increase} in uncertainty during the prediction process.
 
 \subsection{Update Process of ESKF}
 \label{subsec:3.4.4}
-The previous section described the motion process of ESKF. Now we consider the update process. Assuming an abstract sensor can generate observations of the state variables with an observation equation $\bm{h}$, we can write:
+The previous section described the motion process of ESKF. Now we consider the update process. Assuming an abstract sensor can generate observations of the state variables with an observation equation $\mathbf{h}$, we can write:
 
 \begin{equation}\label{eq:observation-model}
-	\bm{z} = \bm{h}(\bm{x}) + \bm{v}, \quad \bm{v} \sim \mathcal{N}(\bm{0}, \bm{V}),
+	\mathbf{z} = \mathbf{h}(\mathbf{x}) + \mathbf{v}, \quad \mathbf{v} \sim \mathcal{N}(\mathbf{0}, \mathbf{V}),
 \end{equation}
-where $\bm{z}$ is the observation data, $\bm{v}$ is the observation noise, and $\bm{V}$ is the noise covariance matrix\footnote{We use a different symbol here since $\bm{R}$ is already used in the state variables.}.
+where $\mathbf{z}$ is the observation data, $\mathbf{v}$ is the observation noise, and $\mathbf{V}$ is the noise covariance matrix\footnote{We use a different symbol here since $\mathbf{R}$ is already used in the state variables.}.
 
-In traditional EKF, we can directly linearize the observation equation to compute the Jacobian matrix of the observation equation with respect to the state variables, then update the Kalman filter. In ESKF, since we have estimates of both the nominal state $\bm{x}$ and the error state $\delta \bm{x}$, and we want to update the error state, we need to compute the Jacobian matrix of the observation equation with respect to the error state:
+In traditional EKF, we can directly linearize the observation equation to compute the Jacobian matrix of the observation equation with respect to the state variables, then update the Kalman filter. In ESKF, since we have estimates of both the nominal state $\mathbf{x}$ and the error state $\delta \mathbf{x}$, and we want to update the error state, we need to compute the Jacobian matrix of the observation equation with respect to the error state:
 
 \begin{equation}\label{eq:H-definition}
-	\bm{H} = \left. \frac{\partial \bm{h}}{\partial \delta \bm{x}} \right|_{\bm{x}_{\text{pred}}},
+	\mathbf{H} = \left. \frac{\partial \mathbf{h}}{\partial \delta \mathbf{x}} \right|_{\mathbf{x}_{\text{pred}}},
 \end{equation}
 
 We then compute the Kalman gain and perform the error state update:
 
 \begin{subequations}\label{eq:eskf-update}
 	\begin{align}
-		\bm{K} &= \bm{P}_{\mathrm{pred}} \bm{H}^\top(\bm{H} \bm{P}_{\mathrm{pred}} \bm{H}^\top + \bm{V})^{-1}, \\
-		\delta \bm{x} &= \bm{K} (\bm{z} - \bm{h}(\bm{x}_{\mathrm{pred}})), \\
-		\bm{x} &= \bm{x}_{\text{pred}} + \delta \bm{x}, \\
-		\bm{P} &= (\bm{I} - \bm{K} \bm{H}) \bm{P}_{\mathrm{pred}}.
+		\mathbf{K} &= \mathbf{P}_{\mathrm{pred}} \mathbf{H}^\top(\mathbf{H} \mathbf{P}_{\mathrm{pred}} \mathbf{H}^\top + \mathbf{V})^{-1}, \\
+		\delta \mathbf{x} &= \mathbf{K} (\mathbf{z} - \mathbf{h}(\mathbf{x}_{\mathrm{pred}})), \\
+		\mathbf{x} &= \mathbf{x}_{\text{pred}} + \delta \mathbf{x}, \\
+		\mathbf{P} &= (\mathbf{I} - \mathbf{K} \mathbf{H}) \mathbf{P}_{\mathrm{pred}}.
 	\end{align}
 \end{subequations}
 
-Here $\bm{K}$ is the Kalman gain, $\bm{P}_{\mathrm{pred}}$ is the predicted covariance matrix, and $\bm{P}$ is the updated covariance matrix.
+Here $\mathbf{K}$ is the Kalman gain, $\mathbf{P}_{\mathrm{pred}}$ is the predicted covariance matrix, and $\mathbf{P}$ is the updated covariance matrix.
 
-Most observation data are measurements of the nominal state\footnote{However, in some cases we can directly derive observations of the error state, which would simplify the subsequent derivation. Both GNSS and LiDAR observations discussed later will use direct observation of error states.}. In this case, $\bm{H}$ can be computed using the chain rule:
+Most observation data are measurements of the nominal state\footnote{However, in some cases we can directly derive observations of the error state, which would simplify the subsequent derivation. Both GNSS and LiDAR observations discussed later will use direct observation of error states.}. In this case, $\mathbf{H}$ can be computed using the chain rule:
 
 \begin{equation}\label{eq:H-chain-rule}
-	\bm{H} = \frac{\partial \bm{h}}{\partial \bm{x}} \frac{\partial \bm{x}}{\partial \delta \bm{x}},
+	\mathbf{H} = \frac{\partial \mathbf{h}}{\partial \mathbf{x}} \frac{\partial \mathbf{x}}{\partial \delta \mathbf{x}},
 \end{equation}
 
 The first term requires linearization of the observation equation. For the second term, based on our definition of state variables, we obtain:
 
 \begin{equation}\label{eq:state-derivative}
-	\frac{\partial \bm{x}}{\partial \delta \bm{x}} = \mathrm{diag}\left(\bm{I}_3, \bm{I}_3, \frac{\partial \mathrm{Log} (\bm{R}(\mathrm{Exp}(\delta \boldsymbol{\theta})))}{\partial \delta \boldsymbol{\theta}}, \bm{I}_3, \bm{I}_3, \bm{I}_3\right).
+	\frac{\partial \mathbf{x}}{\partial \delta \mathbf{x}} = \mathrm{diag}\left(\mathbf{I}_3, \mathbf{I}_3, \frac{\partial \mathrm{Log} (\mathbf{R}(\mathrm{Exp}(\delta \boldsymbol{\theta})))}{\partial \delta \boldsymbol{\theta}}, \mathbf{I}_3, \mathbf{I}_3, \mathbf{I}_3\right).
 \end{equation}
 
-While other terms are straightforward, the rotation part requires special attention since $\delta \boldsymbol{\theta}$ is defined as right multiplication of $\bm{R}$. Using the right BCH formula:
+While other terms are straightforward, the rotation part requires special attention since $\delta \boldsymbol{\theta}$ is defined as right multiplication of $\mathbf{R}$. Using the right BCH formula:
 
 \begin{equation}\label{eq:rotation-derivative}
-	\frac{\partial \mathrm{Log} (\bm{R}(\mathrm{Exp}(\delta \boldsymbol{\theta})))}{\partial \delta \boldsymbol{\theta}} = \bm{J}_r^{-1} (\bm{R}).
+	\frac{\partial \mathrm{Log} (\mathbf{R}(\mathrm{Exp}(\delta \boldsymbol{\theta})))}{\partial \delta \boldsymbol{\theta}} = \mathbf{J}_r^{-1} (\mathbf{R}).
 \end{equation}
 
 Finally, we could add subscript $k$ to each variable to indicate the time step, but this is unnecessary as the above equations already clearly express their meanings. These formulas can also be derived using quaternion representation, with similar forms but more complex details (see \cite{Sola2017}). This book presents only the derivation using $\mathrm{SO}(3)$ and its Lie algebra.
@@ -1084,32 +1084,32 @@ After completing the prediction and update processes, we have corrected the esti
 
 \begin{subequations}\label{eq:error-state-incorporation}
 	\begin{align}
-		\bm{p}_{k+1} &= \bm{p}_k + \delta \bm{p}_k, \\
-		\bm{v}_{k+1} &= \bm{v}_k + \delta \bm{v}_k, \\
-		\bm{R}_{k+1} &= \bm{R}_k \mathrm{Exp}(\delta \boldsymbol{\theta}_k), \\
-		\bm{b}_{g, k+1} &= \bm{b}_{g,k} + \delta \bm{b}_{g,k}, \\
-		\bm{b}_{a, k+1} &= \bm{b}_{a,k} + \delta \bm{b}_{a,k}, \\
-		\bm{g}_{k+1} &= \bm{g}_{k} + \delta \bm{g}_{k}.
+		\mathbf{p}_{k+1} &= \mathbf{p}_k + \delta \mathbf{p}_k, \\
+		\mathbf{v}_{k+1} &= \mathbf{v}_k + \delta \mathbf{v}_k, \\
+		\mathbf{R}_{k+1} &= \mathbf{R}_k \mathrm{Exp}(\delta \boldsymbol{\theta}_k), \\
+		\mathbf{b}_{g, k+1} &= \mathbf{b}_{g,k} + \delta \mathbf{b}_{g,k}, \\
+		\mathbf{b}_{a, k+1} &= \mathbf{b}_{a,k} + \delta \mathbf{b}_{a,k}, \\
+		\mathbf{g}_{k+1} &= \mathbf{g}_{k} + \delta \mathbf{g}_{k}.
 	\end{align}
 \end{subequations}
 
 Some literature defines this computation as a generalized state variable addition operation:
 \begin{equation}\label{eq:generalized-addition}
-	\bm{x}_{k+1} = \bm{x}_k \oplus \delta \bm{x}_{k},
+	\mathbf{x}_{k+1} = \mathbf{x}_k \oplus \delta \mathbf{x}_{k},
 \end{equation}
 This notation can simplify the overall expression but sacrifices some readability. When formulas contain too many generalized addition/subtraction operations (especially different definitions like $\oplus$, $\boxplus$, $\ominus$, $\boxminus$, etc.), it becomes difficult for readers to quickly recognize their specific meanings. Therefore, this book prefers to explicitly write out each state component using standard addition rather than generalized addition symbols.
 
 The ESKF reset consists of two parts: mean reset and covariance reset. The mean part can be simply implemented as:
 \begin{equation}\label{eq:mean-reset}
-	\delta \bm{x} = \bm{0}.
+	\delta \mathbf{x} = \mathbf{0}.
 \end{equation}
 
-Since the mean has been reset, the covariance we previously described was in the tangent space of $\bm{x}_k$, but now needs to describe the covariance in $\bm{x}_{k+1}$. This reset introduces some subtle differences, primarily affecting the rotation component. In fact, before resetting, the Kalman filter characterized a Gaussian distribution $\mathcal{N}(\delta \bm{x}, \bm{P})$ in the tangent space of $\bm{x}_{\mathrm{pred}}$, while after resetting, it should characterize $\mathcal{N}(0, \bm{P}_{\mathrm{reset}})$ at $\bm{x}_{\mathrm{pred}} + \delta \bm{x}$. This is identical for vector states, but for rotation variables, the zero point of their tangent space has changed, requiring mathematical distinction.
+Since the mean has been reset, the covariance we previously described was in the tangent space of $\mathbf{x}_k$, but now needs to describe the covariance in $\mathbf{x}_{k+1}$. This reset introduces some subtle differences, primarily affecting the rotation component. In fact, before resetting, the Kalman filter characterized a Gaussian distribution $\mathcal{N}(\delta \mathbf{x}, \mathbf{P})$ in the tangent space of $\mathbf{x}_{\mathrm{pred}}$, while after resetting, it should characterize $\mathcal{N}(0, \mathbf{P}_{\mathrm{reset}})$ at $\mathbf{x}_{\mathrm{pred}} + \delta \mathbf{x}$. This is identical for vector states, but for rotation variables, the zero point of their tangent space has changed, requiring mathematical distinction.
 
-Let the nominal rotation estimate before reset be $\bm{R}_k$, the error state be $\delta \boldsymbol{\theta}$, and the Kalman filter's incremental result be $\delta \boldsymbol{\theta}_k$\footnote{Note that here $\delta \boldsymbol{\theta}_k$ is known, while $\delta \boldsymbol{\theta}$ is a random variable.}. After reset, the nominal rotation becomes $\bm{R}_k \mathrm{Exp}(\delta \boldsymbol{\theta}_k)=\bm{R}^+$, and the error state becomes $\delta \boldsymbol{\theta}^+$. Since the error state is reset, clearly $\delta \boldsymbol{\theta}^+ = \bm{0}$. However, what we care about is not their direct values but the linearized relationship between $\delta \boldsymbol{\theta}^+$ and $\delta \boldsymbol{\theta}$. Writing out the actual reset process:
+Let the nominal rotation estimate before reset be $\mathbf{R}_k$, the error state be $\delta \boldsymbol{\theta}$, and the Kalman filter's incremental result be $\delta \boldsymbol{\theta}_k$\footnote{Note that here $\delta \boldsymbol{\theta}_k$ is known, while $\delta \boldsymbol{\theta}$ is a random variable.}. After reset, the nominal rotation becomes $\mathbf{R}_k \mathrm{Exp}(\delta \boldsymbol{\theta}_k)=\mathbf{R}^+$, and the error state becomes $\delta \boldsymbol{\theta}^+$. Since the error state is reset, clearly $\delta \boldsymbol{\theta}^+ = \mathbf{0}$. However, what we care about is not their direct values but the linearized relationship between $\delta \boldsymbol{\theta}^+$ and $\delta \boldsymbol{\theta}$. Writing out the actual reset process:
 
 \begin{equation}\label{eq:reset-process}
-	\bm{R}^+ \mathrm{Exp}(\delta \boldsymbol{\theta}^+) = \bm{R}_k \mathrm{Exp}(\delta \boldsymbol{\theta}_k) \mathrm{Exp}(\delta \boldsymbol{\theta}^+) = \bm{R}_k \mathrm{Exp}(\delta \boldsymbol{\theta}).
+	\mathbf{R}^+ \mathrm{Exp}(\delta \boldsymbol{\theta}^+) = \mathbf{R}_k \mathrm{Exp}(\delta \boldsymbol{\theta}_k) \mathrm{Exp}(\delta \boldsymbol{\theta}^+) = \mathbf{R}_k \mathrm{Exp}(\delta \boldsymbol{\theta}).
 \end{equation}
 
 We can obtain:
@@ -1124,21 +1124,21 @@ Here $\delta \boldsymbol{\theta}$ is small. Using the linearized BCH formula, we
 
 Thus:
 \begin{equation}\label{eq:jacobian-derivation}
-	\frac{\partial \delta \boldsymbol{\theta}^+}{\partial \delta \boldsymbol{\theta}} \approx \bm{I} - \frac{1}{2} \delta \boldsymbol{\theta}_k^\wedge .
+	\frac{\partial \delta \boldsymbol{\theta}^+}{\partial \delta \boldsymbol{\theta}} \approx \mathbf{I} - \frac{1}{2} \delta \boldsymbol{\theta}_k^\wedge .
 \end{equation}
 
-This shows that the error states before and after reset differ by a small Jacobian matrix in rotation, which we denote as $\bm{J}_{\boldsymbol{\theta}} = \bm{I} - \frac{1}{2} \delta \boldsymbol{\theta}_k^\wedge $. Extending this small Jacobian to the full state dimension while keeping other parts as identity matrices gives the complete Jacobian:
+This shows that the error states before and after reset differ by a small Jacobian matrix in rotation, which we denote as $\mathbf{J}_{\boldsymbol{\theta}} = \mathbf{I} - \frac{1}{2} \delta \boldsymbol{\theta}_k^\wedge $. Extending this small Jacobian to the full state dimension while keeping other parts as identity matrices gives the complete Jacobian:
 
 \begin{equation}\label{eq:full-jacobian}
-	\bm{J}_k = \mathrm{diag}(\bm{I}_3, \bm{I}_3, \bm{J}_{\boldsymbol{\theta}}, \bm{I}_3, \bm{I}_3, \bm{I}_3),
+	\mathbf{J}_k = \mathrm{diag}(\mathbf{I}_3, \mathbf{I}_3, \mathbf{J}_{\boldsymbol{\theta}}, \mathbf{I}_3, \mathbf{I}_3, \mathbf{I}_3),
 \end{equation}
 
 Therefore, while resetting the error state mean to zero, their covariance matrix should also undergo linear transformation:
 \begin{equation}\label{eq:tangent-space-projection}
-	\bm{P}_{\mathrm{reset}} = \bm{J}_k \bm{P} \bm{J}_k^\top.
+	\mathbf{P}_{\mathrm{reset}} = \mathbf{J}_k \mathbf{P} \mathbf{J}_k^\top.
 \end{equation}
 
-However, since $\delta \boldsymbol{\theta}_k$ is not large, $\bm{J}_k$ remains very close to the identity matrix. Therefore, most materials do not handle this term but directly use the previously estimated $\bm{P}$ matrix as the starting point for the next time step. Nevertheless, this book still introduces this concept and will further discuss it in Chapter~\ref{cpt:tightly-lio}. The practical significance of this issue is performing a \textbf{tangent space projection}, i.e., projecting a Gaussian distribution from one tangent space to another. In ESKF, the difference is not significant, but the later Iterated Extended Kalman Filter (IESKF) will involve multiple tangent space transformations during the observation process. In comparison, ESKF only has a single transformation during reset, making its principle simpler.
+However, since $\delta \boldsymbol{\theta}_k$ is not large, $\mathbf{J}_k$ remains very close to the identity matrix. Therefore, most materials do not handle this term but directly use the previously estimated $\mathbf{P}$ matrix as the starting point for the next time step. Nevertheless, this book still introduces this concept and will further discuss it in Chapter~\ref{cpt:tightly-lio}. The practical significance of this issue is performing a \textbf{tangent space projection}, i.e., projecting a Gaussian distribution from one tangent space to another. In ESKF, the difference is not significant, but the later Iterated Extended Kalman Filter (IESKF) will involve multiple tangent space transformations during the observation process. In comparison, ESKF only has a single transformation during reset, making its principle simpler.
 \section{Implementation of ESKF-based Integrated Navigation}
 
 Below we implement an ESKF that fuses IMU and GNSS observations. The code in this section will output results to text files for subsequent visualization. During the ESKF implementation, we will encounter some practical details that will be discussed here.
@@ -1243,58 +1243,58 @@ bool ESKF<S>::Predict(const IMU& imu) {
 }
 \end{lstlisting}  
 
-Here, we explicitly construct the full $\bm{F}$ matrix and update the covariance matrix using matrix operations. Alternatively, one could compute sparse matrix blocks separately for each state variable to improve computational efficiency.  
+Here, we explicitly construct the full $\mathbf{F}$ matrix and update the covariance matrix using matrix operations. Alternatively, one could compute sparse matrix blocks separately for each state variable to improve computational efficiency.  
 
-The prediction process essentially propagates the nominal state using IMU measurements. Simultaneously, it incorporates motion noise into the covariance matrix, causing it to **expand** intuitively. The error state update can be skipped here because the observation step resets the error state to zero, making $\bm{F} \delta \bm{x}$ naturally zero regardless of $\bm{F}$'s values.  
+The prediction process essentially propagates the nominal state using IMU measurements. Simultaneously, it incorporates motion noise into the covariance matrix, causing it to **expand** intuitively. The error state update can be skipped here because the observation step resets the error state to zero, making $\mathbf{F} \delta \mathbf{x}$ naturally zero regardless of $\mathbf{F}$'s values.  
 
 The motion process is triggered by IMU measurements and can be called at high frequencies, providing high-frequency predicted pose updates.
 
 \subsection{Implementing RTK Observation Process}
 Next, we consider how to implement the GNSS observation equation. Here we assume RTK can provide 6-DoF observations, including both position and orientation. Note that single-antenna solutions cannot be processed this way - they should use 3-DoF observation information.
 
-The abstract form of the observation equation is $\bm{y} = \bm{h}(\bm{x})$. In Section~\ref{subsec:3.4.4}, we introduced the general observation model. For GNSS observations converted to vehicle UTM coordinates, they can be directly treated as observations of current $\bm{R}$ and $\bm{p}$. Let $\bm{R}_{\mathrm{gnss}}, \bm{p}_{\mathrm{gnss}}$ denote observations at a certain time, from which we derive the observation equation and Kalman gain. Key points include:
+The abstract form of the observation equation is $\mathbf{y} = \mathbf{h}(\mathbf{x})$. In Section~\ref{subsec:3.4.4}, we introduced the general observation model. For GNSS observations converted to vehicle UTM coordinates, they can be directly treated as observations of current $\mathbf{R}$ and $\mathbf{p}$. Let $\mathbf{R}_{\mathrm{gnss}}, \mathbf{p}_{\mathrm{gnss}}$ denote observations at a certain time, from which we derive the observation equation and Kalman gain. Key points include:
 
 \begin{enumerate}
 	\item In dual-antenna setups, vehicle orientation is determined by two GNSS receivers. However, there may be cases where one GNSS is valid while the other fails - making position observations valid but heading invalid. Here we only use observations where both position and orientation are valid.
 	
-	\item GNSS observations of $\bm{R}$ can be directly expressed as observations of error state $\delta \boldsymbol{\theta}$, simplifying the linearization process by avoiding chain rule derivation.
+	\item GNSS observations of $\mathbf{R}$ can be directly expressed as observations of error state $\delta \boldsymbol{\theta}$, simplifying the linearization process by avoiding chain rule derivation.
 	
 	\item Since UTM coordinates from GNSS are typically large, we subtract the first valid GNSS observation as origin to maintain numerical precision. This keeps ESKF and visualization coordinates near zero, avoiding potential issues with excessive significant digits in plotting/visualization software.
 \end{enumerate}
 
 Let's elaborate point 2. The GNSS rotation observation equation is:
 \begin{equation}\label{eq:obs-gnss}
-	\bm{R}_{\mathrm{gnss}} = \bm{R} \mathrm{Exp}(\delta \boldsymbol{\theta}),
+	\mathbf{R}_{\mathrm{gnss}} = \mathbf{R} \mathrm{Exp}(\delta \boldsymbol{\theta}),
 \end{equation}
-where $\bm{R}$ is the nominal state and $\delta \boldsymbol{\theta}$ the error state. Since $\bm{R}$ is fixed during observation, we can treat $\bm{R}_{\mathrm{gnss}}$ as direct observation of $\delta \boldsymbol{\theta}$. Transforming the equation:
+where $\mathbf{R}$ is the nominal state and $\delta \boldsymbol{\theta}$ the error state. Since $\mathbf{R}$ is fixed during observation, we can treat $\mathbf{R}_{\mathrm{gnss}}$ as direct observation of $\delta \boldsymbol{\theta}$. Transforming the equation:
 \begin{equation}
-\bm{z}_{\delta \boldsymbol{\theta}} = \bm{h}(\delta \boldsymbol{\theta}) = \mathrm{Log} 
-\left(\bm{R}^\top \bm{R}_{\mathrm{gnss}} \right).
+\mathbf{z}_{\delta \boldsymbol{\theta}} = \mathbf{h}(\delta \boldsymbol{\theta}) = \mathrm{Log} 
+\left(\mathbf{R}^\top \mathbf{R}_{\mathrm{gnss}} \right).
 \end{equation}
 	
-Here $\bm{z}_{\delta \boldsymbol{\theta}}$ directly observes $\delta \boldsymbol{\theta}$, so its Jacobian is identity:
+Here $\mathbf{z}_{\delta \boldsymbol{\theta}}$ directly observes $\delta \boldsymbol{\theta}$, so its Jacobian is identity:
 \begin{equation}\label{eq:error-jacobian}
-\frac{\partial \bm{z}_{\delta \boldsymbol{\theta}}}{\partial \delta \boldsymbol{\theta}} = \bm{I}.
+\frac{\partial \mathbf{z}_{\delta \boldsymbol{\theta}}}{\partial \delta \boldsymbol{\theta}} = \mathbf{I}.
 \end{equation}
-This avoids nominal-to-error state conversion. Note the ESKF innovation term $\bm{z}-\bm{h}(\bm{x})$ should then use manifold form:
+This avoids nominal-to-error state conversion. Note the ESKF innovation term $\mathbf{z}-\mathbf{h}(\mathbf{x})$ should then use manifold form:
 \begin{equation}\label{eq:manifold-innovation}
-\bm{z} - \bm{h}(\bm{x}) = [\bm{p}_{\mathrm{gnss}} - \bm{p}, 
-\mathrm{Log}(\bm{R}^\top \bm{R}_{\mathrm{gnss}})]^\top.
+\mathbf{z} - \mathbf{h}(\mathbf{x}) = [\mathbf{p}_{\mathrm{gnss}} - \mathbf{p}, 
+\mathrm{Log}(\mathbf{R}^\top \mathbf{R}_{\mathrm{gnss}})]^\top.
 \end{equation}
 
-Since $\delta \boldsymbol{\theta}$ remains zero after prediction, $\bm{h} (\bm{x})$'s rotation part is treated as zero while translation follows standard definition. This 6D innovation updates system state:
+Since $\delta \boldsymbol{\theta}$ remains zero after prediction, $\mathbf{h} (\mathbf{x})$'s rotation part is treated as zero while translation follows standard definition. This 6D innovation updates system state:
 \begin{equation}\label{eq:state-update}
-\bm{x} = \bm{x}_{\text{pred}} + \bm{K} (\bm{z} - \bm{h}(\bm{x})).
+\mathbf{x} = \mathbf{x}_{\text{pred}} + \mathbf{K} (\mathbf{z} - \mathbf{h}(\mathbf{x})).
 \end{equation}
 Note the rotation update should use manifold methods.
 
 The translation part is straightforward:
 \begin{equation}\label{eq:translation-update}
-\bm{p}_{\mathrm{gnss}} = \bm{p} + \delta \bm{p}.
+\mathbf{p}_{\mathrm{gnss}} = \mathbf{p} + \delta \mathbf{p}.
 \end{equation}
 Thus its Jacobian is identity:
 \begin{equation}\label{eq:trans-jacobian}
-\frac{\partial \bm{p}_{\mathrm{gnss}}}{\partial \delta \bm{p}} = \bm{I}_{3 \times 3}.
+\frac{\partial \mathbf{p}_{\mathrm{gnss}}}{\partial \delta \mathbf{p}} = \mathbf{I}_{3 \times 3}.
 \end{equation}
 
 In the ESKF class, we define $\mathrm{SE}(3)$ observations (reused later) and convert GNSS readings to $\mathrm{SE}(3)$ observations:
@@ -1380,19 +1380,19 @@ We implement a static initialization procedure to estimate these parameters:
 \begin{enumerate}
 \item Keep the IMU stationary for a predetermined duration (set to 10 seconds in the program). Stationarity is verified when wheel speeds (if available) from both wheels are below a threshold. In absence of wheel speed measurements, we can directly assume the vehicle is stationary to estimate the relevant variables.
 
-\item Compute the mean values of gyroscope and accelerometer readings during the static period, denoted as $\bar{\bm{d}}_{\mathrm{gyr}}, \bar{\bm{d}}_{\mathrm{acc}}$;
+\item Compute the mean values of gyroscope and accelerometer readings during the static period, denoted as $\bar{\mathbf{d}}_{\mathrm{gyr}}, \bar{\mathbf{d}}_{\mathrm{acc}}$;
 
-\item Since no rotation occurs, the gyroscope bias can be estimated as $\bm{b}_{g} = \bar{\bm{d}}_{\mathrm{gyr}}$.
+\item Since no rotation occurs, the gyroscope bias can be estimated as $\mathbf{b}_{g} = \bar{\mathbf{d}}_{\mathrm{gyr}}$.
 
 \item The accelerometer measurement model is:
 \begin{equation}\label{key}
-\tilde{\bm{a}} = \bm{R}^\top (\bm{a} - \bm{g}) + \bm{b}_a + \boldsymbol{\eta}_a.
+\tilde{\mathbf{a}} = \mathbf{R}^\top (\mathbf{a} - \mathbf{g}) + \mathbf{b}_a + \boldsymbol{\eta}_a.
 \end{equation}
-When the actual acceleration is zero and the rotation is considered as $\bm{R}=\bm{I}$\footnote{Note that in our system, we estimate the initial gravity direction, so the vehicle attitude can be treated as $\bm{I}$ while gravity may not necessarily point vertically along the -Z axis. Some references assume fixed gravity direction with uncertain initial state, which makes the derivation slightly more complicated.}, the accelerometer actually measures $\bm{b}_a - \bm{g}$, where $\bm{b}_a$ is small and the magnitude of $\bm{g}$ can be considered constant. Under these assumptions, we take the vector with direction $-\bar{\bm{d}}_{\mathrm{acc}}$ and magnitude 9.8 as the \textbf{gravity vector}. This step determines the gravity direction.
+When the actual acceleration is zero and the rotation is considered as $\mathbf{R}=\mathbf{I}$\footnote{Note that in our system, we estimate the initial gravity direction, so the vehicle attitude can be treated as $\mathbf{I}$ while gravity may not necessarily point vertically along the -Z axis. Some references assume fixed gravity direction with uncertain initial state, which makes the derivation slightly more complicated.}, the accelerometer actually measures $\mathbf{b}_a - \mathbf{g}$, where $\mathbf{b}_a$ is small and the magnitude of $\mathbf{g}$ can be considered constant. Under these assumptions, we take the vector with direction $-\bar{\mathbf{d}}_{\mathrm{acc}}$ and magnitude 9.8 as the \textbf{gravity vector}. This step determines the gravity direction.
 
-\item Now remove gravity from the accelerometer readings during this period and recalculate $\bar{\bm{d}}_{\mathrm{acc}}$;
+\item Now remove gravity from the accelerometer readings during this period and recalculate $\bar{\mathbf{d}}_{\mathrm{acc}}$;
 
-\item Take $\bm{b}_a = \bar{\bm{d}}_{\mathrm{acc}}$.
+\item Take $\mathbf{b}_a = \bar{\mathbf{d}}_{\mathrm{acc}}$.
 
 \item Simultaneously, assuming constant biases, estimate the measurement variances of the gyroscope and accelerometer. These variances can be used as noise parameters for the ESKF.
 \end{enumerate}
@@ -1644,7 +1644,7 @@ Some experimental observations about ESKF:
 
 \item We haven't handled GNSS outliers. Practical GNSS may lose signal or report plausible but erroneous positions. While ESKF's predict-update cycle can smooth IMU-GNSS integration, uncorrected outliers can severely corrupt filter states. Innovation checks or position residuals could reject outliers, but distinguishing RTK errors from filter errors remains challenging. Later graph optimization methods will better handle outlier rejection.
 
-\item Readers familiar with graph optimization may compare ESKF's motion/observation models with optimization approaches. They share similarities but differ in implementation. ESKF updates essentially marginalize past observations into priors for the current state - the mean $\bm{x}$ and covariance $\bm{P}$ become prior information for the next step, smoothing the filtering process. Conventional graph optimization lacks such explicit priors - handling this difference becomes algorithmically crucial. The next chapter will revisit this from a graph optimization perspective for deeper understanding.
+\item Readers familiar with graph optimization may compare ESKF's motion/observation models with optimization approaches. They share similarities but differ in implementation. ESKF updates essentially marginalize past observations into priors for the current state - the mean $\mathbf{x}$ and covariance $\mathbf{P}$ become prior information for the next step, smoothing the filtering process. Conventional graph optimization lacks such explicit priors - handling this difference becomes algorithmically crucial. The next chapter will revisit this from a graph optimization perspective for deeper understanding.
 \end{enumerate}
 \subsection{Velocity Observations}
 We observe that in the GINS system, when RTK observations are unavailable for extended periods, the ESKF degenerates into pure IMU integration mode, where position estimates rapidly diverge. This divergence primarily stems from the lack of velocity observations. Are there methods to constrain velocity divergence? The most common approach incorporates vehicle speed sensors. Velocity measurements primarily come from \textbf{motor RPM} or \textbf{wheel encoders}. Most wheeled robots carry encoders to measure their own speed and infer local motion. Sometimes, we can also use underlying measurements like motor RPM or throttle to determine robot speed. These velocity observations, when combined with IMU, enable local \textbf{dead reckoning}. Alternatively, they can be directly integrated into ESKF as velocity observations. Below we derive the mathematical formulation and code implementation.
@@ -1670,24 +1670,24 @@ The characteristics of wheel encoders can be summarized as:
 \end{enumerate}
 In this book, we treat wheel speed observations as measurements of the \textbf{forward velocity (X-axis) in the body frame}. Specifically, let the scalar wheel speed measurement over a time interval be $v_{\mathrm{wheel}}$, representing the vehicle's forward speed. Using the \textbf{front-left-up coordinate convention} (X forward, Y left, Z up), the vector form of wheel speed observation is:
 \begin{equation}\label{eq:wheel-speed-vec}
-\bm{v}_{\mathrm{wheel}} = [v_{\mathrm{wheel}}, 0, 0]^\top.
+\mathbf{v}_{\mathrm{wheel}} = [v_{\mathrm{wheel}}, 0, 0]^\top.
 \end{equation}
 
 The corresponding observation model is:
 \begin{equation}\label{eq:wheel-obs-model}
-\bm{v}_{\mathrm{wheel}} = \bm{R}^\top \bm{v},
+\mathbf{v}_{\mathrm{wheel}} = \mathbf{R}^\top \mathbf{v},
 \end{equation}
-where $\bm{R}, \bm{v}$ are the current vehicle states. While wheel encoders don't physically measure $\bm{R}$, common practice transforms $\bm{v}_{\mathrm{wheel}}$ to world coordinates using the estimated $\bm{R}$:
+where $\mathbf{R}, \mathbf{v}$ are the current vehicle states. While wheel encoders don't physically measure $\mathbf{R}$, common practice transforms $\mathbf{v}_{\mathrm{wheel}}$ to world coordinates using the estimated $\mathbf{R}$:
 \begin{equation}\label{eq:world-vel-obs}
-\bm{R} \bm{v}_{\mathrm{wheel}} = \bm{v}.
+\mathbf{R} \mathbf{v}_{\mathrm{wheel}} = \mathbf{v}.
 \end{equation}
 
-We formulate this as abstract observation model $\bm{h}(\bm{x})$. Its Jacobian w.r.t. nominal state $\bm{x}$ is:
+We formulate this as abstract observation model $\mathbf{h}(\mathbf{x})$. Its Jacobian w.r.t. nominal state $\mathbf{x}$ is:
 \begin{equation}\label{eq:wheel-jacobian}
-\frac{\partial \bm{h} (\bm{x})}{\partial \bm{x}} = \left[\bm{0}_{3\times 3}, \bm{I}_{3 \times 3}, \bm{0}_{3\times 12} \right].
+\frac{\partial \mathbf{h} (\mathbf{x})}{\partial \mathbf{x}} = \left[\mathbf{0}_{3\times 3}, \mathbf{I}_{3 \times 3}, \mathbf{0}_{3\times 12} \right].
 \end{equation}
 
-The Jacobian shows wheel speed only observes $\bm{v}$ without affecting other states. More strictly, $\bm{v}_{\mathrm{wheel}}$ lacks Y/Z-axis measurements. However, combined with IMU, observed $\bm{v}$ prevents rapid divergence. The implementation:
+The Jacobian shows wheel speed only observes $\mathbf{v}$ without affecting other states. More strictly, $\mathbf{v}_{\mathrm{wheel}}$ lacks Y/Z-axis measurements. However, combined with IMU, observed $\mathbf{v}$ prevents rapid divergence. The implementation:
 
 \begin{lstlisting}[language=c++, caption=src/ch3/eskf.hpp]
 template <typename S>
@@ -1724,7 +1724,7 @@ The implementation converts wheel encoder pulses $p$ (measured over interval $t$
 v_{\mathrm{wheel}} = \frac{2 \pi r p}{n t} .
 \end{equation}
 
-Under ideal conditions, this provides velocity observations. We average left/right wheels for robustness. While simplified (ignoring vehicle kinematics), this demonstrates ESKF integration. The error state $\delta \bm{x}$ updates the nominal state.
+Under ideal conditions, this provides velocity observations. We average left/right wheels for robustness. While simplified (ignoring vehicle kinematics), this demonstrates ESKF integration. The error state $\delta \mathbf{x}$ updates the nominal state.
 
 To run ESKF with wheel speed:
 \begin{lstlisting}[language=sh, caption=Terminal command:]
@@ -1753,7 +1753,7 @@ This chapter introduced the fundamental principles of inertial navigation system
 
 \item By slightly modifying the ESKF's motion and observation equations, variants like UKF and IEKF can be obtained. Implement UKF or IEKF-based integrated navigation using the provided codebase.
 
-\item Simplify the ESKF prediction process by avoiding matrix-form $\bm{F}$ and instead writing separate equations for each variable's motion process. Evaluate potential efficiency gains. This approach is sometimes called \textbf{Sparse ESKF}.
+\item Simplify the ESKF prediction process by avoiding matrix-form $\mathbf{F}$ and instead writing separate equations for each variable's motion process. Evaluate potential efficiency gains. This approach is sometimes called \textbf{Sparse ESKF}.
 
 \item Attempt to simplify matrix computations in ESKF by eliminating unnecessary calculations while preserving essential operations. Assess efficiency improvements.
 

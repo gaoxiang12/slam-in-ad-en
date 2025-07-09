@@ -11,42 +11,42 @@ This chapter introduces a very common IMU data processing method: \textbf{Pre-in
 
 \section{Pre-integration of IMU States}
 \subsection{Definition of Pre-integration}
-We still start from the kinematic model of IMU. In an IMU system, we consider five variables: rotation $\bm{R}$, translation $\bm{p}$, angular velocity $\boldsymbol{\omega}$, linear velocity $\bm{v}$, and acceleration $\bm{a}$. According to the kinematics introduced in Section~\ref{sec:math-basics}, the kinematic relationships of these variables can be written as \cite{Murray2017}:
+We still start from the kinematic model of IMU. In an IMU system, we consider five variables: rotation $\mathbf{R}$, translation $\mathbf{p}$, angular velocity $\boldsymbol{\omega}$, linear velocity $\mathbf{v}$, and acceleration $\mathbf{a}$. According to the kinematics introduced in Section~\ref{sec:math-basics}, the kinematic relationships of these variables can be written as \cite{Murray2017}:
 \begin{subequations}\label{key}
 	\begin{align}
-		\dot{\bm{R}} &= \bm{R} \boldsymbol{\omega}^\wedge, \\
-		\dot{\bm{p}} &= \bm{v}, \\
-		\dot{\bm{v}} &= \bm{a}.
+		\dot{\mathbf{R}} &= \mathbf{R} \boldsymbol{\omega}^\wedge, \\
+		\dot{\mathbf{p}} &= \mathbf{v}, \\
+		\dot{\mathbf{v}} &= \mathbf{a}.
 	\end{align}
 \end{subequations}
 
 Within the time interval $t$ to $t+\Delta t$, applying Euler integration to the above equations yields:
 \begin{subequations}\label{key}
 	\begin{align}
-		\bm{R}(t+\Delta t) &= \bm{R}(t) \mathrm{Exp} (\boldsymbol{\omega}(t) \Delta t), \\
-		\bm{v}(t+\Delta t) &= \bm{v}(t) + \bm{a}(t) \Delta t, \\
-		\bm{p}(t+\Delta t) &= \bm{p}(t) + \bm{v}(t) \Delta t + \frac{1}{2} \bm{a}(t) \Delta t^2.
+		\mathbf{R}(t+\Delta t) &= \mathbf{R}(t) \mathrm{Exp} (\boldsymbol{\omega}(t) \Delta t), \\
+		\mathbf{v}(t+\Delta t) &= \mathbf{v}(t) + \mathbf{a}(t) \Delta t, \\
+		\mathbf{p}(t+\Delta t) &= \mathbf{p}(t) + \mathbf{v}(t) \Delta t + \frac{1}{2} \mathbf{a}(t) \Delta t^2.
 	\end{align}
 \end{subequations}
 
-Here, the angular velocity and acceleration can be measured by the IMU but are affected by noise and gravity. Let the measurements be $\tilde{\boldsymbol{\omega}}$ and $\tilde{\bm{a}}$, then:
+Here, the angular velocity and acceleration can be measured by the IMU but are affected by noise and gravity. Let the measurements be $\tilde{\boldsymbol{\omega}}$ and $\tilde{\mathbf{a}}$, then:
 \begin{subequations}\label{key}
 	\begin{align}
-		\tilde{\boldsymbol{\omega}}(t) &= \boldsymbol{\omega}(t) + \bm{b}_g (t) + \boldsymbol{\eta}_g 
+		\tilde{\boldsymbol{\omega}}(t) &= \boldsymbol{\omega}(t) + \mathbf{b}_g (t) + \boldsymbol{\eta}_g 
 		(t), \\
-		\tilde{\bm{a}}(t) &= \bm{R}^\top (\bm{a}(t) - \bm{g}) + \bm{b}_a (t) + \boldsymbol{\eta}_a 
+		\tilde{\mathbf{a}}(t) &= \mathbf{R}^\top (\mathbf{a}(t) - \mathbf{g}) + \mathbf{b}_a (t) + \boldsymbol{\eta}_a 
 		(t),
 	\end{align}
 \end{subequations}
-where $\bm{b}_g, \bm{b}_a$ are the biases of the gyroscope and accelerometer, and $\boldsymbol{\eta}_a, \boldsymbol{\eta}_g$ are Gaussian measurement noises. Substituting these into the above equations, we obtain the relationship between the measurements and the state variables:
+where $\mathbf{b}_g, \mathbf{b}_a$ are the biases of the gyroscope and accelerometer, and $\boldsymbol{\eta}_a, \boldsymbol{\eta}_g$ are Gaussian measurement noises. Substituting these into the above equations, we obtain the relationship between the measurements and the state variables:
 \begin{subequations}\label{eq:kinematics-delta-t}
 	\begin{align}
-		\bm{R}(t+\Delta t) &= \bm{R}(t) \mathrm{Exp} \left((\tilde{\boldsymbol{\omega}} - \bm{b}_g(t) - 
+		\mathbf{R}(t+\Delta t) &= \mathbf{R}(t) \mathrm{Exp} \left((\tilde{\boldsymbol{\omega}} - \mathbf{b}_g(t) - 
 		\boldsymbol{\eta}_{gd} (t))\Delta t \right), \\
-		\bm{v}(t+\Delta t) &= \bm{v}(t) + \bm{g} \Delta t + \bm{R}(t) (\tilde{\bm{a}} -\bm{b}_a(t) - 
+		\mathbf{v}(t+\Delta t) &= \mathbf{v}(t) + \mathbf{g} \Delta t + \mathbf{R}(t) (\tilde{\mathbf{a}} -\mathbf{b}_a(t) - 
 		\boldsymbol{\eta}_{ad}(t)) \Delta t, \\
-		\bm{p}(t+\Delta t) &= \bm{p}(t) + \bm{v}(t) \Delta t + \frac{1}{2}\bm{g} \Delta t^2 + \frac{1}{2} 
-		\bm{R}(t) (\tilde{\bm{a}} -\bm{b}_a(t) - \boldsymbol{\eta}_{ad}(t)) \Delta t^2 ,
+		\mathbf{p}(t+\Delta t) &= \mathbf{p}(t) + \mathbf{v}(t) \Delta t + \frac{1}{2}\mathbf{g} \Delta t^2 + \frac{1}{2} 
+		\mathbf{R}(t) (\tilde{\mathbf{a}} -\mathbf{b}_a(t) - \boldsymbol{\eta}_{ad}(t)) \Delta t^2 ,
 	\end{align}
 \end{subequations}
 where $\boldsymbol{\eta}_{gd}, 
@@ -64,15 +64,15 @@ The above process has already been described in the IMU measurement and noise eq
 
 \section{Pre-integration of IMU States}
 \subsection{Definition of Pre-integration}
-Now we introduce how to perform IMU pre-integration between keyframes. Let us assume that IMU data between discrete times $i$ and $j$ are accumulated, a process that can last several seconds. This accumulated observation is called \textbf{pre-integration} \cite{Lupton2011}. Of course, if we use different forms of kinematics (such as those introduced in Section~\ref{sec:math-basics}), the resulting pre-integration forms will also differ \cite{Qin2018}. This book primarily uses the $\mathrm{SO}(3)+\bm{t}$ approach to derive pre-integration. Thus, during the interval from $i$ to $j$, we can accumulate the variables in Equation \eqref{eq:kinematics-delta-t} to obtain:
+Now we introduce how to perform IMU pre-integration between keyframes. Let us assume that IMU data between discrete times $i$ and $j$ are accumulated, a process that can last several seconds. This accumulated observation is called \textbf{pre-integration} \cite{Lupton2011}. Of course, if we use different forms of kinematics (such as those introduced in Section~\ref{sec:math-basics}), the resulting pre-integration forms will also differ \cite{Qin2018}. This book primarily uses the $\mathrm{SO}(3)+\mathbf{t}$ approach to derive pre-integration. Thus, during the interval from $i$ to $j$, we can accumulate the variables in Equation \eqref{eq:kinematics-delta-t} to obtain:
 \begin{subequations}
 	\begin{align}
-		\bm{R}_j &= \bm{R}_i \prod_{k=i}^{j-1} \left(\mathrm{Exp} \left(\left( \tilde{\boldsymbol{\omega}}_k - 
-		\bm{b}_{g,k} - \boldsymbol{\eta}_{gd, k} \right) \Delta t \right)\right), \\
-		\bm{v}_j &= \bm{v}_i + \bm{g} \Delta t_{ij} + \sum_{k=i}^{j-1} \bm{R}_k (\tilde{\bm{a}}_k - 
-		\bm{b}_{a, k} - \boldsymbol{\eta}_{ad, k}) \Delta t, \\
-		\bm{p}_j &= \bm{p}_i + \sum_{k=i}^{j-1} \bm{v}_k \Delta t + \frac{1}{2} \sum_{k=i}^{j-1} \bm{g} \Delta t^2 + 
-		\frac{1}{2} \sum_{k=i}^{j-1} \bm{R}_k (\tilde{\bm{a}}_k - \bm{b}_{a,k} - \boldsymbol{\eta}_{ad, k}) 
+		\mathbf{R}_j &= \mathbf{R}_i \prod_{k=i}^{j-1} \left(\mathrm{Exp} \left(\left( \tilde{\boldsymbol{\omega}}_k - 
+		\mathbf{b}_{g,k} - \boldsymbol{\eta}_{gd, k} \right) \Delta t \right)\right), \\
+		\mathbf{v}_j &= \mathbf{v}_i + \mathbf{g} \Delta t_{ij} + \sum_{k=i}^{j-1} \mathbf{R}_k (\tilde{\mathbf{a}}_k - 
+		\mathbf{b}_{a, k} - \boldsymbol{\eta}_{ad, k}) \Delta t, \\
+		\mathbf{p}_j &= \mathbf{p}_i + \sum_{k=i}^{j-1} \mathbf{v}_k \Delta t + \frac{1}{2} \sum_{k=i}^{j-1} \mathbf{g} \Delta t^2 + 
+		\frac{1}{2} \sum_{k=i}^{j-1} \mathbf{R}_k (\tilde{\mathbf{a}}_k - \mathbf{b}_{a,k} - \boldsymbol{\eta}_{ad, k}) 
 		\Delta t^2,
 	\end{align}
 \end{subequations}
@@ -83,25 +83,25 @@ The drawback of direct integration is that it describes a process dependent on t
 \begin{subequations}
 	\label{eq:def-preintegration}
 	\begin{align}
-		\Delta \bm{R}_{ij} & \buildrel\textstyle.\over= \bm{R}_i^\top \bm{R}_j = \prod_{k=i}^{j-1} 
-		\mathrm{Exp} \left( \left(\tilde{\boldsymbol{\omega}}_k - \bm{b}_{g,k} - \boldsymbol{\eta}_{gd, 
+		\Delta \mathbf{R}_{ij} & \buildrel\textstyle.\over= \mathbf{R}_i^\top \mathbf{R}_j = \prod_{k=i}^{j-1} 
+		\mathrm{Exp} \left( \left(\tilde{\boldsymbol{\omega}}_k - \mathbf{b}_{g,k} - \boldsymbol{\eta}_{gd, 
 			k}\right) \Delta t\right), \\
-		\Delta \bm{v}_{ij} &\buildrel\textstyle.\over= \bm{R}_i^\top(\bm{v}_j - \bm{v}_i -\bm{g} 
-		\Delta t_{ij}) = \sum_{k=i}^{j-1} \Delta \bm{R}_{ik} (\tilde{\bm{a}}_k - \bm{b}_{a,k} - 
+		\Delta \mathbf{v}_{ij} &\buildrel\textstyle.\over= \mathbf{R}_i^\top(\mathbf{v}_j - \mathbf{v}_i -\mathbf{g} 
+		\Delta t_{ij}) = \sum_{k=i}^{j-1} \Delta \mathbf{R}_{ik} (\tilde{\mathbf{a}}_k - \mathbf{b}_{a,k} - 
 		\boldsymbol{\eta}_{ad, k}) \Delta t,\\
-		\Delta \bm{p}_{ij} &\buildrel\textstyle.\over= \bm{R}_i^\top \left( \bm{p}_j - \bm{p}_i - 
-		\bm{v}_i \Delta t_{ij} - \bm{g} \Delta t_{ij}^2 \right), \\
-		&= \sum_{k=i}^{j-1} \left[\Delta \bm{v}_{ik} \Delta t+\frac{1}{2} \Delta \bm{R}_{ik} 
-		\left(\tilde{\bm{a}}_k - \bm{b}_{a,k} - \boldsymbol{\eta}_{ad, k} \right)\Delta t^2 \right].
+		\Delta \mathbf{p}_{ij} &\buildrel\textstyle.\over= \mathbf{R}_i^\top \left( \mathbf{p}_j - \mathbf{p}_i - 
+		\mathbf{v}_i \Delta t_{ij} - \mathbf{g} \Delta t_{ij}^2 \right), \\
+		&= \sum_{k=i}^{j-1} \left[\Delta \mathbf{v}_{ik} \Delta t+\frac{1}{2} \Delta \mathbf{R}_{ik} 
+		\left(\tilde{\mathbf{a}}_k - \mathbf{b}_{a,k} - \boldsymbol{\eta}_{ad, k} \right)\Delta t^2 \right].
 	\end{align}
 \end{subequations}
 
-This modification essentially computes a certain "difference" from $i$ to $j$. Although written in the form of $\bm{p}, \bm{v}, \bm{R}$, they are not direct physical quantities of displacement, velocity, or rotation but artificially defined variables. This definition has some interesting computational properties:
+This modification essentially computes a certain "difference" from $i$ to $j$. Although written in the form of $\mathbf{p}, \mathbf{v}, \mathbf{R}$, they are not direct physical quantities of displacement, velocity, or rotation but artificially defined variables. This definition has some interesting computational properties:
 \begin{enumerate}
-	\item Consider starting from time $i$, where all three quantities are zero. At time $i+1$, we compute $\Delta \bm{R}_{i, i+1}, \Delta \bm{v}_{i, i+1}$, and $\Delta \bm{p}_{i,i+1}$. At time $i+2$, since these equations are in cumulative product or sum forms, we only need to add the measurements at time $i+2$ to the results from times $i$ and $i+1$. This brings great convenience at the computational level. Furthermore, we will find that this property is very convenient for subsequent calculations of various Jacobian matrices.
-	\item From the rightmost side of the equal signs, all the above computations are independent of the values of $\bm{R}, \bm{v}, \bm{p}$. Even if their estimates change, the IMU integration quantities do not need to be recalculated.
-	\item However, if the biases $\bm{b}_{a,k}$ or $\bm{b}_{g,k}$ change, the above equations theoretically still need to be recalculated. Nevertheless, we can also adjust our pre-integration quantities through the idea of "\textbf{correction}" rather than "\textbf{recalculation}."
-	\item Note that pre-integration quantities have no direct physical meaning. Although symbols like $\Delta \bm{v}, \Delta \bm{p}$ are used, they do not represent deviations between two velocities or positions. They are simply defined as such. Of course, dimensionally, they should correspond to angles, velocities, and displacements.
+	\item Consider starting from time $i$, where all three quantities are zero. At time $i+1$, we compute $\Delta \mathbf{R}_{i, i+1}, \Delta \mathbf{v}_{i, i+1}$, and $\Delta \mathbf{p}_{i,i+1}$. At time $i+2$, since these equations are in cumulative product or sum forms, we only need to add the measurements at time $i+2$ to the results from times $i$ and $i+1$. This brings great convenience at the computational level. Furthermore, we will find that this property is very convenient for subsequent calculations of various Jacobian matrices.
+	\item From the rightmost side of the equal signs, all the above computations are independent of the values of $\mathbf{R}, \mathbf{v}, \mathbf{p}$. Even if their estimates change, the IMU integration quantities do not need to be recalculated.
+	\item However, if the biases $\mathbf{b}_{a,k}$ or $\mathbf{b}_{g,k}$ change, the above equations theoretically still need to be recalculated. Nevertheless, we can also adjust our pre-integration quantities through the idea of "\textbf{correction}" rather than "\textbf{recalculation}."
+	\item Note that pre-integration quantities have no direct physical meaning. Although symbols like $\Delta \mathbf{v}, \Delta \mathbf{p}$ are used, they do not represent deviations between two velocities or positions. They are simply defined as such. Of course, dimensionally, they should correspond to angles, velocities, and displacements.
 	\item Similarly, since pre-integration quantities are not direct physical quantities, the noise of this "measurement model" must also be derived from the original IMU noise.
 \end{enumerate}
 
@@ -118,104 +118,104 @@ As seen from the previous discussion, pre-integration inherently involves IMU bi
 First, we fix the bias estimate at time $i$ to analyze the noise in pre-integration. Both graph optimization and filter techniques require knowing the noise level of a measurement. Let us start with rotation, as it is relatively simpler. Using the BCH expansion, we can make the following approximation:
 \begin{equation}\label{key}
 	\begin{aligned}
-		\Delta \bm{R}_{ij} &= \prod_{k=i}^{j-1} \underbrace{\mathrm{Exp} \left( 
-			\left(\tilde{\boldsymbol{\omega}}_k - \bm{b}_{g,i} - \boldsymbol{\eta}_{gd, k}\right)  \Delta 
-			t\right)}_{\text{Using BCH}: \approx \mathrm{Exp}\left((\tilde{\boldsymbol{\omega}}_k - \bm{b}_{g,i})
-			\Delta t \right) \mathrm{Exp} \left(-\bm{J}_{r,k} \boldsymbol{\eta}_{gd, k} \Delta t \right) }, \\
-		&\approx \prod_{k=i}^{j-1} \left[ \mathrm{Exp}\left((\tilde{\boldsymbol{\omega}}_k - \bm{b}_{g,i}) 
-		\Delta t \right) \mathrm{Exp} \left(-\bm{J}_{r,k} \boldsymbol{\eta}_{gd, k} \Delta t \right) \right].  \\
+		\Delta \mathbf{R}_{ij} &= \prod_{k=i}^{j-1} \underbrace{\mathrm{Exp} \left( 
+			\left(\tilde{\boldsymbol{\omega}}_k - \mathbf{b}_{g,i} - \boldsymbol{\eta}_{gd, k}\right)  \Delta 
+			t\right)}_{\text{Using BCH}: \approx \mathrm{Exp}\left((\tilde{\boldsymbol{\omega}}_k - \mathbf{b}_{g,i})
+			\Delta t \right) \mathrm{Exp} \left(-\mathbf{J}_{r,k} \boldsymbol{\eta}_{gd, k} \Delta t \right) }, \\
+		&\approx \prod_{k=i}^{j-1} \left[ \mathrm{Exp}\left((\tilde{\boldsymbol{\omega}}_k - \mathbf{b}_{g,i}) 
+		\Delta t \right) \mathrm{Exp} \left(-\mathbf{J}_{r,k} \boldsymbol{\eta}_{gd, k} \Delta t \right) \right].  \\
 	\end{aligned}
 \end{equation}
 
-In this equation, we aim to separate the noise term to define the \textbf{pre-integration measurement} $\Delta \tilde{\bm{R}}_{ij}$. Similar to previous IMU measurements, the measurement is denoted with a $\tilde{(\cdot)}$ symbol:
+In this equation, we aim to separate the noise term to define the \textbf{pre-integration measurement} $\Delta \tilde{\mathbf{R}}_{ij}$. Similar to previous IMU measurements, the measurement is denoted with a $\tilde{(\cdot)}$ symbol:
 \begin{equation}\label{eq:def-of-delta-R-obs}
-	\Delta \tilde{\bm{R}}_{ij} = \prod_{k=i}^{j-1} \mathrm{Exp}\left( (\tilde{\boldsymbol{\omega}}_k - 
-	\bm{b}_{g,i})\Delta t \right).
+	\Delta \tilde{\mathbf{R}}_{ij} = \prod_{k=i}^{j-1} \mathrm{Exp}\left( (\tilde{\boldsymbol{\omega}}_k - 
+	\mathbf{b}_{g,i})\Delta t \right).
 \end{equation}
 
-Note that this model can also be used to define $\Delta \tilde{\bm{R}}_{kj}, \forall k \in (i,j)$. Based on this clever definition, the above equation can be rewritten as:
+Note that this model can also be used to define $\Delta \tilde{\mathbf{R}}_{kj}, \forall k \in (i,j)$. Based on this clever definition, the above equation can be rewritten as:
 \begin{equation}\label{eq:approx-delta-R}
 	\begin{aligned}
-		\Delta \bm{R}_{ij} &= \underbrace{\mathrm{Exp}\left((\tilde{\boldsymbol{\omega}}_i - 
-			\bm{b}_{g,i}) \Delta t \right)}_{\Delta\tilde{\bm{R}}_{i, i+1}} \mathrm{Exp} \left(-\bm{J}_{r,i} 
+		\Delta \mathbf{R}_{ij} &= \underbrace{\mathrm{Exp}\left((\tilde{\boldsymbol{\omega}}_i - 
+			\mathbf{b}_{g,i}) \Delta t \right)}_{\Delta\tilde{\mathbf{R}}_{i, i+1}} \mathrm{Exp} \left(-\mathbf{J}_{r,i} 
 		\boldsymbol{\eta}_{gd, i} \Delta t \right) 
-		\underbrace{\mathrm{Exp}\left((\tilde{\boldsymbol{\omega}}_{i+1} - \bm{b}_{g,i}) \Delta t 
-			\right)}_{\Delta \tilde{\bm{R}}_{i+1, i+2}}\mathrm{Exp} \left(-\bm{J}_{r,i+1} 
+		\underbrace{\mathrm{Exp}\left((\tilde{\boldsymbol{\omega}}_{i+1} - \mathbf{b}_{g,i}) \Delta t 
+			\right)}_{\Delta \tilde{\mathbf{R}}_{i+1, i+2}}\mathrm{Exp} \left(-\mathbf{J}_{r,i+1} 
 		\boldsymbol{\eta}_{gd, i} \Delta t \right) \ldots, \\
-		&= \Delta \tilde{\bm{R}}_{i, i+1} \underbrace{\mathrm{Exp} \left(-\bm{J}_{r,i} 
-			\boldsymbol{\eta}_{gd, i} \Delta t \right)\Delta\tilde{\bm{R}}_{i+1, i+2}}_{=\Delta 
-			\tilde{\bm{R}}_{i+1, i+2} \mathrm{Exp}(-\Delta \tilde{\bm{R}}_{i+1, i+2}^\top \bm{J}_{r,i} 
-			\boldsymbol{\eta}_{gd, i} \Delta t)} \mathrm{Exp} \left(-\bm{J}_{r,i+1} \boldsymbol{\eta}_{gd, i} 
+		&= \Delta \tilde{\mathbf{R}}_{i, i+1} \underbrace{\mathrm{Exp} \left(-\mathbf{J}_{r,i} 
+			\boldsymbol{\eta}_{gd, i} \Delta t \right)\Delta\tilde{\mathbf{R}}_{i+1, i+2}}_{=\Delta 
+			\tilde{\mathbf{R}}_{i+1, i+2} \mathrm{Exp}(-\Delta \tilde{\mathbf{R}}_{i+1, i+2}^\top \mathbf{J}_{r,i} 
+			\boldsymbol{\eta}_{gd, i} \Delta t)} \mathrm{Exp} \left(-\mathbf{J}_{r,i+1} \boldsymbol{\eta}_{gd, i} 
 		\Delta t \right) \ldots, \\
-		&=\Delta \tilde{\bm{R}}_{i, i+2} \mathrm{Exp}(-\Delta \tilde{\bm{R}}_{i+1, i+2}^\top 
-		\bm{J}_{r,i} \boldsymbol{\eta}_{gd, i} \Delta t) \mathrm{Exp} \left(-\bm{J}_{r,i+1} 
-		\boldsymbol{\eta}_{gd, i} \Delta t \right) \Delta \tilde{\bm{R}}_{i+2, i+3} \ldots .
+		&=\Delta \tilde{\mathbf{R}}_{i, i+2} \mathrm{Exp}(-\Delta \tilde{\mathbf{R}}_{i+1, i+2}^\top 
+		\mathbf{J}_{r,i} \boldsymbol{\eta}_{gd, i} \Delta t) \mathrm{Exp} \left(-\mathbf{J}_{r,i+1} 
+		\boldsymbol{\eta}_{gd, i} \Delta t \right) \Delta \tilde{\mathbf{R}}_{i+2, i+3} \ldots .
 	\end{aligned}
 \end{equation}
 
-By continuously using the adjoint formula to move the observations to the left and the noise terms to the right, and merging the $\Delta \tilde{\bm{R}}$ terms within the noise, we obtain:
+By continuously using the adjoint formula to move the observations to the left and the noise terms to the right, and merging the $\Delta \tilde{\mathbf{R}}$ terms within the noise, we obtain:
 \begin{equation}\label{eq:def-of-delta-R}
 	\begin{aligned}
-		\Delta \bm{R}_{ij} &= \Delta \tilde{\bm{R}}_{ij} \prod_{k=i}^{j-1} \mathrm{Exp}\left( -\Delta 
-		\tilde{\bm{R}}_{k+1, j}^\top \bm{J}_{r,k} \boldsymbol{\eta}_{gd, k} \Delta t \right), \\
-		& \buildrel\textstyle.\over= \Delta \tilde{\bm{R}}_{ij} \mathrm{Exp} (-\delta \boldsymbol{\phi}_{ij}).
+		\Delta \mathbf{R}_{ij} &= \Delta \tilde{\mathbf{R}}_{ij} \prod_{k=i}^{j-1} \mathrm{Exp}\left( -\Delta 
+		\tilde{\mathbf{R}}_{k+1, j}^\top \mathbf{J}_{r,k} \boldsymbol{\eta}_{gd, k} \Delta t \right), \\
+		& \buildrel\textstyle.\over= \Delta \tilde{\mathbf{R}}_{ij} \mathrm{Exp} (-\delta \boldsymbol{\phi}_{ij}).
 	\end{aligned}
 \end{equation}
 For convenience, we collectively define the right-hand side as a noise term. Later, we will discuss the magnitude of this noise term.
 
-Next, consider the velocity part. The form of Equation \eqref{eq:def-preintegration} remains unchanged, but now we can happily substitute the previously defined $\Delta \tilde{\bm{R}}_{ij}$:
+Next, consider the velocity part. The form of Equation \eqref{eq:def-preintegration} remains unchanged, but now we can happily substitute the previously defined $\Delta \tilde{\mathbf{R}}_{ij}$:
 \begin{equation}\label{key}
 	\begin{aligned}
-		\Delta \bm{v}_{ij} &= \sum_{k=i}^{j-1} \Delta \bm{R}_{ik} (\tilde{\bm{a}}_k - \bm{b}_{a,i} - 
+		\Delta \mathbf{v}_{ij} &= \sum_{k=i}^{j-1} \Delta \mathbf{R}_{ik} (\tilde{\mathbf{a}}_k - \mathbf{b}_{a,i} - 
 		\boldsymbol{\eta}_{ad, k}) \Delta t, \\
-		&=  \sum_{k=i}^{j-1} \Delta \tilde{\bm{R}}_{ik} \underbrace{\mathrm{Exp} (-\delta 
-			\boldsymbol{\phi}_{ik})}_{\approx \bm{I} - \delta \boldsymbol{\phi}_{ik}^\wedge } 
-		(\tilde{\bm{a}}_k - \bm{b}_{a,i} - \boldsymbol{\eta}_{ad, k}) \Delta t, \\
-		&= \sum_{k=i}^{j-1} \Delta \tilde{\bm{R}}_{ik} (\bm{I} - \delta 
-		\boldsymbol{\phi}^\wedge_{ik})(\tilde{\bm{a}}_k - \bm{b}_{a,i} - \boldsymbol{\eta}_{ad, k}) 
+		&=  \sum_{k=i}^{j-1} \Delta \tilde{\mathbf{R}}_{ik} \underbrace{\mathrm{Exp} (-\delta 
+			\boldsymbol{\phi}_{ik})}_{\approx \mathbf{I} - \delta \boldsymbol{\phi}_{ik}^\wedge } 
+		(\tilde{\mathbf{a}}_k - \mathbf{b}_{a,i} - \boldsymbol{\eta}_{ad, k}) \Delta t, \\
+		&= \sum_{k=i}^{j-1} \Delta \tilde{\mathbf{R}}_{ik} (\mathbf{I} - \delta 
+		\boldsymbol{\phi}^\wedge_{ik})(\tilde{\mathbf{a}}_k - \mathbf{b}_{a,i} - \boldsymbol{\eta}_{ad, k}) 
 		\Delta t .
 	\end{aligned}
 \end{equation}
 We discard the second-order noise terms and define the \textbf{pre-integrated velocity measurement} as:
 \begin{equation}\label{key}
-	\Delta \tilde{\bm{v}}_{ij} = \sum_{k=i}^{j-1} \Delta \tilde{\bm{R}}_{ik} (\tilde{\bm{a}}_k - \bm{b}_{a,i}) 
+	\Delta \tilde{\mathbf{v}}_{ij} = \sum_{k=i}^{j-1} \Delta \tilde{\mathbf{R}}_{ik} (\tilde{\mathbf{a}}_k - \mathbf{b}_{a,i}) 
 	\Delta t.
 \end{equation}
 
 Thus, the equation can be simplified to:
 \begin{equation}\label{eq:def-of-delta-v}
 	\begin{aligned}
-		\Delta \bm{v}_{ij} &= \sum_{k=i}^{j-1} \left[\underbrace{\Delta \tilde{\bm{R}}_{ik} (\tilde{\bm{a}}_k - 
-			\bm{b}_{a,i}) \Delta t}_{\text{Accumulate this term}} + \Delta \tilde{\bm{R}}_{ik} (\tilde{\bm{a}}_k - 
-		\bm{b}_{a,i})^\wedge \delta \boldsymbol{\phi}_{ik} \Delta t - \Delta \tilde{\bm{R}}_{ik} 
+		\Delta \mathbf{v}_{ij} &= \sum_{k=i}^{j-1} \left[\underbrace{\Delta \tilde{\mathbf{R}}_{ik} (\tilde{\mathbf{a}}_k - 
+			\mathbf{b}_{a,i}) \Delta t}_{\text{Accumulate this term}} + \Delta \tilde{\mathbf{R}}_{ik} (\tilde{\mathbf{a}}_k - 
+		\mathbf{b}_{a,i})^\wedge \delta \boldsymbol{\phi}_{ik} \Delta t - \Delta \tilde{\mathbf{R}}_{ik} 
 		\boldsymbol{\eta}_{ad, k} \Delta t\right], \\
-		&= \Delta \tilde{\bm{v}}_{ij} + \sum_{k=i}^{j-1} \left[\Delta \tilde{\bm{R}}_{ik} (\tilde{\bm{a}}_k - 
-		\bm{b}_{a,i})^\wedge \delta \boldsymbol{\phi}_{ik} \Delta t - \Delta \tilde{\bm{R}}_{ik} 
+		&= \Delta \tilde{\mathbf{v}}_{ij} + \sum_{k=i}^{j-1} \left[\Delta \tilde{\mathbf{R}}_{ik} (\tilde{\mathbf{a}}_k - 
+		\mathbf{b}_{a,i})^\wedge \delta \boldsymbol{\phi}_{ik} \Delta t - \Delta \tilde{\mathbf{R}}_{ik} 
 		\boldsymbol{\eta}_{ad, k} \Delta t\right], \\
-		&= \Delta \tilde{\bm{v}}_{ij} - \delta \bm{v}_{ij}.
+		&= \Delta \tilde{\mathbf{v}}_{ij} - \delta \mathbf{v}_{ij}.
 	\end{aligned}
 \end{equation}
-Similarly, $\delta \bm{v}_{ij}$ is also a defined noise term, whose magnitude we will analyze later.
+Similarly, $\delta \mathbf{v}_{ij}$ is also a defined noise term, whose magnitude we will analyze later.
 
 Finally, we can define similar operations for the translation component. Substituting Equations \eqref{eq:def-of-delta-R} and \eqref{eq:def-of-delta-v} into the translation definition yields:
 
 \begin{equation}
 	\begin{aligned}
-		\Delta \bm{p}_{ij} &= \sum_{k=i}^{j-1} \left[\Delta \bm{v}_{ik} \Delta t+\frac{1}{2} \Delta 
-		\bm{R}_{ik}  \left(\tilde{\bm{a}}_k - \bm{b}_{a,i} - \boldsymbol{\eta}_{ad, k} \right)\Delta t^2 \right], \\
-		&= \sum_{k=i}^{j-1} \left[(\Delta \tilde{\bm{v}}_{ik} - \delta \bm{v}_{ik}) \Delta t + \frac{1}{2} \Delta 
-		\tilde{\bm{R}}_{ik} \underbrace{\mathrm{Exp}(-\delta \boldsymbol{\phi}_{ik})}_{\bm{I} - \delta 
-			\boldsymbol{\phi}_{ik}^\wedge} \left(\tilde{\bm{a}}_k - \bm{b}_{a,i} - \boldsymbol{\eta}_{ad, k} 
+		\Delta \mathbf{p}_{ij} &= \sum_{k=i}^{j-1} \left[\Delta \mathbf{v}_{ik} \Delta t+\frac{1}{2} \Delta 
+		\mathbf{R}_{ik}  \left(\tilde{\mathbf{a}}_k - \mathbf{b}_{a,i} - \boldsymbol{\eta}_{ad, k} \right)\Delta t^2 \right], \\
+		&= \sum_{k=i}^{j-1} \left[(\Delta \tilde{\mathbf{v}}_{ik} - \delta \mathbf{v}_{ik}) \Delta t + \frac{1}{2} \Delta 
+		\tilde{\mathbf{R}}_{ik} \underbrace{\mathrm{Exp}(-\delta \boldsymbol{\phi}_{ik})}_{\mathbf{I} - \delta 
+			\boldsymbol{\phi}_{ik}^\wedge} \left(\tilde{\mathbf{a}}_k - \mathbf{b}_{a,i} - \boldsymbol{\eta}_{ad, k} 
 		\right)\Delta t^2 \right], \\
-		&\approx \sum_{k=i}^{j-1} \left[ (\Delta \tilde{\bm{v}}_{ik} - \delta \bm{v}_{ik}) \Delta t +  \frac{1}{2} 
-		\Delta \tilde{\bm{R}}_{ik} (\bm{I} - \delta \boldsymbol{\phi}^\wedge_{ik}) (\tilde{\bm{a}}_k - 
-		\bm{b}_{a,i}) \Delta t^2 - \frac{1}{2}\Delta \tilde{\bm{R}}_{ik} \boldsymbol{\eta}_{ad, k} \Delta t^2 
+		&\approx \sum_{k=i}^{j-1} \left[ (\Delta \tilde{\mathbf{v}}_{ik} - \delta \mathbf{v}_{ik}) \Delta t +  \frac{1}{2} 
+		\Delta \tilde{\mathbf{R}}_{ik} (\mathbf{I} - \delta \boldsymbol{\phi}^\wedge_{ik}) (\tilde{\mathbf{a}}_k - 
+		\mathbf{b}_{a,i}) \Delta t^2 - \frac{1}{2}\Delta \tilde{\mathbf{R}}_{ik} \boldsymbol{\eta}_{ad, k} \Delta t^2 
 		\right], \\
-		&\approx \sum_{k=i}^{j-1} \left[ \Delta \tilde{\bm{v}}_{ik} \Delta t + \frac{1}{2}\Delta 
-		\tilde{\bm{R}}_{ik} (\tilde{\bm{a}}_k - \bm{b}_{a,i}) \Delta t^2 -\delta \bm{v}_{ik} \Delta t + 
-		\frac{1}{2}\Delta \tilde{\bm{R}}_{ik} (\tilde{\bm{a}}_k - \bm{b}_{a,i})^\wedge \delta 
+		&\approx \sum_{k=i}^{j-1} \left[ \Delta \tilde{\mathbf{v}}_{ik} \Delta t + \frac{1}{2}\Delta 
+		\tilde{\mathbf{R}}_{ik} (\tilde{\mathbf{a}}_k - \mathbf{b}_{a,i}) \Delta t^2 -\delta \mathbf{v}_{ik} \Delta t + 
+		\frac{1}{2}\Delta \tilde{\mathbf{R}}_{ik} (\tilde{\mathbf{a}}_k - \mathbf{b}_{a,i})^\wedge \delta 
 		\boldsymbol{\phi}_{ik} \Delta t^2 - \right. \\
-		& \quad \quad \quad \left. \frac{1}{2} \Delta \tilde{\bm{R}}_{ik} \boldsymbol{\eta}_{ad, k} \Delta t^2  
+		& \quad \quad \quad \left. \frac{1}{2} \Delta \tilde{\mathbf{R}}_{ik} \boldsymbol{\eta}_{ad, k} \Delta t^2  
 		\right].
 	\end{aligned}
 \end{equation}
@@ -223,19 +223,19 @@ Finally, we can define similar operations for the translation component. Substit
 In the derivation from the third to fourth line, we discarded second-order noise terms. As before, we define the \textbf{pre-integrated position measurement} as:
 
 \begin{equation}
-	\Delta \tilde{\bm{p}}_{ij} = \sum_{k=i}^{j-1} \left[ (\Delta \tilde{\bm{v}}_{ik} \Delta t) + 
-	\frac{1}{2}\Delta \tilde{\bm{R}}_{ik} (\tilde{\bm{a}}_k - \bm{b}_{a,i}) \Delta t^2 \right].
+	\Delta \tilde{\mathbf{p}}_{ij} = \sum_{k=i}^{j-1} \left[ (\Delta \tilde{\mathbf{v}}_{ik} \Delta t) + 
+	\frac{1}{2}\Delta \tilde{\mathbf{R}}_{ik} (\tilde{\mathbf{a}}_k - \mathbf{b}_{a,i}) \Delta t^2 \right].
 \end{equation}
 
 The previous equation can then be written as:
 
 \begin{equation}\label{eq:def-of-delta-p}
 	\begin{aligned}
-		\Delta \bm{p}_{ij} &= \Delta \tilde{\bm{p}}_{ij} + \sum_{k=i}^{j-1} \left[-\delta \bm{v}_{ik} \Delta t + 
-		\frac{1}{2}\Delta \tilde{\bm{R}}_{ik} (\tilde{\bm{a}}_k - \bm{b}_{a,i})^\wedge \delta 
-		\boldsymbol{\phi}_{ik} \Delta t^2 - \frac{1}{2} \Delta \tilde{\bm{R}}_{ik} \boldsymbol{\eta}_{ad, k} 
+		\Delta \mathbf{p}_{ij} &= \Delta \tilde{\mathbf{p}}_{ij} + \sum_{k=i}^{j-1} \left[-\delta \mathbf{v}_{ik} \Delta t + 
+		\frac{1}{2}\Delta \tilde{\mathbf{R}}_{ik} (\tilde{\mathbf{a}}_k - \mathbf{b}_{a,i})^\wedge \delta 
+		\boldsymbol{\phi}_{ik} \Delta t^2 - \frac{1}{2} \Delta \tilde{\mathbf{R}}_{ik} \boldsymbol{\eta}_{ad, k} 
 		\Delta t^2 \right], \\
-		& \buildrel\textstyle.\over= \Delta\tilde{\bm{p}}_{ij} - \delta \bm{p}_{ij}.
+		& \buildrel\textstyle.\over= \Delta\tilde{\mathbf{p}}_{ij} - \delta \mathbf{p}_{ij}.
 	\end{aligned}
 \end{equation}
 
@@ -243,12 +243,12 @@ Thus, Equations \eqref{eq:def-of-delta-R}, \eqref{eq:def-of-delta-v}, and \eqref
 
 \begin{subequations}\label{key}
 	\begin{align}
-		\Delta \tilde{\bm{R}}_{ij} &= \bm{R}_i^\top \bm{R}_j \mathrm{Exp}(\delta 
+		\Delta \tilde{\mathbf{R}}_{ij} &= \mathbf{R}_i^\top \mathbf{R}_j \mathrm{Exp}(\delta 
 		\boldsymbol{\phi}_{ij}), \\
-		\Delta \tilde{\bm{v}}_{ij} &= \bm{R}_i^\top \left( \bm{v}_j - \bm{v}_i - \bm{g} \Delta t_{ij} \right) 
-		+ \delta \bm{v}_{ij}, \\
-		\Delta \tilde{\bm{p}}_{ij} &= \bm{R}_i^\top \left(\bm{p}_j - \bm{p}_i - \bm{v}_i \Delta t_{ij} - 
-		\frac{1}{2}\bm{g} \Delta t_{ij}^2 \right) + \delta \bm{p}_{ij}.
+		\Delta \tilde{\mathbf{v}}_{ij} &= \mathbf{R}_i^\top \left( \mathbf{v}_j - \mathbf{v}_i - \mathbf{g} \Delta t_{ij} \right) 
+		+ \delta \mathbf{v}_{ij}, \\
+		\Delta \tilde{\mathbf{p}}_{ij} &= \mathbf{R}_i^\top \left(\mathbf{p}_j - \mathbf{p}_i - \mathbf{v}_i \Delta t_{ij} - 
+		\frac{1}{2}\mathbf{g} \Delta t_{ij}^2 \right) + \delta \mathbf{p}_{ij}.
 	\end{align}
 \end{subequations}
 
@@ -257,7 +257,7 @@ This formulation summarizes our previous discussion and highlights several key a
 \begin{enumerate}
 	\item The left-hand side represents observable quantities obtainable through sensor data integration, while the right-hand side shows predicted values derived from state variables plus (or multiplied by) random noise terms.
 	
-	\item The definition of left-hand variables is particularly suitable for implementation. $\Delta \tilde{\bm{R}}_{ik}$ can be obtained from IMU readings, $\Delta \tilde{\bm{v}}_{ik}$ can be calculated using IMU readings at time $k$ and $\Delta \tilde{\bm{R}}_{ik}$, and $\Delta \tilde{\bm{p}}_{ik}$ can be derived from these two. Moreover, knowing the pre-integration measurements at time $k$ makes it straightforward to compute those at $k+1$ using new sensor readings, thanks to the cumulative nature of the definitions.
+	\item The definition of left-hand variables is particularly suitable for implementation. $\Delta \tilde{\mathbf{R}}_{ik}$ can be obtained from IMU readings, $\Delta \tilde{\mathbf{v}}_{ik}$ can be calculated using IMU readings at time $k$ and $\Delta \tilde{\mathbf{R}}_{ik}$, and $\Delta \tilde{\mathbf{p}}_{ik}$ can be derived from these two. Moreover, knowing the pre-integration measurements at time $k$ makes it straightforward to compute those at $k+1$ using new sensor readings, thanks to the cumulative nature of the definitions.
 	
 	\item From the right-hand perspective, it's easy to predict measurement values based on state variables at times $i$ and $j$, enabling error formulation for least-squares optimization. The remaining questions are: Does the pre-integration noise follow zero-mean Gaussian distribution? If so, what is its covariance? And how does it relate to the intrinsic IMU noise?
 \end{enumerate}
@@ -266,45 +266,45 @@ We will address these questions next.
 
 Next, let's consider the velocity component. Similar to the rotation part, the velocity component can also be expressed as a linear combination of Gaussian noise variables:
 \begin{equation}\label{key}
-	\delta \bm{v}_{ij} \approx \sum_{k=i}^{j-1} \left[ -\Delta \tilde{\bm{R}}_{ik}(\tilde{\bm{a}}_k 
-	-\bm{b}_{a,i})^\wedge \delta \boldsymbol{\phi}_{ik} \Delta t + \Delta \tilde{\bm{R}}_{ik} 
+	\delta \mathbf{v}_{ij} \approx \sum_{k=i}^{j-1} \left[ -\Delta \tilde{\mathbf{R}}_{ik}(\tilde{\mathbf{a}}_k 
+	-\mathbf{b}_{a,i})^\wedge \delta \boldsymbol{\phi}_{ik} \Delta t + \Delta \tilde{\mathbf{R}}_{ik} 
 	\boldsymbol{\eta}_{ad,k} \Delta t \right].
 \end{equation}
 
 It can also be written in cumulative form:
 \begin{equation}\label{key}
 	\begin{aligned}
-		\delta \bm{v}_{ij} &= \sum_{k=i}^{j-1} \left[ -\Delta \tilde{\bm{R}}_{ik}(\tilde{\bm{a}}_k 
-		-\bm{b}_{a,i})^\wedge \delta \boldsymbol{\phi}_{ik} \Delta t + \Delta \tilde{\bm{R}}_{ik} 
+		\delta \mathbf{v}_{ij} &= \sum_{k=i}^{j-1} \left[ -\Delta \tilde{\mathbf{R}}_{ik}(\tilde{\mathbf{a}}_k 
+		-\mathbf{b}_{a,i})^\wedge \delta \boldsymbol{\phi}_{ik} \Delta t + \Delta \tilde{\mathbf{R}}_{ik} 
 		\boldsymbol{\eta}_{ad,k} \Delta t \right], \\
-		&= \sum_{k=i}^{j-2} \left[ -\Delta \tilde{\bm{R}}_{ik}(\tilde{\bm{a}}_k -\bm{b}_{a,i})^\wedge \delta 
-		\boldsymbol{\phi}_{ik} \Delta t + \Delta \tilde{\bm{R}}_{ik} \boldsymbol{\eta}_{ad,k} \Delta t 
+		&= \sum_{k=i}^{j-2} \left[ -\Delta \tilde{\mathbf{R}}_{ik}(\tilde{\mathbf{a}}_k -\mathbf{b}_{a,i})^\wedge \delta 
+		\boldsymbol{\phi}_{ik} \Delta t + \Delta \tilde{\mathbf{R}}_{ik} \boldsymbol{\eta}_{ad,k} \Delta t 
 		\right] \\ 
-		& \quad \quad \quad - \Delta \tilde{\bm{R}}_{i, j-1} (\tilde{\bm{a}}_{j-1} -\bm{b}_{a,i})^\wedge 
-		\delta \boldsymbol{\phi}_{i, j-1} \Delta t + \Delta \tilde{\bm{R}}_{i,j-1} \boldsymbol{\eta}_{ad, j-1} 
+		& \quad \quad \quad - \Delta \tilde{\mathbf{R}}_{i, j-1} (\tilde{\mathbf{a}}_{j-1} -\mathbf{b}_{a,i})^\wedge 
+		\delta \boldsymbol{\phi}_{i, j-1} \Delta t + \Delta \tilde{\mathbf{R}}_{i,j-1} \boldsymbol{\eta}_{ad, j-1} 
 		\Delta t, \\
-		&= \delta \bm{v}_{i, j-1} - \Delta \tilde{\bm{R}}_{i,j-1} (\tilde{\bm{a}}_{j-1} -\bm{b}_{a, i})^\wedge 
-		\delta \boldsymbol{\phi}_{i, j-1} \Delta t + \Delta \tilde{\bm{R}}_{i, j-1} \boldsymbol{\eta}_{ad, j-1} 
+		&= \delta \mathbf{v}_{i, j-1} - \Delta \tilde{\mathbf{R}}_{i,j-1} (\tilde{\mathbf{a}}_{j-1} -\mathbf{b}_{a, i})^\wedge 
+		\delta \boldsymbol{\phi}_{i, j-1} \Delta t + \Delta \tilde{\mathbf{R}}_{i, j-1} \boldsymbol{\eta}_{ad, j-1} 
 		\Delta t.
 	\end{aligned}
 \end{equation}
-Thus, the covariance of $\delta \bm{v}_{ij}$ can also be determined based on the cumulative coefficients.
+Thus, the covariance of $\delta \mathbf{v}_{ij}$ can also be determined based on the cumulative coefficients.
 
 The same treatment can be applied to the translation component. We directly present the cumulative form of the translation noise:
 \begin{equation}\label{key}
 	\begin{aligned}
-		\delta \bm{p}_{ij} &= \sum_{k=i}^{j-1} \left[ \delta \bm{v}_{ik} \Delta t - \frac{1}{2} \Delta 
-		\tilde{\bm{R}}_{ik} (\tilde{\bm{a}}_k - \bm{b}_{a,i})^\wedge \delta \boldsymbol{\phi}_{ik} \Delta 
-		t^2 + \frac{1}{2} \Delta \tilde{\bm{R}}_{ik} \boldsymbol{\eta}_{ad,k} \Delta t^2 \right], \\
-		&= \sum_{k=i}^{j-2} \left[  \delta \bm{v}_{ik} \Delta t - \frac{1}{2} \Delta \tilde{\bm{R}}_{ik} 
-		(\tilde{\bm{a}}_k - \bm{b}_{a,i})^\wedge \delta \boldsymbol{\phi}_{ik} \Delta t^2 + \frac{1}{2} 
-		\Delta \tilde{\bm{R}}_{ik} \boldsymbol{\eta}_{ad,k} \Delta t^2 \right] \\
-		& \quad \quad \quad + \delta \bm{v}_{i, j-1} \Delta t - \frac{1}{2} \Delta \tilde{\bm{R}}_{i, j-1}  
-		(\tilde{\bm{a}}_{j-1} - \bm{b}_{a,i})^\wedge \delta \boldsymbol{\phi}_{i,j-1} \Delta t^2 + 
-		\frac{1}{2} \Delta \tilde{\bm{R}}_{i,j-1} \boldsymbol{\eta}_{ad, j-1} \Delta t^2, \\
-		&= \delta \bm{p}_{i,j-1} + \delta \bm{v}_{i,j-1} \Delta t - \frac{1}{2} \Delta \tilde{\bm{R}}_{i, j-1}  
-		(\tilde{\bm{a}}_{j-1} - \bm{b}_{a,i})^\wedge \delta \boldsymbol{\phi}_{i,j-1} \Delta t^2 + 
-		\frac{1}{2} \Delta \tilde{\bm{R}}_{i,j-1} \boldsymbol{\eta}_{ad, j-1} \Delta t^2 .
+		\delta \mathbf{p}_{ij} &= \sum_{k=i}^{j-1} \left[ \delta \mathbf{v}_{ik} \Delta t - \frac{1}{2} \Delta 
+		\tilde{\mathbf{R}}_{ik} (\tilde{\mathbf{a}}_k - \mathbf{b}_{a,i})^\wedge \delta \boldsymbol{\phi}_{ik} \Delta 
+		t^2 + \frac{1}{2} \Delta \tilde{\mathbf{R}}_{ik} \boldsymbol{\eta}_{ad,k} \Delta t^2 \right], \\
+		&= \sum_{k=i}^{j-2} \left[  \delta \mathbf{v}_{ik} \Delta t - \frac{1}{2} \Delta \tilde{\mathbf{R}}_{ik} 
+		(\tilde{\mathbf{a}}_k - \mathbf{b}_{a,i})^\wedge \delta \boldsymbol{\phi}_{ik} \Delta t^2 + \frac{1}{2} 
+		\Delta \tilde{\mathbf{R}}_{ik} \boldsymbol{\eta}_{ad,k} \Delta t^2 \right] \\
+		& \quad \quad \quad + \delta \mathbf{v}_{i, j-1} \Delta t - \frac{1}{2} \Delta \tilde{\mathbf{R}}_{i, j-1}  
+		(\tilde{\mathbf{a}}_{j-1} - \mathbf{b}_{a,i})^\wedge \delta \boldsymbol{\phi}_{i,j-1} \Delta t^2 + 
+		\frac{1}{2} \Delta \tilde{\mathbf{R}}_{i,j-1} \boldsymbol{\eta}_{ad, j-1} \Delta t^2, \\
+		&= \delta \mathbf{p}_{i,j-1} + \delta \mathbf{v}_{i,j-1} \Delta t - \frac{1}{2} \Delta \tilde{\mathbf{R}}_{i, j-1}  
+		(\tilde{\mathbf{a}}_{j-1} - \mathbf{b}_{a,i})^\wedge \delta \boldsymbol{\phi}_{i,j-1} \Delta t^2 + 
+		\frac{1}{2} \Delta \tilde{\mathbf{R}}_{i,j-1} \boldsymbol{\eta}_{ad, j-1} \Delta t^2 .
 	\end{aligned}
 \end{equation}
 
@@ -312,8 +312,8 @@ Thus, we have derived how to propagate the noise terms from time $j-1$ to time $
 \begin{equation}\label{key}
 	\boldsymbol{\eta}_{ik} = \begin{bmatrix}
 		\delta \boldsymbol{\phi}_{ik} \\
-		\delta \bm{v}_{ik} \\
-		\delta \bm{p}_{ik}
+		\delta \mathbf{v}_{ik} \\
+		\delta \mathbf{p}_{ik}
 	\end{bmatrix} ,
 \end{equation}
 and define the IMU bias noise as:
@@ -325,45 +325,45 @@ and define the IMU bias noise as:
 \end{equation}
 then the recursive formula from $\boldsymbol{\eta}_{i,j-1}$ to $\boldsymbol{\eta}_{i,j}$ can be written as:
 \begin{equation}\label{key}
-	\boldsymbol{\eta}_{ij} = \bm{A}_{j-1} \boldsymbol{\eta}_{i,j-1} + \bm{B}_{j-1} \boldsymbol{\eta}_{d,j-1},
+	\boldsymbol{\eta}_{ij} = \mathbf{A}_{j-1} \boldsymbol{\eta}_{i,j-1} + \mathbf{B}_{j-1} \boldsymbol{\eta}_{d,j-1},
 \end{equation}
-where the coefficient matrices $\bm{A}_{j-1}$ and $\bm{B}_{j-1}$ are:
+where the coefficient matrices $\mathbf{A}_{j-1}$ and $\mathbf{B}_{j-1}$ are:
 \begin{equation}\label{eq:preinteg-update-cov}
-	\bm{A}_{j-1} = \begin{bmatrix}
-		\Delta \tilde{\bm{R}}_{j-1, j}^\top & \bm{0} & \bm{0} \\
-		-\Delta \tilde{\bm{R}}_{i, j-1} (\tilde{\bm{a}}_{j-1} - \bm{b}_{a,i})^\wedge \Delta t & \bm{I} & \bm{0} \\
-		- \frac{1}{2} \Delta \tilde{\bm{R}}_{i, j-1}  (\tilde{\bm{a}}_{j-1} - \bm{b}_{a,i})^\wedge \Delta t^2 & 
-		\Delta t \bm{I} & \bm{I} 
+	\mathbf{A}_{j-1} = \begin{bmatrix}
+		\Delta \tilde{\mathbf{R}}_{j-1, j}^\top & \mathbf{0} & \mathbf{0} \\
+		-\Delta \tilde{\mathbf{R}}_{i, j-1} (\tilde{\mathbf{a}}_{j-1} - \mathbf{b}_{a,i})^\wedge \Delta t & \mathbf{I} & \mathbf{0} \\
+		- \frac{1}{2} \Delta \tilde{\mathbf{R}}_{i, j-1}  (\tilde{\mathbf{a}}_{j-1} - \mathbf{b}_{a,i})^\wedge \Delta t^2 & 
+		\Delta t \mathbf{I} & \mathbf{I} 
 	\end{bmatrix}, \ 
-	\bm{B}_{j-1} = \begin{bmatrix}
-		\bm{J}_{r,j-1} \Delta t & \bm{0} \\
-		\bm{0} & \Delta \tilde{\bm{R}}_{i, j-1} \Delta t \\
-		\bm{0} & \frac{1}{2} \Delta \tilde{\bm{R}}_{i,j-1} \Delta t^2 
+	\mathbf{B}_{j-1} = \begin{bmatrix}
+		\mathbf{J}_{r,j-1} \Delta t & \mathbf{0} \\
+		\mathbf{0} & \Delta \tilde{\mathbf{R}}_{i, j-1} \Delta t \\
+		\mathbf{0} & \frac{1}{2} \Delta \tilde{\mathbf{R}}_{i,j-1} \Delta t^2 
 	\end{bmatrix}.
 \end{equation}
 The matrix form more clearly shows the cumulative recursive relationship between the noise terms. If we record the noise in covariance form, then with each additional IMU observation, the noise should exhibit a gradually increasing relationship:
 \begin{equation}\label{eq:preinteg-motion-noise}
-	\boldsymbol{\Sigma}_{i, k+1} = \bm{A}_{k+1} \boldsymbol{\Sigma}_{i, k} \bm{A}_{k+1}^\top + \bm{B}_{k+1}
-	\mathrm{Cov}(\boldsymbol{\eta}_{d,k}) \bm{B}^\top_{k+1},
+	\boldsymbol{\Sigma}_{i, k+1} = \mathbf{A}_{k+1} \boldsymbol{\Sigma}_{i, k} \mathbf{A}_{k+1}^\top + \mathbf{B}_{k+1}
+	\mathrm{Cov}(\boldsymbol{\eta}_{d,k}) \mathbf{B}^\top_{k+1},
 \end{equation}
-Here, the $\bm{A}_{k+1}$ matrix is close to the identity matrix $\bm{I}$, so it can be viewed as accumulating the noise. The gyroscope noise enters the rotation measurements through the $\bm{B}$ matrix, while the accelerometer noise mainly affects the velocity and translation estimates. This cumulative relationship is easily implemented in programs. Later, we will see their implementation in the experimental chapters. Note that if the order of residual terms in the pre-integration definition changes, we also need to adjust the system matrix rows and columns here to maintain consistency.
+Here, the $\mathbf{A}_{k+1}$ matrix is close to the identity matrix $\mathbf{I}$, so it can be viewed as accumulating the noise. The gyroscope noise enters the rotation measurements through the $\mathbf{B}$ matrix, while the accelerometer noise mainly affects the velocity and translation estimates. This cumulative relationship is easily implemented in programs. Later, we will see their implementation in the experimental chapters. Note that if the order of residual terms in the pre-integration definition changes, we also need to adjust the system matrix rows and columns here to maintain consistency.
 
 \subsection{Bias Update}
-Previous discussions assumed constant IMU biases at time $i$ for computational convenience. However, in practical graph optimization, we frequently update state variables (optimization variables). Theoretically, if IMU biases change, pre-integration should be recomputed since each step depends on the biases at time $i$. However, we can adopt an approximate approach: \textbf{assuming pre-integration measurements vary linearly with bias}\footnote{While not strictly linear, we can always linearize complex functions by retaining first-order terms.}, then correcting the original measurements. Specifically, treating pre-integration measurements as functions of $\bm{b}_{g,i}, \bm{b}_{a,i}$, when biases update by $\delta \bm{b}_{g,i}, \delta \bm{b}_{a,i}$, the measurements should be corrected as:
+Previous discussions assumed constant IMU biases at time $i$ for computational convenience. However, in practical graph optimization, we frequently update state variables (optimization variables). Theoretically, if IMU biases change, pre-integration should be recomputed since each step depends on the biases at time $i$. However, we can adopt an approximate approach: \textbf{assuming pre-integration measurements vary linearly with bias}\footnote{While not strictly linear, we can always linearize complex functions by retaining first-order terms.}, then correcting the original measurements. Specifically, treating pre-integration measurements as functions of $\mathbf{b}_{g,i}, \mathbf{b}_{a,i}$, when biases update by $\delta \mathbf{b}_{g,i}, \delta \mathbf{b}_{a,i}$, the measurements should be corrected as:
 
 \begin{equation}\label{eq:update-bias}
 	\begin{aligned}
-		\Delta \tilde{\bm{R}}_{ij}(\bm{b}_{g,i} + \delta \bm{b}_{g,i}) &= \Delta 
-		\tilde{\bm{R}}_{ij}(\bm{b}_{g,i}) \mathrm{Exp} \left(\frac{\partial \Delta \tilde{\bm{R}}_{ij}}{\partial 
-			\bm{b}_{g,i}} \delta \bm{b}_{g,i}\right), \\
-		\Delta \tilde{\bm{v}}_{ij} (\bm{b}_{g,i} + \delta \bm{b}_{g,i}, \bm{b}_{a,i} + \delta \bm{b}_{a,i}) &= 
-		\Delta \tilde{\bm{v}}_{ij}(\bm{b}_{g,i}, \bm{b}_{a,i}) + \frac{\partial \Delta 
-			\tilde{\bm{v}}_{ij}}{\partial \bm{b}_{g,i}} \delta \bm{b}_{g,i} + \frac{\partial \Delta 
-			\tilde{\bm{v}}_{ij}}{\partial \bm{b}_{a,i}} \delta \bm{b}_{a,i}, \\
-		\Delta \tilde{\bm{p}}_{ij} (\bm{b}_{g,i} + \delta \bm{b}_{g,i}, \bm{b}_{a,i} + \delta \bm{b}_{a,i}) &= 
-		\Delta \tilde{\bm{p}}_{ij}(\bm{b}_{g,i}, \bm{b}_{a,i}) + \frac{\partial \Delta 
-			\tilde{\bm{p}}_{ij}}{\partial \bm{b}_{g,i}} \delta \bm{b}_{g,i} + \frac{\partial \Delta 
-			\tilde{\bm{p}}_{ij}}{\partial \bm{b}_{a,i}} \delta \bm{b}_{a,i}.
+		\Delta \tilde{\mathbf{R}}_{ij}(\mathbf{b}_{g,i} + \delta \mathbf{b}_{g,i}) &= \Delta 
+		\tilde{\mathbf{R}}_{ij}(\mathbf{b}_{g,i}) \mathrm{Exp} \left(\frac{\partial \Delta \tilde{\mathbf{R}}_{ij}}{\partial 
+			\mathbf{b}_{g,i}} \delta \mathbf{b}_{g,i}\right), \\
+		\Delta \tilde{\mathbf{v}}_{ij} (\mathbf{b}_{g,i} + \delta \mathbf{b}_{g,i}, \mathbf{b}_{a,i} + \delta \mathbf{b}_{a,i}) &= 
+		\Delta \tilde{\mathbf{v}}_{ij}(\mathbf{b}_{g,i}, \mathbf{b}_{a,i}) + \frac{\partial \Delta 
+			\tilde{\mathbf{v}}_{ij}}{\partial \mathbf{b}_{g,i}} \delta \mathbf{b}_{g,i} + \frac{\partial \Delta 
+			\tilde{\mathbf{v}}_{ij}}{\partial \mathbf{b}_{a,i}} \delta \mathbf{b}_{a,i}, \\
+		\Delta \tilde{\mathbf{p}}_{ij} (\mathbf{b}_{g,i} + \delta \mathbf{b}_{g,i}, \mathbf{b}_{a,i} + \delta \mathbf{b}_{a,i}) &= 
+		\Delta \tilde{\mathbf{p}}_{ij}(\mathbf{b}_{g,i}, \mathbf{b}_{a,i}) + \frac{\partial \Delta 
+			\tilde{\mathbf{p}}_{ij}}{\partial \mathbf{b}_{g,i}} \delta \mathbf{b}_{g,i} + \frac{\partial \Delta 
+			\tilde{\mathbf{p}}_{ij}}{\partial \mathbf{b}_{a,i}} \delta \mathbf{b}_{a,i}.
 	\end{aligned}
 \end{equation}
 
@@ -372,23 +372,23 @@ The problem reduces to computing these partial derivatives (Jacobians). This pro
 For rotation:
 \begin{equation}\label{key}
 	\begin{aligned}
-		\Delta \tilde{\bm{R}}_{ij} (\bm{b}_{g,i} + \delta \bm{b}_{g,i}) &= \prod_{k=i}^{j-1} \mathrm{Exp} 
-		\left((\tilde{\boldsymbol{\omega}}_k - (\bm{b}_{g,i} + \delta \bm{b}_{g,i})) \Delta t \right) \\
-		&\approx \Delta \tilde{\bm{R}}_{ij} \mathrm{Exp} \left( -\sum_{k=i}^{j-1} \Delta 
-		\tilde{\bm{R}}_{k+1, j}^\top \bm{J}_{r,k} \Delta t \delta \bm{b}_{g,i}  \right).
+		\Delta \tilde{\mathbf{R}}_{ij} (\mathbf{b}_{g,i} + \delta \mathbf{b}_{g,i}) &= \prod_{k=i}^{j-1} \mathrm{Exp} 
+		\left((\tilde{\boldsymbol{\omega}}_k - (\mathbf{b}_{g,i} + \delta \mathbf{b}_{g,i})) \Delta t \right) \\
+		&\approx \Delta \tilde{\mathbf{R}}_{ij} \mathrm{Exp} \left( -\sum_{k=i}^{j-1} \Delta 
+		\tilde{\mathbf{R}}_{k+1, j}^\top \mathbf{J}_{r,k} \Delta t \delta \mathbf{b}_{g,i}  \right).
 	\end{aligned}
 \end{equation}
 The Jacobian is:
 \begin{equation}\label{key}
-	\frac{\partial \Delta \tilde{\bm{R}}_{ij}}{\partial \bm{b}_{g,i}} = -\sum_{k=i}^{j-1} \Delta 
-	\tilde{\bm{R}}_{k+1, j}^\top \bm{J}_{r,k} \Delta t.
+	\frac{\partial \Delta \tilde{\mathbf{R}}_{ij}}{\partial \mathbf{b}_{g,i}} = -\sum_{k=i}^{j-1} \Delta 
+	\tilde{\mathbf{R}}_{k+1, j}^\top \mathbf{J}_{r,k} \Delta t.
 \end{equation}
 
 The recursive form is:
 \begin{equation}\label{key}
 	\begin{aligned}
-		\frac{\partial \Delta \tilde{\bm{R}}_{ij}}{\partial \bm{b}_{g,i}} &= \Delta \tilde{\bm{R}}_{j-1, 
-			j}^\top \frac{\partial \Delta \tilde{\bm{R}}_{i,j-1}}{\partial \bm{b}_{g,i}} - \bm{J}_{r,k} \Delta 
+		\frac{\partial \Delta \tilde{\mathbf{R}}_{ij}}{\partial \mathbf{b}_{g,i}} &= \Delta \tilde{\mathbf{R}}_{j-1, 
+			j}^\top \frac{\partial \Delta \tilde{\mathbf{R}}_{i,j-1}}{\partial \mathbf{b}_{g,i}} - \mathbf{J}_{r,k} \Delta 
 		t.
 	\end{aligned}
 \end{equation}
@@ -396,64 +396,64 @@ The recursive form is:
 For velocity:
 \begin{equation}\label{key}
 	\begin{aligned}
-		\Delta \tilde{\bm{v}}_{ij}(\bm{b}_i + \delta \bm{b}_i) &\approx \Delta \tilde{\bm{v}}_{ij} - \sum_{k=i}^{j-1} \Delta \tilde{\bm{R}}_{ik} \Delta t \delta 
-		\bm{b}_{a,i} \\
-		&- \sum_{k=i}^{j-1} \Delta \tilde{\bm{R}}_{ik} (\tilde{\bm{a}}_k - \bm{b}_{a,i})^\wedge 
-		\frac{\partial \Delta \tilde{\bm{R}}_{ik}}{\partial \bm{b}_{g,i}} \Delta t \delta \bm{b}_{g,i}.
+		\Delta \tilde{\mathbf{v}}_{ij}(\mathbf{b}_i + \delta \mathbf{b}_i) &\approx \Delta \tilde{\mathbf{v}}_{ij} - \sum_{k=i}^{j-1} \Delta \tilde{\mathbf{R}}_{ik} \Delta t \delta 
+		\mathbf{b}_{a,i} \\
+		&- \sum_{k=i}^{j-1} \Delta \tilde{\mathbf{R}}_{ik} (\tilde{\mathbf{a}}_k - \mathbf{b}_{a,i})^\wedge 
+		\frac{\partial \Delta \tilde{\mathbf{R}}_{ik}}{\partial \mathbf{b}_{g,i}} \Delta t \delta \mathbf{b}_{g,i}.
 	\end{aligned}
 \end{equation}
 
 For position:
 \begin{equation}
 	\begin{aligned}
-		\Delta \tilde{\bm{p}}_{ij}(\bm{b}_i + \delta \bm{b}_i) &\approx \Delta \tilde{\bm{p}}_{ij} + \sum_{k=i}^{j-1}\left[\frac{\partial \Delta \bm{v}_{ik}}{\partial 
-			\bm{b}_{a,i}}  \Delta t - \frac{1}{2} \Delta \tilde{\bm{R}}_{ik} \Delta t^2 \right] \delta \bm{b}_{a,i} \\
-		&+ \sum_{k=i}^{j-1} \left[\frac{\partial \Delta \bm{v}_{ik}}{\partial \bm{b}_{g,i}} 
-		\Delta t -\frac{1}{2} \Delta \tilde{\bm{R}}_{ik}\left(\tilde{\bm{a}}_{k}-\bm{b}_{a,i}\right)^\wedge  
-		\frac{\partial \Delta \tilde{\bm{R}}_{ik}}{\partial \bm{b}_{g,i}} \Delta t^2 \right] \delta \bm{b}_{g,i}.
+		\Delta \tilde{\mathbf{p}}_{ij}(\mathbf{b}_i + \delta \mathbf{b}_i) &\approx \Delta \tilde{\mathbf{p}}_{ij} + \sum_{k=i}^{j-1}\left[\frac{\partial \Delta \mathbf{v}_{ik}}{\partial 
+			\mathbf{b}_{a,i}}  \Delta t - \frac{1}{2} \Delta \tilde{\mathbf{R}}_{ik} \Delta t^2 \right] \delta \mathbf{b}_{a,i} \\
+		&+ \sum_{k=i}^{j-1} \left[\frac{\partial \Delta \mathbf{v}_{ik}}{\partial \mathbf{b}_{g,i}} 
+		\Delta t -\frac{1}{2} \Delta \tilde{\mathbf{R}}_{ik}\left(\tilde{\mathbf{a}}_{k}-\mathbf{b}_{a,i}\right)^\wedge  
+		\frac{\partial \Delta \tilde{\mathbf{R}}_{ik}}{\partial \mathbf{b}_{g,i}} \Delta t^2 \right] \delta \mathbf{b}_{g,i}.
 	\end{aligned}
 \end{equation}
 
 The complete Jacobians are:
 \begin{subequations}\label{eq:preinteg-jacob-bias}
 	\begin{align}
-		\frac{\partial \Delta \tilde{\bm{R}}_{ij}}{\partial \bm{b}_{g,i}} &= -\sum_{k=i}^{j-1} \left[\Delta 
-		\tilde{\bm{R}}_{k+1, j}^\top \bm{J}_{r,k} \Delta t \right], \\
-		\frac{\partial \Delta \tilde{\bm{v}}_{ij}}{\partial \bm{b}_{a,i}} &= -\sum_{k=i}^{j-1} \Delta 
-		\tilde{\bm{R}}_{ik} \Delta t, \\
-		\frac{\partial \Delta \tilde{\bm{v}}_{ij}}{\partial \bm{b}_{g,i}} &= -\sum_{k=i}^{j-1} \Delta 
-		\tilde{\bm{R}}_{ik} \left( \tilde{\bm{a}}_k - \bm{b}_{a,i} \right)^\wedge \frac{\partial \Delta 
-			\tilde{\bm{R}}_{ik}}{\partial \bm{b}_{g,i}} \Delta t, \\
-		\frac{\partial \Delta \tilde{\bm{p}}_{ij}}{\partial \bm{b}_{a,i}} &= \sum_{k=i}^{j-1} \left[\frac{\partial 
-			\Delta \tilde{\bm{v}}_{ik}}{\partial \bm{b}_{a,i}}  \Delta t - \frac{1}{2} \Delta \tilde{\bm{R}}_{ik} \Delta t^2 
+		\frac{\partial \Delta \tilde{\mathbf{R}}_{ij}}{\partial \mathbf{b}_{g,i}} &= -\sum_{k=i}^{j-1} \left[\Delta 
+		\tilde{\mathbf{R}}_{k+1, j}^\top \mathbf{J}_{r,k} \Delta t \right], \\
+		\frac{\partial \Delta \tilde{\mathbf{v}}_{ij}}{\partial \mathbf{b}_{a,i}} &= -\sum_{k=i}^{j-1} \Delta 
+		\tilde{\mathbf{R}}_{ik} \Delta t, \\
+		\frac{\partial \Delta \tilde{\mathbf{v}}_{ij}}{\partial \mathbf{b}_{g,i}} &= -\sum_{k=i}^{j-1} \Delta 
+		\tilde{\mathbf{R}}_{ik} \left( \tilde{\mathbf{a}}_k - \mathbf{b}_{a,i} \right)^\wedge \frac{\partial \Delta 
+			\tilde{\mathbf{R}}_{ik}}{\partial \mathbf{b}_{g,i}} \Delta t, \\
+		\frac{\partial \Delta \tilde{\mathbf{p}}_{ij}}{\partial \mathbf{b}_{a,i}} &= \sum_{k=i}^{j-1} \left[\frac{\partial 
+			\Delta \tilde{\mathbf{v}}_{ik}}{\partial \mathbf{b}_{a,i}}  \Delta t - \frac{1}{2} \Delta \tilde{\mathbf{R}}_{ik} \Delta t^2 
 		\right], \\
-		\frac{\partial \Delta \tilde{\bm{p}}_{ij}}{\partial \bm{b}_{g,i}} &= \sum_{k=i}^{j-1} \left[\frac{\partial 
-			\Delta \tilde{\bm{v}}_{ik}}{\partial \bm{b}_{g,i}} \Delta t -\frac{1}{2} \Delta 
-		\tilde{\bm{R}}_{ik}\left(\tilde{\bm{a}}_{k}-\bm{b}_{a,i}\right)^\wedge  \frac{\partial \Delta 
-			\tilde{\bm{R}}_{ik}}{\partial \bm{b}_{g,i}} \Delta t^2 \right]. 
+		\frac{\partial \Delta \tilde{\mathbf{p}}_{ij}}{\partial \mathbf{b}_{g,i}} &= \sum_{k=i}^{j-1} \left[\frac{\partial 
+			\Delta \tilde{\mathbf{v}}_{ik}}{\partial \mathbf{b}_{g,i}} \Delta t -\frac{1}{2} \Delta 
+		\tilde{\mathbf{R}}_{ik}\left(\tilde{\mathbf{a}}_{k}-\mathbf{b}_{a,i}\right)^\wedge  \frac{\partial \Delta 
+			\tilde{\mathbf{R}}_{ik}}{\partial \mathbf{b}_{g,i}} \Delta t^2 \right]. 
 	\end{align}
 \end{subequations}
 
 The recursive forms are:
 \begin{subequations}\label{eq:preinteg-jacob-bias-inc}
 	\begin{align}
-		\frac{\partial \Delta \tilde{\bm{R}}_{ij}}{\partial \bm{b}_{g,i}} &= \Delta \tilde{\bm{R}}_{j-1, 
-			j}^\top \frac{\partial \Delta \tilde{\bm{R}}_{i,j-1}}{\partial \bm{b}_{g,i}} - \bm{J}_{r,k} \Delta 
+		\frac{\partial \Delta \tilde{\mathbf{R}}_{ij}}{\partial \mathbf{b}_{g,i}} &= \Delta \tilde{\mathbf{R}}_{j-1, 
+			j}^\top \frac{\partial \Delta \tilde{\mathbf{R}}_{i,j-1}}{\partial \mathbf{b}_{g,i}} - \mathbf{J}_{r,k} \Delta 
 		t, \\
-		\frac{\partial \Delta \tilde{\bm{v}}_{ij}}{\partial \bm{b}_{a,i}} &= \frac{\partial \Delta 
-			\tilde{\bm{v}}_{i, j-1}}{\partial \bm{b}_{a,i}} - \Delta \tilde{\bm{R}}_{i, j-1} \Delta t, \\ 
-		\frac{\partial \Delta \tilde{\bm{v}}_{ij}}{\partial \bm{b}_{g,i}} &= \frac{\partial \Delta 
-			\tilde{\bm{v}}_{i, j-1}}{\partial \bm{b}_{g,i}} - \Delta \tilde{\bm{R}}_{i, j-1} \left( \tilde{\bm{a}}_{j-1} 
-		- \bm{b}_{a,i} \right)^\wedge \frac{\partial \Delta \tilde{\bm{R}}_{i,j-1}}{\partial \bm{b}_{g,i}} 
+		\frac{\partial \Delta \tilde{\mathbf{v}}_{ij}}{\partial \mathbf{b}_{a,i}} &= \frac{\partial \Delta 
+			\tilde{\mathbf{v}}_{i, j-1}}{\partial \mathbf{b}_{a,i}} - \Delta \tilde{\mathbf{R}}_{i, j-1} \Delta t, \\ 
+		\frac{\partial \Delta \tilde{\mathbf{v}}_{ij}}{\partial \mathbf{b}_{g,i}} &= \frac{\partial \Delta 
+			\tilde{\mathbf{v}}_{i, j-1}}{\partial \mathbf{b}_{g,i}} - \Delta \tilde{\mathbf{R}}_{i, j-1} \left( \tilde{\mathbf{a}}_{j-1} 
+		- \mathbf{b}_{a,i} \right)^\wedge \frac{\partial \Delta \tilde{\mathbf{R}}_{i,j-1}}{\partial \mathbf{b}_{g,i}} 
 		\Delta t, \\
-		\frac{\partial \Delta \tilde{\bm{p}}_{ij}}{\partial \bm{b}_{a,i}} &= \frac{\partial \Delta 
-			\tilde{\bm{p}}_{i,j-1}}{\partial \bm{b}_{a,i}} + \frac{\partial \Delta \tilde{\bm{v}}_{i,j-1}}{\partial 
-			\bm{b}_{a,i}}  \Delta t- \frac{1}{2} \Delta \tilde{\bm{R}}_{i, j-1} \Delta t^2, \\
-		\frac{\partial \Delta \tilde{\bm{p}}_{ij}}{\partial \bm{b}_{g,i}} &= \frac{\partial \Delta 
-			\tilde{\bm{p}}_{i,j-1}}{\partial \bm{b}_{g,i}} + \frac{\partial \Delta \tilde{\bm{v}}_{i,j-1}}{\partial 
-			\bm{b}_{g,i}} \Delta t -\frac{1}{2} \Delta \tilde{\bm{R}}_{i, 
-			j-1}\left(\tilde{\bm{a}}_{j-1}-\bm{b}_{a,i}\right)^\wedge  \frac{\partial \Delta 
-			\tilde{\bm{R}}_{i,j-1}}{\partial \bm{b}_{g,i}} \Delta t^2. 
+		\frac{\partial \Delta \tilde{\mathbf{p}}_{ij}}{\partial \mathbf{b}_{a,i}} &= \frac{\partial \Delta 
+			\tilde{\mathbf{p}}_{i,j-1}}{\partial \mathbf{b}_{a,i}} + \frac{\partial \Delta \tilde{\mathbf{v}}_{i,j-1}}{\partial 
+			\mathbf{b}_{a,i}}  \Delta t- \frac{1}{2} \Delta \tilde{\mathbf{R}}_{i, j-1} \Delta t^2, \\
+		\frac{\partial \Delta \tilde{\mathbf{p}}_{ij}}{\partial \mathbf{b}_{g,i}} &= \frac{\partial \Delta 
+			\tilde{\mathbf{p}}_{i,j-1}}{\partial \mathbf{b}_{g,i}} + \frac{\partial \Delta \tilde{\mathbf{v}}_{i,j-1}}{\partial 
+			\mathbf{b}_{g,i}} \Delta t -\frac{1}{2} \Delta \tilde{\mathbf{R}}_{i, 
+			j-1}\left(\tilde{\mathbf{a}}_{j-1}-\mathbf{b}_{a,i}\right)^\wedge  \frac{\partial \Delta 
+			\tilde{\mathbf{R}}_{i,j-1}}{\partial \mathbf{b}_{g,i}} \Delta t^2. 
 	\end{align}
 \end{subequations}
 
@@ -463,21 +463,21 @@ Now that we have defined the measurement model of preintegration, derived its no
 
 In IMU-related applications, the state at each time is typically modeled as variables containing rotation, translation, linear velocity, and IMU biases, forming the state variable set $\mathcal{X}$:
 \begin{equation}\label{key}
-	\bm{x}_k = \left[ \bm{R}, \bm{p}, \bm{v}, \bm{b}_a, \bm{b}_g \right]_k \in \mathcal{X},
+	\mathbf{x}_k = \left[ \mathbf{R}, \mathbf{p}, \mathbf{v}, \mathbf{b}_a, \mathbf{b}_g \right]_k \in \mathcal{X},
 \end{equation}
 while the preintegration model establishes a constraint between keyframe $i$ and keyframe $j$. The observation model of preintegration itself has been introduced in \eqref{eq:def-preintegration}. We can use the state variables at time $i$ and $j$ along with the preintegration measurements to compute the difference, resulting in the residual definition formula. It should be noted that the specific computation of residuals varies across different literature, and some papers and implementations may not be consistent. The actual definition of residuals is quite flexible, and the corresponding Jacobian matrices also differ, with some forms being relatively simpler. A common approach is to directly use the definition for derivation or to use the state at time $i$ and preintegration to predict the state at time $j$, then compute the difference with the estimated state at $j$ to obtain the residual (left as an exercise; note that changing the residual definition may alter the corresponding noise covariance). Following the approach in \cite{Forster2015}, we define the residuals as:
 \begin{subequations}
 	\label{eq:def-of-preintegration-residuals}
 	\begin{align}
-		\bm{r}_{\Delta \bm{R}_{ij}} &= \mathrm{Log} \left(\Delta \tilde{\bm{R}}_{ij}^\top 
-		\left(\bm{R}_i^\top \bm{R}_j \right)\right), \\
-		\bm{r}_{\Delta \bm{v}_{ij}} &= \bm{R}_i^\top \left(\bm{v}_j - \bm{v}_i - \bm{g} \Delta t_{ij} \right) - \Delta 
-		\tilde{\bm{v}}_{ij}, \\
-		\bm{r}_{\Delta \bm{p}_{ij}} &= \bm{R}_i^\top \left(\bm{p}_j - \bm{p}_i - \bm{v}_i \Delta t_{ij} - 
-		\frac{1}{2}\bm{g} \Delta t_{ij}^2 \right) - \Delta \tilde{\bm{p}}_{ij}.
+		\mathbf{r}_{\Delta \mathbf{R}_{ij}} &= \mathrm{Log} \left(\Delta \tilde{\mathbf{R}}_{ij}^\top 
+		\left(\mathbf{R}_i^\top \mathbf{R}_j \right)\right), \\
+		\mathbf{r}_{\Delta \mathbf{v}_{ij}} &= \mathbf{R}_i^\top \left(\mathbf{v}_j - \mathbf{v}_i - \mathbf{g} \Delta t_{ij} \right) - \Delta 
+		\tilde{\mathbf{v}}_{ij}, \\
+		\mathbf{r}_{\Delta \mathbf{p}_{ij}} &= \mathbf{R}_i^\top \left(\mathbf{p}_j - \mathbf{p}_i - \mathbf{v}_i \Delta t_{ij} - 
+		\frac{1}{2}\mathbf{g} \Delta t_{ij}^2 \right) - \Delta \tilde{\mathbf{p}}_{ij}.
 	\end{align}
 \end{subequations}
-Typically, we write $\bm{r}$ as a unified 9-dimensional residual variable. It appears to connect the rotation, translation, and linear velocity of two timesteps, but since the preintegration observation internally contains IMU biases, it is also related to the two biases at time $i$. During optimization, if the biases at time $i$ are updated, the preintegration measurements should also change linearly, affecting the residual values. Thus, although the residual term does not explicitly contain $\bm{b}_{a,i}, \bm{b}_{g,i}$, they are clearly related to the residual. Therefore, if we treat the preintegration residual as a single entity, its connection to state vertices should be as shown in Figure~\ref{fig:preintegration-residual-graph}~. In addition to the preintegration factor itself, the random walk of the IMU must also be constrained, so there will be a constraint factor between the biases at different IMU timesteps.
+Typically, we write $\mathbf{r}$ as a unified 9-dimensional residual variable. It appears to connect the rotation, translation, and linear velocity of two timesteps, but since the preintegration observation internally contains IMU biases, it is also related to the two biases at time $i$. During optimization, if the biases at time $i$ are updated, the preintegration measurements should also change linearly, affecting the residual values. Thus, although the residual term does not explicitly contain $\mathbf{b}_{a,i}, \mathbf{b}_{g,i}$, they are clearly related to the residual. Therefore, if we treat the preintegration residual as a single entity, its connection to state vertices should be as shown in Figure~\ref{fig:preintegration-residual-graph}~. In addition to the preintegration factor itself, the random walk of the IMU must also be constrained, so there will be a constraint factor between the biases at different IMU timesteps.
 
 Please note that earlier we discussed the linear form of preintegration measurements with respect to IMU biases, so in the preintegration residual definition, we could also substitute the linear approximation listed earlier to obtain the Jacobian of the preintegration factor with respect to IMU biases. Since this would complicate the expression, we do not explicitly expand it here.
 
@@ -488,34 +488,34 @@ Please note that earlier we discussed the linear form of preintegration measurem
 	\label{fig:preintegration-residual-graph}
 \end{figure}
 
-Apart from placing all state variables in the same vertex, we can also choose a "disassembled form," where rotation, translation, linear velocity, and the two biases are each constructed as separate vertices, and then the Jacobians between these vertices are computed. If this approach is adopted, the number of Jacobian matrices will increase, but the dimensionality of individual Jacobians can be reduced (single Jacobians are typically $3 \times 3$, while the Jacobian of preintegration observations with respect to state variables becomes $9 \times 15$, with many zero blocks). Moreover, if we need to implement a tightly coupled visual or LiDAR system, since visual and LiDAR observation constraints are usually only related to $\bm{R}, \bm{t}$, some zero blocks in the Jacobian matrices can be avoided. In summary, both approaches have their merits. The code implementation in this book adopts the disassembled approach, where each state variable is written as a separate vertex to constrain them individually.
+Apart from placing all state variables in the same vertex, we can also choose a "disassembled form," where rotation, translation, linear velocity, and the two biases are each constructed as separate vertices, and then the Jacobians between these vertices are computed. If this approach is adopted, the number of Jacobian matrices will increase, but the dimensionality of individual Jacobians can be reduced (single Jacobians are typically $3 \times 3$, while the Jacobian of preintegration observations with respect to state variables becomes $9 \times 15$, with many zero blocks). Moreover, if we need to implement a tightly coupled visual or LiDAR system, since visual and LiDAR observation constraints are usually only related to $\mathbf{R}, \mathbf{t}$, some zero blocks in the Jacobian matrices can be avoided. In summary, both approaches have their merits. The code implementation in this book adopts the disassembled approach, where each state variable is written as a separate vertex to constrain them individually.
 
 \subsection{Jacobians of Preintegration}  
 \label{sec:preinteg-jacobians}  
 Finally, we discuss the Jacobian matrices of preintegration with respect to the state variables. Since the preintegration measurements already summarize the IMU readings over a short period, the derivation of the residuals' Jacobians relative to the state variables becomes straightforward. Below, we derive them.  
 
-First, consider rotation. Rotation depends on $\bm{R}_{i}$, $\bm{R}_j$, and $\bm{b}_{g,i}$. We derive it using the right perturbation on $\mathrm{SO}(3)$:  
+First, consider rotation. Rotation depends on $\mathbf{R}_{i}$, $\mathbf{R}_j$, and $\mathbf{b}_{g,i}$. We derive it using the right perturbation on $\mathrm{SO}(3)$:  
 \begin{equation}\label{key}  
 	\begin{aligned}  
-		\bm{r}_{\Delta \bm{R}_{ij}}\left(\bm{R}_i \mathrm{Exp} (\boldsymbol{\phi}_i)\right) &=   
-		\mathrm{Log} \left( \Delta \tilde{\bm{R}}_{ij}^\top ((\bm{R}_i   
-		\mathrm{Exp}(\boldsymbol{\phi_i}))^\top \bm{R}_j \right), \\  
-		&= \mathrm{Log} \left( \Delta \tilde{\bm{R}}_{ij}^\top \mathrm{Exp} (-\boldsymbol{\phi}_i )   
-		\bm{R}_i^\top \bm{R}_j \right), \\  
-		&= \mathrm{Log} \left( \Delta \tilde{\bm{R}}_{ij}^\top \bm{R}_i^\top \bm{R}_j   
-		\mathrm{Exp} (-\bm{R}_j^\top \bm{R}_i \boldsymbol{\phi}_i) \right), \\  
-		&= \bm{r}_{\Delta \bm{R}_{ij}} - \bm{J}_r^{-1} (\bm{r}_{\Delta \bm{R}_{ij}}) \bm{R}_j^\top   
-		\bm{R}_i \boldsymbol{\phi}_i.  
+		\mathbf{r}_{\Delta \mathbf{R}_{ij}}\left(\mathbf{R}_i \mathrm{Exp} (\boldsymbol{\phi}_i)\right) &=   
+		\mathrm{Log} \left( \Delta \tilde{\mathbf{R}}_{ij}^\top ((\mathbf{R}_i   
+		\mathrm{Exp}(\boldsymbol{\phi_i}))^\top \mathbf{R}_j \right), \\  
+		&= \mathrm{Log} \left( \Delta \tilde{\mathbf{R}}_{ij}^\top \mathrm{Exp} (-\boldsymbol{\phi}_i )   
+		\mathbf{R}_i^\top \mathbf{R}_j \right), \\  
+		&= \mathrm{Log} \left( \Delta \tilde{\mathbf{R}}_{ij}^\top \mathbf{R}_i^\top \mathbf{R}_j   
+		\mathrm{Exp} (-\mathbf{R}_j^\top \mathbf{R}_i \boldsymbol{\phi}_i) \right), \\  
+		&= \mathbf{r}_{\Delta \mathbf{R}_{ij}} - \mathbf{J}_r^{-1} (\mathbf{r}_{\Delta \mathbf{R}_{ij}}) \mathbf{R}_j^\top   
+		\mathbf{R}_i \boldsymbol{\phi}_i.  
 	\end{aligned}  
 \end{equation}  
 
 The derivative with respect to $\boldsymbol{\phi}_j$ is:  
 \begin{equation}\label{key}  
 	\begin{aligned}  
-		\bm{r}_{\Delta \bm{R}_{ij}} (\bm{R}_j \mathrm{Exp}(\boldsymbol{\phi}_j)) &=   
-		\mathrm{Log}\left(\Delta \tilde{\bm{R}}_{ij}^\top \bm{R}^\top_i \bm{R}_j   
+		\mathbf{r}_{\Delta \mathbf{R}_{ij}} (\mathbf{R}_j \mathrm{Exp}(\boldsymbol{\phi}_j)) &=   
+		\mathrm{Log}\left(\Delta \tilde{\mathbf{R}}_{ij}^\top \mathbf{R}^\top_i \mathbf{R}_j   
 		\mathrm{Exp} (\boldsymbol{\phi}_j ) \right), \\  
-		&= \bm{r}_{\Delta \bm{R}_{ij}} + \bm{J}_r^{-1} (\bm{r}_{\Delta \bm{R}_{ij}}) \boldsymbol{\phi}_j.  
+		&= \mathbf{r}_{\Delta \mathbf{R}_{ij}} + \mathbf{J}_r^{-1} (\mathbf{r}_{\Delta \mathbf{R}_{ij}}) \boldsymbol{\phi}_j.  
 	\end{aligned}  
 \end{equation}  
 
@@ -523,71 +523,71 @@ These derivations closely resemble those in pose graphs. However, dealing with t
 
 \subsection{Jacobians of Preintegration}
 \label{sec:preinteg-jacobians}
-Assume the initial bias for optimization is $\bm{b}_{g,i}$. At a certain iteration step, the current estimated bias correction is $\delta \bm{b}_{g,i}$, and the corrected preintegrated rotation measurement is $\Delta \tilde{\bm{R}}_{ij}^\prime = \Delta \tilde{\bm{R}}_{ij}(\bm{b}_{g,i} + \delta \bm{b}_{g,i})$, with the residual being $\bm{r}_{\Delta \bm{R}_{ij}}^\prime$. To compute the derivative, we further add $\tilde{\delta} \bm{b}_{g,i}$ to these two terms, yielding:
+Assume the initial bias for optimization is $\mathbf{b}_{g,i}$. At a certain iteration step, the current estimated bias correction is $\delta \mathbf{b}_{g,i}$, and the corrected preintegrated rotation measurement is $\Delta \tilde{\mathbf{R}}_{ij}^\prime = \Delta \tilde{\mathbf{R}}_{ij}(\mathbf{b}_{g,i} + \delta \mathbf{b}_{g,i})$, with the residual being $\mathbf{r}_{\Delta \mathbf{R}_{ij}}^\prime$. To compute the derivative, we further add $\tilde{\delta} \mathbf{b}_{g,i}$ to these two terms, yielding:
 
 \begin{equation}\label{key}
 	\small
 	\begin{aligned}
-		\bm{r}_{\Delta \bm{R}_{ij}} (\bm{b}_{g,i} + \delta \bm{b}_{g,i} + \tilde{\delta} \bm{b}_{g,i}) &= 
-		\mathrm{Log}\left( \left( \Delta \tilde{\bm{R}}_{ij} \mathrm{Exp} \left( \frac{\partial \Delta 
-			\tilde{\bm{R}}_{ij}}{\partial \bm{b}_{g,i}} (\delta \bm{b}_{g,i} + \tilde{\delta} \bm{b}_{g,i}) \right) 
-		\right)^\top \bm{R}_i^\top \bm{R}_j \right), \\
-		&\buildrel\text{BCH}\over\approx \mathrm{Log} \left( \left( \underbrace{\Delta \tilde{\bm{R}}_{ij} 
-			\mathrm{Exp} (\frac{\partial \Delta \tilde{\bm{R}}_{ij}}{\partial \bm{b}_{g,i}} \delta 
-			\bm{b}_{g,i})}_{\Delta \tilde{\bm{R}}_{ij}^\prime} \mathrm{Exp} (\bm{J}_{r, b} \frac{\partial \Delta 
-			\tilde{\bm{R}}_{ij}}{\partial \bm{b}_{g,i}} \tilde{\delta} \bm{b}_{g,i}) \right)^\top 
-		\bm{R}_i^\top \bm{R}_j \right), \\
-		&= \mathrm{Log} \left( \mathrm{Exp} \left(-\bm{J}_{r,b} \frac{\partial \Delta 
-			\tilde{\bm{R}}_{ij}}{\partial \bm{b}_{g,i}} \tilde{\delta} \bm{b}_{g,i} \right) \underbrace{(\Delta 
-			\tilde{\bm{R}}_{ij}^\prime)^\top \bm{R}_i^\top \bm{R}_j}_{ \mathrm{Exp} \left( 
-			\bm{r}_{ \Delta \bm{R}_{ij}}^\prime \right)} \right), \\
-		&= \mathrm{Log} \left( \mathrm{Exp} \left(\bm{r}_{\Delta \bm{R}_{ij}}^\prime \right) \mathrm{Exp} 
-		\left( - \mathrm{Exp}\left(\bm{r}_{\Delta \bm{R}_{ij}}^\prime \right)^\top \bm{J}_{r,b} 
-		\frac{\partial \Delta \tilde{\bm{R}}_{ij}}{\partial \bm{b}_{g,i}} \tilde{\delta} \bm{b}_{g,i} \right)  \right), \\
-		&\approx \bm{r}_{\Delta \bm{R}_{ij}}^\prime - \bm{J}_r^{-1} (\bm{r}_{\Delta \bm{R}_{ij}}^\prime ) 
-		\mathrm{Exp}\left(\bm{r}_{\Delta \bm{R}_{ij}}^\prime \right)^\top \bm{J}_{r,b} \frac{\partial 
-			\Delta \tilde{\bm{R}}_{ij}}{\partial \bm{b}_{g,i}} \tilde{\delta} \bm{b}_{g,i} .
+		\mathbf{r}_{\Delta \mathbf{R}_{ij}} (\mathbf{b}_{g,i} + \delta \mathbf{b}_{g,i} + \tilde{\delta} \mathbf{b}_{g,i}) &= 
+		\mathrm{Log}\left( \left( \Delta \tilde{\mathbf{R}}_{ij} \mathrm{Exp} \left( \frac{\partial \Delta 
+			\tilde{\mathbf{R}}_{ij}}{\partial \mathbf{b}_{g,i}} (\delta \mathbf{b}_{g,i} + \tilde{\delta} \mathbf{b}_{g,i}) \right) 
+		\right)^\top \mathbf{R}_i^\top \mathbf{R}_j \right), \\
+		&\buildrel\text{BCH}\over\approx \mathrm{Log} \left( \left( \underbrace{\Delta \tilde{\mathbf{R}}_{ij} 
+			\mathrm{Exp} (\frac{\partial \Delta \tilde{\mathbf{R}}_{ij}}{\partial \mathbf{b}_{g,i}} \delta 
+			\mathbf{b}_{g,i})}_{\Delta \tilde{\mathbf{R}}_{ij}^\prime} \mathrm{Exp} (\mathbf{J}_{r, b} \frac{\partial \Delta 
+			\tilde{\mathbf{R}}_{ij}}{\partial \mathbf{b}_{g,i}} \tilde{\delta} \mathbf{b}_{g,i}) \right)^\top 
+		\mathbf{R}_i^\top \mathbf{R}_j \right), \\
+		&= \mathrm{Log} \left( \mathrm{Exp} \left(-\mathbf{J}_{r,b} \frac{\partial \Delta 
+			\tilde{\mathbf{R}}_{ij}}{\partial \mathbf{b}_{g,i}} \tilde{\delta} \mathbf{b}_{g,i} \right) \underbrace{(\Delta 
+			\tilde{\mathbf{R}}_{ij}^\prime)^\top \mathbf{R}_i^\top \mathbf{R}_j}_{ \mathrm{Exp} \left( 
+			\mathbf{r}_{ \Delta \mathbf{R}_{ij}}^\prime \right)} \right), \\
+		&= \mathrm{Log} \left( \mathrm{Exp} \left(\mathbf{r}_{\Delta \mathbf{R}_{ij}}^\prime \right) \mathrm{Exp} 
+		\left( - \mathrm{Exp}\left(\mathbf{r}_{\Delta \mathbf{R}_{ij}}^\prime \right)^\top \mathbf{J}_{r,b} 
+		\frac{\partial \Delta \tilde{\mathbf{R}}_{ij}}{\partial \mathbf{b}_{g,i}} \tilde{\delta} \mathbf{b}_{g,i} \right)  \right), \\
+		&\approx \mathbf{r}_{\Delta \mathbf{R}_{ij}}^\prime - \mathbf{J}_r^{-1} (\mathbf{r}_{\Delta \mathbf{R}_{ij}}^\prime ) 
+		\mathrm{Exp}\left(\mathbf{r}_{\Delta \mathbf{R}_{ij}}^\prime \right)^\top \mathbf{J}_{r,b} \frac{\partial 
+			\Delta \tilde{\mathbf{R}}_{ij}}{\partial \mathbf{b}_{g,i}} \tilde{\delta} \mathbf{b}_{g,i} .
 	\end{aligned}
 \end{equation}
 
 Thus, we finally obtain:
 \begin{equation}\label{key}
-	\frac{\partial \bm{r}_{\Delta \bm{R}_{ij}}}{\partial \bm{b}_{g,i}} = - \bm{J}_r^{-1} (\bm{r}_{\Delta 
-		\bm{R}_{ij}}^\prime ) \mathrm{Exp}\left(\bm{r}_{\Delta \bm{R}_{ij}}^\prime \right)^\top 
-	\bm{J}_{r,b} \frac{\partial \Delta \tilde{\bm{R}}_{ij}}{\partial \bm{b}_{g,i}}.
+	\frac{\partial \mathbf{r}_{\Delta \mathbf{R}_{ij}}}{\partial \mathbf{b}_{g,i}} = - \mathbf{J}_r^{-1} (\mathbf{r}_{\Delta 
+		\mathbf{R}_{ij}}^\prime ) \mathrm{Exp}\left(\mathbf{r}_{\Delta \mathbf{R}_{ij}}^\prime \right)^\top 
+	\mathbf{J}_{r,b} \frac{\partial \Delta \tilde{\mathbf{R}}_{ij}}{\partial \mathbf{b}_{g,i}}.
 \end{equation}
 
-Next, consider the Jacobians for the velocity term. The velocity term is simpler, as it has a linear relationship with $\bm{v}_i$ and $\bm{v}_j$, yielding:
+Next, consider the Jacobians for the velocity term. The velocity term is simpler, as it has a linear relationship with $\mathbf{v}_i$ and $\mathbf{v}_j$, yielding:
 \begin{subequations}\label{key}
 	\begin{align}
-		\frac{ \partial \bm{r}_{\Delta \bm{v}_{ij}}}{\partial \bm{v}_i} &= -\bm{R}_i^\top, \\
-		\frac{ \partial \bm{r}_{\Delta \bm{v}_{ij}}}{\partial \bm{v}_j} &= \bm{R}_i^\top.
+		\frac{ \partial \mathbf{r}_{\Delta \mathbf{v}_{ij}}}{\partial \mathbf{v}_i} &= -\mathbf{R}_i^\top, \\
+		\frac{ \partial \mathbf{r}_{\Delta \mathbf{v}_{ij}}}{\partial \mathbf{v}_j} &= \mathbf{R}_i^\top.
 	\end{align}
 \end{subequations}
 
 For the rotation part, a first-order Taylor expansion suffices:
 \begin{equation}
 	\begin{aligned}
-		\bm{r}_{\Delta \bm{v}_{ij}} \left( \bm{R}_i \mathrm{Exp} (\delta \boldsymbol{\phi}_i)\right) &= 
-		(\bm{R}_i \mathrm{Exp} (\delta \boldsymbol{\phi}_i)) ^\top (\bm{v}_j - \bm{v}_i - \bm{g} \Delta 
-		t_{ij}) - \Delta \tilde{\bm{v}}_{ij}, \\
-		&= (\bm{I} - \delta \boldsymbol{\phi}^\wedge_i) \bm{R}_i^\top  (\bm{v}_j - \bm{v}_i - \bm{g} 
-		\Delta t_{ij}) - \Delta \tilde{\bm{v}}_{ij}, \\
-		&= \bm{r}_{\Delta \bm{v}_{ij}} (\bm{R}_i) + \left(\bm{R}_i^\top  (\bm{v}_j - \bm{v}_i - \bm{g} 
+		\mathbf{r}_{\Delta \mathbf{v}_{ij}} \left( \mathbf{R}_i \mathrm{Exp} (\delta \boldsymbol{\phi}_i)\right) &= 
+		(\mathbf{R}_i \mathrm{Exp} (\delta \boldsymbol{\phi}_i)) ^\top (\mathbf{v}_j - \mathbf{v}_i - \mathbf{g} \Delta 
+		t_{ij}) - \Delta \tilde{\mathbf{v}}_{ij}, \\
+		&= (\mathbf{I} - \delta \boldsymbol{\phi}^\wedge_i) \mathbf{R}_i^\top  (\mathbf{v}_j - \mathbf{v}_i - \mathbf{g} 
+		\Delta t_{ij}) - \Delta \tilde{\mathbf{v}}_{ij}, \\
+		&= \mathbf{r}_{\Delta \mathbf{v}_{ij}} (\mathbf{R}_i) + \left(\mathbf{R}_i^\top  (\mathbf{v}_j - \mathbf{v}_i - \mathbf{g} 
 		\Delta t_{ij}) \right)^\mathrm{\wedge} \delta \boldsymbol{\phi}_i.
 	\end{aligned}
 \end{equation}
 
-The Jacobians of the velocity residual with respect to $\bm{b}_{g,i}$ and $\bm{b}_{a,i}$ depend only on $\Delta \tilde{\bm{v}}_{ij}$. Since the velocity residual term differs from it only by a negative sign, we simply need to add a negative sign to \eqref{eq:preinteg-jacob-bias}.
+The Jacobians of the velocity residual with respect to $\mathbf{b}_{g,i}$ and $\mathbf{b}_{a,i}$ depend only on $\Delta \tilde{\mathbf{v}}_{ij}$. Since the velocity residual term differs from it only by a negative sign, we simply need to add a negative sign to \eqref{eq:preinteg-jacob-bias}.
 
-Finally, consider the translation part. The translation term depends linearly on $\bm{p}_i$, $\bm{p}_j$, $\bm{v}_i$, $\bm{R}_i$, and the two biases, making the Jacobians straightforward to derive:
+Finally, consider the translation part. The translation term depends linearly on $\mathbf{p}_i$, $\mathbf{p}_j$, $\mathbf{v}_i$, $\mathbf{R}_i$, and the two biases, making the Jacobians straightforward to derive:
 \begin{subequations}\label{key}
 	\begin{align}
-		\frac{\partial \bm{r}_{\Delta \bm{p}_{ij}}}{\partial \bm{p}_i } &= -\bm{R}_i^\top, \\
-		\frac{\partial \bm{r}_{\Delta \bm{p}_{ij}}}{\partial \bm{p}_j } &= \bm{R}_i^\top, \\
-		\frac{\partial \bm{r}_{\Delta \bm{p}_{ij}}}{\partial \bm{v}_i } &= -\bm{R}_i^\top \Delta t_{ij}, \\
-		\frac{\partial \bm{r}_{\Delta \bm{p}_{ij}}}{\partial \boldsymbol{\phi}_i } &= \left( 
-		\bm{R}_i^\top \left(\bm{p}_j - \bm{p}_i - \bm{v}_i \Delta t_{ij} - \frac{1}{2}\bm{g} \Delta 
+		\frac{\partial \mathbf{r}_{\Delta \mathbf{p}_{ij}}}{\partial \mathbf{p}_i } &= -\mathbf{R}_i^\top, \\
+		\frac{\partial \mathbf{r}_{\Delta \mathbf{p}_{ij}}}{\partial \mathbf{p}_j } &= \mathbf{R}_i^\top, \\
+		\frac{\partial \mathbf{r}_{\Delta \mathbf{p}_{ij}}}{\partial \mathbf{v}_i } &= -\mathbf{R}_i^\top \Delta t_{ij}, \\
+		\frac{\partial \mathbf{r}_{\Delta \mathbf{p}_{ij}}}{\partial \boldsymbol{\phi}_i } &= \left( 
+		\mathbf{R}_i^\top \left(\mathbf{p}_j - \mathbf{p}_i - \mathbf{v}_i \Delta t_{ij} - \frac{1}{2}\mathbf{g} \Delta 
 		t_{ij}^2 \right) \right)^\wedge.
 	\end{align}
 \end{subequations}
@@ -601,7 +601,7 @@ Finally, we summarize the practical implementation process of the aforementioned
 In a system composed of keyframes, we can initiate the preintegration process starting from any keyframe at any given time and terminate it at any desired moment. Subsequently, we can extract the preintegrated measurements, noise terms, and various accumulated Jacobians to constrain the states between two keyframes. Based on previous discussions, once preintegration begins, whenever a new IMU measurement arrives, our program should perform the following tasks:
 \begin{enumerate}
 	\item 
-	Compute the three \textbf{preintegrated measurements} using Equation \eqref{eq:def-preintegration} based on the previous data: $\Delta \tilde{\bm{R}}_{ij}, \Delta \tilde{\bm{v}}_{ij}, \Delta \tilde{\bm{p}}_{ij}$;
+	Compute the three \textbf{preintegrated measurements} using Equation \eqref{eq:def-preintegration} based on the previous data: $\Delta \tilde{\mathbf{R}}_{ij}, \Delta \tilde{\mathbf{v}}_{ij}, \Delta \tilde{\mathbf{p}}_{ij}$;
 	\item Calculate the \textbf{covariance matrices} of the three noise terms, which will serve as the information matrices for subsequent graph optimization;
 	\item Compute the \textbf{Jacobian matrices} of the preintegrated measurements with respect to the biases - five in total;
 \end{enumerate}
@@ -615,8 +615,8 @@ Following the derivations from the previous section, we now implement the preint
 
 First, let's implement the preintegration structure itself. A preintegration class should store the following data:
 \begin{itemize}
-	\item Preintegrated measurements $\Delta \tilde{\bm{R}}_{ij}, \Delta \tilde{\bm{p}}_{ij}, \Delta \tilde{\bm{v}}_{ij}$;
-	\item IMU biases at the start of preintegration $\bm{b}_g, \bm{b}_a$;
+	\item Preintegrated measurements $\Delta \tilde{\mathbf{R}}_{ij}, \Delta \tilde{\mathbf{p}}_{ij}, \Delta \tilde{\mathbf{v}}_{ij}$;
+	\item IMU biases at the start of preintegration $\mathbf{b}_g, \mathbf{b}_a$;
 	\item Measurement noise covariance $\boldsymbol{\Sigma}_{i,k+1}$ during integration, as specified by Equation \eqref{eq:preinteg-motion-noise};
 	\item Jacobian matrices of integrated quantities with respect to IMU biases (see Equation \eqref{eq:preinteg-jacob-bias-inc});
 	\item Total integration time $\Delta t_{ij}$.
@@ -1021,7 +1021,7 @@ void EdgeInertial::linearizeOplus() {
 }
 \end{lstlisting}
 
-We have also provided corresponding formulas in the comments for readers to compare. During implementation, we must be careful with the order of Jacobian matrices here. They actually have three indices: \textbf{which vertex}, the \textbf{row of the error term}, and the \textbf{column of the vertex's internal variables}. For example, if we want to compute the Jacobian block of the pre-integration $\Delta \tilde{\bm{p}}_{ij}$ with respect to the translation part of the second pose, i.e., $\bm{p}_j$, then the corresponding Jacobian block should be located at the 4th vertex, 6th row, and 3rd column. Here, the 4th vertex means the pose vertex at time $j$ is the 4th vertex of the pre-integration edge, the 6th row means $\delta \tilde{\bm{p}}_{ij}$ is the 6th row in the pre-integration observation, and the 3rd column means $\bm{p}_j$ is the 3rd column in VertexPose. Regardless of which optimization framework we use, when defining Jacobian matrices ourselves, we will encounter such matrix block ordering issues when dealing with connections between multiple vertices. This is an error-prone area.
+We have also provided corresponding formulas in the comments for readers to compare. During implementation, we must be careful with the order of Jacobian matrices here. They actually have three indices: \textbf{which vertex}, the \textbf{row of the error term}, and the \textbf{column of the vertex's internal variables}. For example, if we want to compute the Jacobian block of the pre-integration $\Delta \tilde{\mathbf{p}}_{ij}$ with respect to the translation part of the second pose, i.e., $\mathbf{p}_j$, then the corresponding Jacobian block should be located at the 4th vertex, 6th row, and 3rd column. Here, the 4th vertex means the pose vertex at time $j$ is the 4th vertex of the pre-integration edge, the 6th row means $\delta \tilde{\mathbf{p}}_{ij}$ is the 6th row in the pre-integration observation, and the 3rd column means $\mathbf{p}_j$ is the 3rd column in VertexPose. Regardless of which optimization framework we use, when defining Jacobian matrices ourselves, we will encounter such matrix block ordering issues when dealing with connections between multiple vertices. This is an error-prone area.
 
 Now let's define the edges for biases, GNSS, prior states, and odometry. The two bias edges are essentially identical, so we'll only show one:
 
