@@ -931,7 +931,7 @@ Throughout this book, we use GLog for managing logs and Gflags for managing prog
 To visualize the effect of this program in real-time, we provide a UI interface for readers. By updating the current pose and velocity in the UI interface, they will be displayed in real-time in a 3D window, as shown in Figure~\ref{fig:motion-example}. After compiling the code in this chapter, readers can execute the program using:
 
 \begin{lstlisting}[language=sh,caption=Terminal Input:]
-./bin/motion
+bin/motion
 \end{lstlisting}
 
 To change parameters or calculation methods, simply fill in the GFlags:
@@ -1048,9 +1048,9 @@ then substitute it into the Kalman filter's gain formula and update equation to 
 
 \begin{mdframed}
 \begin{align}
-	\mathbf{K}_k &= \mathbf{P}_{k, \text{pred}} \mathbf{H}_k^\top (\mathbf{H}_k \mathbf{P}_{k, \text{pred}} \mathbf{H}_k^\top + \mathbf{Q}_k)^{-1}, \\
-	\mathbf{x}_k &= \mathbf{x}_{k, \text{pred}} + \mathbf{K}_k (\mathbf{z}_k - \mathbf{H}_k \mathbf{x}_{k, \text{pred}}), \\
-	\mathbf{P}_k &= (\mathbf{I} - \mathbf{K}_k \mathbf{C}_k) \mathbf{P}_{k, \text{pred}}.
+\mathbf{K}_k &= \mathbf{P}_{k, \text{pred}} \mathbf{H}_k^\top (\mathbf{H}_k \mathbf{P}_{k, \text{pred}} \mathbf{H}_k^\top + \mathbf{Q}_k)^{-1}, \\
+\mathbf{x}_k &= \mathbf{x}_{k, \text{pred}} + \mathbf{K}_k (\mathbf{z}_k - \mathbf{H}_k \mathbf{x}_{k, \text{pred}}), \\
+\mathbf{P}_k &= (\mathbf{I} - \mathbf{K}_k \mathbf{C}_k) \mathbf{P}_{k, \text{pred}}.
 \end{align}
 \end{mdframed}
 

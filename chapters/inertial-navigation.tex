@@ -470,6 +470,13 @@ While intuitive and globally applicable (being the default for many mapping syst
 \subsubsection{UTM Coordinate System}
 The Universal Transverse Mercator (UTM) system projects the WGS84 ellipsoid Earth onto a transverse cylinder, divided into 60 longitudinal and 20 latitudinal zones with numeric and alphabetic labels respectively. While roughly uniform in angular distribution, metric distances vary due to Earth's curvature, with significant distortion excluding polar regions beyond 80° latitude.
 
+\begin{figure}
+	\centering
+	\includegraphics[width=\textwidth]{ins/utm.pdf}
+	\caption{UTM coordinate system}
+	\label{fig:utm}
+\end{figure}
+
 Within each zone:
 \begin{itemize}
 	\item Easting coordinates reference a central meridian (assigned x=500,000m), increasing eastward
@@ -493,12 +500,12 @@ Many RTK and integrated navigation manufacturers can output coordinates in user-
 We continue using the data from the previous section. This data consists of IMU, RTK, and wheel speed measurements located in the `data/ch3/` directory. Readers can open these files with a text editor, with the format as follows:
 
 \begin{lstlisting}[language=sh, caption=Example data file]
-	GNSS 1571900872.47168827 30.0011840411666668 117.97859182983332 305.98748779296875 
-	330.047799999999995 1
-	ODOM 1571900872.50085688 0 0
-	IMU 1571900872.56527948 -0.000740019602845583204 -0.000471238898038460995 
-	6.98131700797720067e-06 0.362519161666666645 -0.0608012299999999908 
-	9.82135997500000002
+GNSS 1571900872.47168827 30.0011840411666668 117.97859182983332 305.98748779296875 
+330.047799999999995 1
+ODOM 1571900872.50085688 0 0
+IMU 1571900872.56527948 -0.000740019602845583204 -0.000471238898038460995 
+6.98131700797720067e-06 0.362519161666666645 -0.0608012299999999908 
+9.82135997500000002
 \end{lstlisting}
 
 Each line in the file represents a measurement, with the prefix "GNSS", "IMU", or "ODOM" indicating the record type. For GNSS measurements, each line contains: timestamp, latitude, longitude, altitude, heading angle, and heading validity flag. For IMU or wheel speed measurements, the readings from the accelerometer, gyroscope, and wheel speed sensors are provided. The GNSS positioning here is provided by the Qianxun FindCM solution, with a nominal accuracy of 2 cm in fixed solution mode.
@@ -687,13 +694,13 @@ int main(int argc, char** argv) {
 The program converts RTK readings to UTM poses, removes the origin offset, writes to a text file, and displays in UI. To run:
 
 \begin{lstlisting}[language=sh, caption=Terminal command:]
-	bin/process_gnss --txt_path ./data/ch3/10.txt
+bin/process_gnss --txt_path ./data/ch3/10.txt
 \end{lstlisting}
 
 The converted 6-DOF coordinates are saved in data/ch3/gnss_output.txt. Visualization scripts:
 
 \begin{lstlisting}[language=sh, caption=Terminal command:]
-	python3 scripts/plot_ch3_gnss_2d.py ./data/ch3/gnss_output.txt 
+python3 scripts/plot_ch3_gnss_2d.py ./data/ch3/gnss_output.txt 
 \end{lstlisting}
 
 Figure~\ref{fig:gnss-traj} shows 2D and 3D trajectory plots. Observations:

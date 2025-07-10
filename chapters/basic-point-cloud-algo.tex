@@ -68,7 +68,7 @@ In addition to distance, Lidar can also carry additional data. For example, mult
 
 Point clouds are the most fundamental way to represent 3D structures and are the primary data format output by most laser sensors. If we wish to extract additional information from a point cloud, we must employ supplementary data structures to express these relationships. For instance, many algorithms require answering questions like: Which point is the nearest to a given point? What shape do this point and its neighboring points collectively form? To achieve such functionality, additional data structures must be introduced—this is the focus of this section.  
 
-The content of this chapter overlaps with many books on 3D point clouds. Readers may also refer to similar textbooks, such as \cite{Magnusson2009, GuoHao2019}. As a book aimed at SLAM practitioners, we emphasize point cloud processing for laser sensors rather than discussing generic point cloud processing broadly. We will introduce some usage of the PCL library \cite{Rusu2011}, and for key algorithms, we also provide handwritten implementations along with performance comparisons to their PCL counterparts.  
+The content of this chapter overlaps with many books on 3D point clouds. Readers may also refer to similar textbooks, such as \cite{Magnusson2009}. As a book aimed at SLAM practitioners, we emphasize point cloud processing for laser sensors rather than discussing generic point cloud processing broadly. We will introduce some usage of the PCL library \cite{Rusu2011}, and for key algorithms, we also provide handwritten implementations along with performance comparisons to their PCL counterparts.  
 
 The simplest and most primitive way to represent a point cloud is as an array: just store the points in an array. This can be easily implemented using `std::vector` in C++. Of course, as mentioned earlier, point clouds can also carry additional information, such as reflectivity, the line number (for multi-line Lidar), or RGB color data. Point clouds from RGB-D cameras may also store the row and column indices of each point in the image. Therefore, a more convenient approach is to define a point cloud structure and use a templated container to store it. If you need to store other information, such as the global position and orientation of the entire point cloud, you can define your own point cloud data structure.  
 
@@ -403,7 +403,7 @@ Alternatively, we can maintain only the top $k$ results during computation, comp
 
 It is clear that the brute-force method requires traversing the entire point cloud each time. For a point cloud of size $n$, its complexity is $O(n)$. When dealing with the matching problem between two point clouds (assuming both have $n$ points), the complexity of brute-force nearest neighbor search becomes $O(n^2)$. This is obviously a time-consuming method, and BF kNN also requires an additional sorting step. However, the computation for each point in BF search is very simple and does not rely on complex data structures, making it highly parallelizable. A GPU-accelerated BF search or BF kNN may outperform some more sophisticated algorithms \cite{Garcia2008, Li2015}. In most engineering applications, it is also unnecessary to search the entire target point cloud $\mathcal{X}$—instead, searches can be restricted to a predefined local region. Therefore, BF search remains highly practical in many real-world applications.  
 
-To facilitate comparison, we will use a pair of example point clouds (see \texttt{data/ch5/first.pcd} and \texttt{second.pcd}) as data sources in this section, applying various methods to compute their nearest neighbors. Considering that readers may not have access to GPUs, we provide both single-threaded and multi-threaded CPU implementations of nearest neighbor search. Subsequent algorithms will also compare the efficiency of single-threaded versus multi-threaded implementations. For simpler methods (such as the BF method in this section), we will also compare handwritten implementations with those provided by the PCL library.
+To facilitate comparison, we will use a pair of example point clouds (see data/ch5/first.pcd and second.pcd) as data sources in this section, applying various methods to compute their nearest neighbors. Considering that readers may not have access to GPUs, we provide both single-threaded and multi-threaded CPU implementations of nearest neighbor search. Subsequent algorithms will also compare the efficiency of single-threaded versus multi-threaded implementations. For simpler methods (such as the BF method in this section), we will also compare handwritten implementations with those provided by the PCL library.
 
 \subsubsection{Brute-Force Nearest Neighbor Implementation}
 The BF (Brute-Force) matching implementation is straightforward. Using C++17's parallel mechanisms, it's easy to extend the single-threaded version to a multi-threaded one. We utilize STL algorithms to implement both single-threaded and multi-threaded BF matching, first defining a brute-force nearest neighbor search for a single point and then extending it to compute nearest neighbors for multiple points.
@@ -411,14 +411,13 @@ The BF (Brute-Force) matching implementation is straightforward. Using C++17's p
 \begin{lstlisting}[language=c++, caption=src/ch5/bfnn.cc]
 int bfnn_point(CloudPtr cloud, const Vec3f& point) {
 	return std::min_element(cloud->points.begin(), cloud->points.end(),
-	[&point](const PointType& pt1, const PointType& pt2) -> bool {
-		return (pt1.getVector3fMap() - point).squaredNorm() <
-		(pt2.getVector3fMap() - point).squaredNorm();
-	}) - cloud->points.begin();
+		[&point](const PointType& pt1, const PointType& pt2) -> bool {
+			return (pt1.getVector3fMap() - point).squaredNorm() <
+			(pt2.getVector3fMap() - point).squaredNorm();
+		}) - cloud->points.begin();
 }
 
-void bfnn_cloud_mt(CloudPtr cloud1, CloudPtr cloud2, std::vector<std::pair<size_t, size_t>>& 
-matches) {
+void bfnn_cloud_mt(CloudPtr cloud1, CloudPtr cloud2, std::vector<std::pair<size_t, size_t>>& matches) {
 	// Generate indices first
 	std::vector<size_t> index(cloud1->size());
 	std::for_each(index.begin(), index.end(), [idx = 0](size_t& i) mutable { i = idx++; });
@@ -1835,10 +1834,10 @@ This problem is still very similar to (\ref{eq.6.6}), except that we seek to \te
 \begin{figure}[!htp]
 	\centering
 	\includegraphics[width=0.5\textwidth]{resources/basic-point-cloud/linear-fitting.pdf}
-	\caption{Schematic diagram of line fitting and plane fitting for point clouds (TODO: replace)}
+	\caption{Schematic diagram of line fitting and plane fitting for point clouds`}
 	\label{fig:linear-fitting}
 \end{figure}
-
+`
 \subsection{Implementation of Line Fitting}
 Now let's implement the line fitting method described earlier. Similarly, we first implement the fitting function in the math library, then compare the fitted results with ground truth in a test program.
 
