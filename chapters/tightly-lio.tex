@@ -25,7 +25,7 @@ First, let us revisit the ESKF theory introduced earlier. For convenience, we de
 
 We know that its error state can be defined in the usual vector space, i.e., the tangent space of $\mathcal{M}$ near the operating point: $\delta \mathbf{x} \in \mathbb{R}^{18}$. When IMU data arrives, the filter propagates the state variables based on the IMU readings and the current state. The motion process consists of two parts:  
 
-1. **State Propagation Using IMU Readings**: Given the IMU readings $\tilde{\boldsymbol{\omega}}, \tilde{\mathbf{a}}$ between time $t$ and $t+\Delta t$, the discrete-time propagation can be written as:  
+1. \textbf{State Propagation Using IMU Readings}: Given the IMU readings $\tilde{\boldsymbol{\omega}}, \tilde{\mathbf{a}}$ between time $t$ and $t+\Delta t$, the discrete-time propagation can be written as:  
 \begin{subequations}\label{key}  
 	\begin{align}  
 		\mathbf{p}(t+\Delta t) &= \mathbf{p}(t) + \mathbf{v} \Delta t + \frac{1}{2}   
@@ -39,7 +39,7 @@ We know that its error state can be defined in the usual vector space, i.e., the
 	\end{align}  
 \end{subequations}  
 
-2. **Observation Process**: While the nominal state is updated according to the above equations, the mean of the error state remains zero, and only its covariance needs to be updated:  
+2. \textbf{Observation Process}: While the nominal state is updated according to the above equations, the mean of the error state remains zero, and only its covariance needs to be updated:  
 \begin{equation}\label{key}  
 	\mathbf{P}_{\text{pred}} = \mathbf{F} \mathbf{P} \mathbf{F}^\top + \mathbf{Q},  
 \end{equation}  
@@ -60,17 +60,17 @@ These details were introduced earlier (see Equation~\eqref{eq:eskf-F}). For the 
 
 \subsection{Iterative Process in the Observation Equation}  
 
-In a tightly-coupled system, we incorporate the ICP or NDT residuals from the LiDAR as observation equations into the EKF model. However, since both ICP and NDT require iterations to converge, we should also introduce an **iterative process** for the EKF observation step. This iterative process has the following key points:  
+In a tightly-coupled system, we incorporate the ICP or NDT residuals from the LiDAR as observation equations into the EKF model. However, since both ICP and NDT require iterations to converge, we should also introduce an \textbf{iterative process} for the EKF observation step. This iterative process has the following key points:  
 
-1. **Linearization of the Error State**: The iterative process first **linearizes** the **error state**. That is, the nominal state starts from \(\mathbf{x}_{\mathrm{pred}}\) and is continuously updated by the error state \(\delta \mathbf{x}\). Since the update \(\delta \mathbf{x}\) varies with each iteration, we denote the error state at the \(k\)-th iteration as \(\delta \mathbf{x}_k\) and its covariance as \(\mathbf{P}_k\)\footnote{Note that in Chapter 3 of this book, the subscript \(k\) was used to denote the \(k\)-th time step. Here, however, we focus on the state within a single time step and use \(k\) to represent the iteration count rather than the time step. Adding additional superscripts or subscripts for iterations would make the notation overly cumbersome.}. At \(k=0\), we initialize the process as: \(\delta \mathbf{x}_{0} = \mathbf{0}, \mathbf{P}_0 = \mathbf{P}_{\mathrm{pred}}\).  
+1. \textbf{Linearization of the Error State}: The iterative process first \textbf{linearizes} the \textbf{error state}. That is, the nominal state starts from \(\mathbf{x}_{\mathrm{pred}}\) and is continuously updated by the error state \(\delta \mathbf{x}\). Since the update \(\delta \mathbf{x}\) varies with each iteration, we denote the error state at the \(k\)-th iteration as \(\delta \mathbf{x}_k\) and its covariance as \(\mathbf{P}_k\)\footnote{Note that in Chapter 3 of this book, the subscript \(k\) was used to denote the \(k\)-th time step. Here, however, we focus on the state within a single time step and use \(k\) to represent the iteration count rather than the time step. Adding additional superscripts or subscripts for iterations would make the notation overly cumbersome.}. At \(k=0\), we initialize the process as: \(\delta \mathbf{x}_{0} = \mathbf{0}, \mathbf{P}_0 = \mathbf{P}_{\mathrm{pred}}\).  
 
-2. **Recomputing Kalman Gain and Update**: Since the observation equation requires iteration, the Kalman gain and update process must also be recomputed at each step. Thus, quantities related to the update are also subscripted with \(k\), denoted as \(\mathbf{K}_k, \mathbf{H}_k\). Before updating, we denote the working point as \(\mathbf{x}_k\), which is essentially obtained by incrementally adding \(\delta \mathbf{x}_k\) to \(\mathbf{x}_0\). From the perspective of nominal and error states, the nominal state at the \(k\)-th iteration is \(\mathbf{x}_k\), while the error state is \(\mathbf{0}\).  
+2. \textbf{Recomputing Kalman Gain and Update}: Since the observation equation requires iteration, the Kalman gain and update process must also be recomputed at each step. Thus, quantities related to the update are also subscripted with \(k\), denoted as \(\mathbf{K}_k, \mathbf{H}_k\). Before updating, we denote the working point as \(\mathbf{x}_k\), which is essentially obtained by incrementally adding \(\delta \mathbf{x}_k\) to \(\mathbf{x}_0\). From the perspective of nominal and error states, the nominal state at the \(k\)-th iteration is \(\mathbf{x}_k\), while the error state is \(\mathbf{0}\).  
 
-3. **Practical Tricks for \(\mathbf{P}\) Updates**: During IEKF iterations before convergence, we can consider the filter as still in progress, merely shifting the working point. Thus, \(\mathbf{P}\) does not need to be recalculated at every iteration—only the initial \(\mathbf{P}_{\mathrm{pred}}\) needs to be projected into the current tangent space. The final \(\mathbf{P}\) update is performed only after the last iteration, projecting it to the new working point.  
+3. \textbf{Practical Tricks for \(\mathbf{P}\) Updates}: During IEKF iterations before convergence, we can consider the filter as still in progress, merely shifting the working point. Thus, \(\mathbf{P}\) does not need to be recalculated at every iteration—only the initial \(\mathbf{P}_{\mathrm{pred}}\) needs to be projected into the current tangent space. The final \(\mathbf{P}\) update is performed only after the last iteration, projecting it to the new working point.  
 
-4. **Differences Due to Repeated Linearization**: In EKF, linearization is performed only once at \(\mathbf{x}_{\mathrm{pred}}\). In IEKF, however, the \(k\)-th linearization is computed at \(\mathbf{x}_k\). Traditional EKF describes how to update \(\mathbf{x}_{\mathrm{pred}}, \mathbf{P}_{\mathrm{pred}}\) to \(\mathbf{x}, \mathbf{P}\), whereas IEKF focuses on updating \(\mathbf{x}_{k-1}, \mathbf{P}_{k-1}\) to \(\mathbf{x}_{k}, \mathbf{P}_k\) (though, as noted earlier, \(\mathbf{P}_k\) does not need to be explicitly computed). This difference leads to significant variations in the update process between EKF and IEKF, which will be reflected in later implementations.  
+4. \textbf{Differences Due to Repeated Linearization}: In EKF, linearization is performed only once at \(\mathbf{x}_{\mathrm{pred}}\). In IEKF, however, the \(k\)-th linearization is computed at \(\mathbf{x}_k\). Traditional EKF describes how to update \(\mathbf{x}_{\mathrm{pred}}, \mathbf{P}_{\mathrm{pred}}\) to \(\mathbf{x}, \mathbf{P}\), whereas IEKF focuses on updating \(\mathbf{x}_{k-1}, \mathbf{P}_{k-1}\) to \(\mathbf{x}_{k}, \mathbf{P}_k\) (though, as noted earlier, \(\mathbf{P}_k\) does not need to be explicitly computed). This difference leads to significant variations in the update process between EKF and IEKF, which will be reflected in later implementations.  
 
-5. **Dynamic Observation Model**: Like ICP and NDT, tightly-coupled LIO should update the nearest-neighbor relationships for each matched point in every iteration. This results in an IEKF observation model **with a variable number of equations**, unlike standard EKF, which has a fixed observation dimension\footnote{This is specific to LIO and does not imply that IEKF generally alters the number of observation equations.}. When the observation dimension is large, certain algebraic transformations are applied to EKF formulas to handle high-dimensional computations.  
+5. \textbf{Dynamic Observation Model}: Like ICP and NDT, tightly-coupled LIO should update the nearest-neighbor relationships for each matched point in every iteration. This results in an IEKF observation model \textbf{with a variable number of equations}, unlike standard EKF, which has a fixed observation dimension\footnote{This is specific to LIO and does not imply that IEKF generally alters the number of observation equations.}. When the observation dimension is large, certain algebraic transformations are applied to EKF formulas to handle high-dimensional computations.  
 
 The overall process is illustrated in Figure~\ref{fig:iekf-iters}. Starting from \(\mathbf{x}_0, \mathbf{P}_0\), we iteratively refine the observation model, compute the incremental update \(\delta \mathbf{x}\), and update \(\mathbf{x}\) and \(\mathbf{P}\) until convergence.  
 
@@ -105,7 +105,7 @@ If the filter has not yet converged, \(\mathbf{P}\) is not updated—instead, \(
 	\mathbf{P}_{k+1} = (\mathbf{I} - \mathbf{K}_k \mathbf{H}_k)\mathbf{J}_k \mathbf{P}_{\mathrm{pred}} \mathbf{J}_k^\top.  
 \end{equation}  
 
-In other words, from a covariance perspective, **only the final iteration** is considered effective. The Kalman gain \(\mathbf{K}_k\) and linearization matrix \(\mathbf{H}_k\) influence only the last update. Intermediate iterations merely adjust the starting point.  
+In other words, from a covariance perspective, \textbf{only the final iteration} is considered effective. The Kalman gain \(\mathbf{K}_k\) and linearization matrix \(\mathbf{H}_k\) influence only the last update. Intermediate iterations merely adjust the starting point.  
 
 If IEKF completes the iteration, \(\mathbf{P}_{k+1}\) should also be projected into the tangent space at the final step to maintain consistency. Overall, each IEKF iteration solves a least-squares problem with a prior:  
 \begin{equation}\label{key}  
@@ -118,7 +118,7 @@ The first term represents the observation residual, while the second term is the
 
 In tightly-coupled systems, we directly incorporate NDT or ICP residuals into the observation equation, which significantly increases the dimensionality of the observation space. In traditional integrated navigation systems like RTK, observation equations are typically 3D or 6D. However, when point clouds are included, the observation equation can easily reach thousands or even tens of thousands of dimensions. If we compute the Kalman gain using Equation~\eqref{eq:ieskf-obs-correction}(a), we inevitably encounter the inversion of a very large matrix. Suppose the residual dimension is \( m \), then \(\mathbf{H}_k\) becomes an \( m \times 18 \) matrix, and the term \((\mathbf{H}_k \mathbf{P}_{k} \mathbf{H}_k^\top + \mathbf{V})\) in the Kalman gain requires the inversion of an \( m \times m \) matrix—an operation we must avoid.  
 
-In Kalman filters, the **Sherman-Morrison-Woodbury (SMW) identity** \cite{Sherman1950,Barfoot2016} is a widely used algebraic transformation that proves highly useful in various Kalman filter derivations. The SMW identity has four equivalent forms, one of which is:  
+In Kalman filters, the \textbf{Sherman-Morrison-Woodbury (SMW) identity} \cite{Sherman1950,Barfoot2016} is a widely used algebraic transformation that proves highly useful in various Kalman filter derivations. The SMW identity has four equivalent forms, one of which is:  
 \begin{equation}\label{key}  
 	\mathbf{A} \mathbf{B} (\mathbf{D} + \mathbf{C} \mathbf{A} \mathbf{B})^{-1} = (\mathbf{A}^{-1} + \mathbf{B} \mathbf{D}^{-1} \mathbf{C})^{-1} \mathbf{B} \mathbf{D}^{-1},  
 \end{equation}  
@@ -414,238 +414,238 @@ Next, we introduce an LIO system based on preintegration and point cloud registr
 The code in this section is primarily built upon Section~\ref{sec:iekf-lio} with the addition of graph optimization methods. Most of the core logic remains unchanged. The LIO system now includes a preintegrator that handles IMU data integration and provides predicted states, while also maintaining an incremental NDT odometer for point cloud registration and local map management.
 
 \begin{lstlisting}[language=c++,caption=src/ch8/lio-preinteg/lio_preinteg.h]
-	class LioPreinteg {
-		private:
-		/// modules
-		std::shared_ptr<MessageSync> sync_ = nullptr;
-		StaticIMUInit imu_init_;
-		
-		/// point clouds data
-		FullCloudPtr scan_undistort_{new FullPointCloudType()};  // scan after undistortion
-		CloudPtr current_scan_ = nullptr;
-		
-		// optimization-related
-		NavStated last_nav_state_, current_nav_state_;  // previous and current states  
-		Mat15d prior_info_ = Mat15d::Identity();        // prior constraint
-		std::shared_ptr<IMUPreintegration> preinteg_ = nullptr;
-		
-		IMUPtr last_imu_ = nullptr;
-		
-		/// NDT data
-		IncNdt3d ndt_;
-		SE3 ndt_pose_;
-		SE3 last_ndt_pose_;
-		
-		Options options_;
-		std::shared_ptr<ui::PangolinWindow> ui_ = nullptr;
-	};
+class LioPreinteg {
+	private:
+	/// modules
+	std::shared_ptr<MessageSync> sync_ = nullptr;
+	StaticIMUInit imu_init_;
+	
+	/// point clouds data
+	FullCloudPtr scan_undistort_{new FullPointCloudType()};  // scan after undistortion
+	CloudPtr current_scan_ = nullptr;
+	
+	// optimization-related
+	NavStated last_nav_state_, current_nav_state_;  // previous and current states  
+	Mat15d prior_info_ = Mat15d::Identity();        // prior constraint
+	std::shared_ptr<IMUPreintegration> preinteg_ = nullptr;
+	
+	IMUPtr last_imu_ = nullptr;
+	
+	/// NDT data
+	IncNdt3d ndt_;
+	SE3 ndt_pose_;
+	SE3 last_ndt_pose_;
+	
+	Options options_;
+	std::shared_ptr<ui::PangolinWindow> ui_ = nullptr;
+};
 \end{lstlisting}
 
 During the prediction phase, we use poses from preintegration to undistort point clouds:
 
 \begin{lstlisting}[language=c++,caption=src/ch8/lio-preinteg/lio_preinteg.cc]
-	void LioPreinteg::Predict() {
-		imu_states_.clear();
-		imu_states_.emplace_back(last_nav_state_);
-		
-		/// Predict IMU states
-		for (auto &imu : measures_.imu_) {
-			if (last_imu_ != nullptr) {
-				preinteg_->Integrate(*imu, imu->timestamp_ - last_imu_->timestamp_);
-			}
-			
-			last_imu_ = imu;
-			imu_states_.emplace_back(preinteg_->Predict(last_nav_state_, imu_init_.GetGravity()));
+void LioPreinteg::Predict() {
+	imu_states_.clear();
+	imu_states_.emplace_back(last_nav_state_);
+	
+	/// Predict IMU states
+	for (auto &imu : measures_.imu_) {
+		if (last_imu_ != nullptr) {
+			preinteg_->Integrate(*imu, imu->timestamp_ - last_imu_->timestamp_);
 		}
+		
+		last_imu_ = imu;
+		imu_states_.emplace_back(preinteg_->Predict(last_nav_state_, imu_init_.GetGravity()));
 	}
+}
 \end{lstlisting}
 
 During registration, the predicted pose from preintegration is used as input to the NDT odometer, while the NDT output serves as observations for optimization:
 
 \begin{lstlisting}[language=c++,caption=src/ch8/lio-preinteg/lio_preinteg.cc]
-	void LioPreinteg::Align() {
-		LOG(INFO) << "=== frame " << frame_num_;
-		ndt_.SetSource(current_scan_filter_);
-		
-		current_nav_state_ = preinteg_->Predict(last_nav_state_, imu_init_.GetGravity());
-		ndt_pose_ = current_nav_state_.GetSE3();
-		
-		ndt_.AlignNdt(ndt_pose_);
-		
-		Optimize();
+void LioPreinteg::Align() {
+	LOG(INFO) << "=== frame " << frame_num_;
+	ndt_.SetSource(current_scan_filter_);
+	
+	current_nav_state_ = preinteg_->Predict(last_nav_state_, imu_init_.GetGravity());
+	ndt_pose_ = current_nav_state_.GetSE3();
+	
+	ndt_.AlignNdt(ndt_pose_);
+	
+	Optimize();
+}
+
+void LioPreinteg::Optimize() {
+	using BlockSolverType = g2o::BlockSolverX;
+	using LinearSolverType = g2o::LinearSolverEigen<BlockSolverType::PoseMatrixType>;
+	
+	auto *solver = new g2o::OptimizationAlgorithmLevenberg(
+	g2o::make_unique<BlockSolverType>(g2o::make_unique<LinearSolverType>()));
+	g2o::SparseOptimizer optimizer;
+	optimizer.setAlgorithm(solver);
+	
+	// Previous frame vertices: pose, v, bg, ba
+	auto v0_pose = new VertexPose();
+	v0_pose->setId(0);
+	v0_pose->setEstimate(last_nav_state_.GetSE3());
+	optimizer.addVertex(v0_pose);
+	
+	auto v0_vel = new VertexVelocity();
+	v0_vel->setId(1);
+	v0_vel->setEstimate(last_nav_state_.v_);
+	optimizer.addVertex(v0_vel);
+	
+	auto v0_bg = new VertexGyroBias();
+	v0_bg->setId(2);
+	v0_bg->setEstimate(last_nav_state_.bg_);
+	optimizer.addVertex(v0_bg);
+	
+	auto v0_ba = new VertexAccBias();
+	v0_ba->setId(3);
+	v0_ba->setEstimate(last_nav_state_.ba_);
+	optimizer.addVertex(v0_ba);
+	
+	// Current frame vertices: pose, v, bg, ba
+	auto v1_pose = new VertexPose();
+	v1_pose->setId(4);
+	v1_pose->setEstimate(ndt_pose_);  // NDT pose as initial value
+	optimizer.addVertex(v1_pose);
+	
+	auto v1_vel = new VertexVelocity();
+	v1_vel->setId(5);
+	v1_vel->setEstimate(current_nav_state_.v_);
+	optimizer.addVertex(v1_vel);
+	
+	auto v1_bg = new VertexGyroBias();
+	v1_bg->setId(6);
+	v1_bg->setEstimate(current_nav_state_.bg_);
+	optimizer.addVertex(v1_bg);
+	
+	auto v1_ba = new VertexAccBias();
+	v1_ba->setId(7);
+	v1_ba->setEstimate(current_nav_state_.ba_);
+	optimizer.addVertex(v1_ba);
+	
+	// IMU factor
+	auto edge_inertial = new EdgeInertial(preinteg_, imu_init_.GetGravity());
+	edge_inertial->setVertex(0, v0_pose);
+	edge_inertial->setVertex(1, v0_vel);
+	edge_inertial->setVertex(2, v0_bg);
+	edge_inertial->setVertex(3, v0_ba);
+	edge_inertial->setVertex(4, v1_pose);
+	edge_inertial->setVertex(5, v1_vel);
+	auto *rk = new g2o::RobustKernelHuber();
+	rk->setDelta(200.0);
+	edge_inertial->setRobustKernel(rk);
+	optimizer.addEdge(edge_inertial);
+	
+	// Bias random walk
+	auto *edge_gyro_rw = new EdgeGyroRW();
+	edge_gyro_rw->setVertex(0, v0_bg);
+	edge_gyro_rw->setVertex(1, v1_bg);
+	edge_gyro_rw->setInformation(options_.bg_rw_info_);
+	optimizer.addEdge(edge_gyro_rw);
+	
+	auto *edge_acc_rw = new EdgeAccRW();
+	edge_acc_rw->setVertex(0, v0_ba);
+	edge_acc_rw->setVertex(1, v1_ba);
+	edge_acc_rw->setInformation(options_.ba_rw_info_);
+	optimizer.addEdge(edge_acc_rw);
+	
+	// Prior for previous frame pose, vel, bg, ba
+	auto *edge_prior = new EdgePriorPoseNavState(last_nav_state_, prior_info_);
+	edge_prior->setVertex(0, v0_pose);
+	edge_prior->setVertex(1, v0_vel);
+	edge_prior->setVertex(2, v0_bg);
+	edge_prior->setVertex(3, v0_ba);
+	optimizer.addEdge(edge_prior);
+	
+	/// NDT pose observation
+	auto *edge_ndt = new EdgeGNSS(v1_pose, ndt_pose_);
+	edge_ndt->setInformation(options_.ndt_info_);
+	optimizer.addEdge(edge_ndt);
+	
+	// Optimization
+	optimizer.setVerbose(options_.verbose_);
+	optimizer.initializeOptimization();
+	optimizer.optimize(20);
+	
+	// Get results
+	last_nav_state_.R_ = v0_pose->estimate().so3();
+	last_nav_state_.p_ = v0_pose->estimate().translation();
+	last_nav_state_.v_ = v0_vel->estimate();
+	last_nav_state_.bg_ = v0_bg->estimate();
+	last_nav_state_.ba_ = v0_ba->estimate();
+	
+	current_nav_state_.R_ = v1_pose->estimate().so3();
+	current_nav_state_.p_ = v1_pose->estimate().translation();
+	current_nav_state_.v_ = v1_vel->estimate();
+	current_nav_state_.bg_ = v1_bg->estimate();
+	current_nav_state_.ba_ = v1_ba->estimate();
+	
+	/// Reset preintegration
+	
+	options_.preinteg_options_.init_bg_ = current_nav_state_.bg_;
+	options_.preinteg_options_.init_ba_ = current_nav_state_.ba_;
+	preinteg_ = std::make_shared<IMUPreintegration>(options_.preinteg_options_);
+	
+	// Compute prior for current frame
+	// Build Hessian
+	// 15x2, order: v0_pose, v0_vel, v0_bg, v0_ba, v1_pose, v1_vel, v1_bg, v1_ba
+	//            0       6        9     12     15        21      24     27
+	Eigen::Matrix<double, 30, 30> H;
+	H.setZero();
+	
+	H.block<24, 24>(0, 0) += edge_inertial->GetHessian();
+	
+	Eigen::Matrix<double, 6, 6> Hgr = edge_gyro_rw->GetHessian();
+	H.block<3, 3>(9, 9) += Hgr.block<3, 3>(0, 0);
+	H.block<3, 3>(9, 24) += Hgr.block<3, 3>(0, 3);
+	H.block<3, 3>(24, 9) += Hgr.block<3, 3>(3, 0);
+	H.block<3, 3>(24, 24) += Hgr.block<3, 3>(3, 3);
+	
+	Eigen::Matrix<double, 6, 6> Har = edge_acc_rw->GetHessian();
+	H.block<3, 3>(12, 12) += Har.block<3, 3>(0, 0);
+	H.block<3, 3>(12, 27) += Har.block<3, 3>(0, 3);
+	H.block<3, 3>(27, 12) += Har.block<3, 3>(3, 0);
+	H.block<3, 3>(27, 27) += Har.block<3, 3>(3, 3);
+	
+	H.block<15, 15>(0, 0) += edge_prior->GetHessian();
+	H.block<6, 6>(15, 15) += edge_ndt->GetHessian();
+	
+	H = math::Marginalize(H, 0, 14);
+	prior_info_ = H.block<15, 15>(15, 15);
+	
+	if (options_.verbose_) {
+		LOG(INFO) << "info trace: " << prior_info_.trace();
+		LOG(INFO) << "optimization done.";
 	}
 	
-	void LioPreinteg::Optimize() {
-		using BlockSolverType = g2o::BlockSolverX;
-		using LinearSolverType = g2o::LinearSolverEigen<BlockSolverType::PoseMatrixType>;
-		
-		auto *solver = new g2o::OptimizationAlgorithmLevenberg(
-		g2o::make_unique<BlockSolverType>(g2o::make_unique<LinearSolverType>()));
-		g2o::SparseOptimizer optimizer;
-		optimizer.setAlgorithm(solver);
-		
-		// Previous frame vertices: pose, v, bg, ba
-		auto v0_pose = new VertexPose();
-		v0_pose->setId(0);
-		v0_pose->setEstimate(last_nav_state_.GetSE3());
-		optimizer.addVertex(v0_pose);
-		
-		auto v0_vel = new VertexVelocity();
-		v0_vel->setId(1);
-		v0_vel->setEstimate(last_nav_state_.v_);
-		optimizer.addVertex(v0_vel);
-		
-		auto v0_bg = new VertexGyroBias();
-		v0_bg->setId(2);
-		v0_bg->setEstimate(last_nav_state_.bg_);
-		optimizer.addVertex(v0_bg);
-		
-		auto v0_ba = new VertexAccBias();
-		v0_ba->setId(3);
-		v0_ba->setEstimate(last_nav_state_.ba_);
-		optimizer.addVertex(v0_ba);
-		
-		// Current frame vertices: pose, v, bg, ba
-		auto v1_pose = new VertexPose();
-		v1_pose->setId(4);
-		v1_pose->setEstimate(ndt_pose_);  // NDT pose as initial value
-		optimizer.addVertex(v1_pose);
-		
-		auto v1_vel = new VertexVelocity();
-		v1_vel->setId(5);
-		v1_vel->setEstimate(current_nav_state_.v_);
-		optimizer.addVertex(v1_vel);
-		
-		auto v1_bg = new VertexGyroBias();
-		v1_bg->setId(6);
-		v1_bg->setEstimate(current_nav_state_.bg_);
-		optimizer.addVertex(v1_bg);
-		
-		auto v1_ba = new VertexAccBias();
-		v1_ba->setId(7);
-		v1_ba->setEstimate(current_nav_state_.ba_);
-		optimizer.addVertex(v1_ba);
-		
-		// IMU factor
-		auto edge_inertial = new EdgeInertial(preinteg_, imu_init_.GetGravity());
-		edge_inertial->setVertex(0, v0_pose);
-		edge_inertial->setVertex(1, v0_vel);
-		edge_inertial->setVertex(2, v0_bg);
-		edge_inertial->setVertex(3, v0_ba);
-		edge_inertial->setVertex(4, v1_pose);
-		edge_inertial->setVertex(5, v1_vel);
-		auto *rk = new g2o::RobustKernelHuber();
-		rk->setDelta(200.0);
-		edge_inertial->setRobustKernel(rk);
-		optimizer.addEdge(edge_inertial);
-		
-		// Bias random walk
-		auto *edge_gyro_rw = new EdgeGyroRW();
-		edge_gyro_rw->setVertex(0, v0_bg);
-		edge_gyro_rw->setVertex(1, v1_bg);
-		edge_gyro_rw->setInformation(options_.bg_rw_info_);
-		optimizer.addEdge(edge_gyro_rw);
-		
-		auto *edge_acc_rw = new EdgeAccRW();
-		edge_acc_rw->setVertex(0, v0_ba);
-		edge_acc_rw->setVertex(1, v1_ba);
-		edge_acc_rw->setInformation(options_.ba_rw_info_);
-		optimizer.addEdge(edge_acc_rw);
-		
-		// Prior for previous frame pose, vel, bg, ba
-		auto *edge_prior = new EdgePriorPoseNavState(last_nav_state_, prior_info_);
-		edge_prior->setVertex(0, v0_pose);
-		edge_prior->setVertex(1, v0_vel);
-		edge_prior->setVertex(2, v0_bg);
-		edge_prior->setVertex(3, v0_ba);
-		optimizer.addEdge(edge_prior);
-		
-		/// NDT pose observation
-		auto *edge_ndt = new EdgeGNSS(v1_pose, ndt_pose_);
-		edge_ndt->setInformation(options_.ndt_info_);
-		optimizer.addEdge(edge_ndt);
-		
-		// Optimization
-		optimizer.setVerbose(options_.verbose_);
-		optimizer.initializeOptimization();
-		optimizer.optimize(20);
-		
-		// Get results
-		last_nav_state_.R_ = v0_pose->estimate().so3();
-		last_nav_state_.p_ = v0_pose->estimate().translation();
-		last_nav_state_.v_ = v0_vel->estimate();
-		last_nav_state_.bg_ = v0_bg->estimate();
-		last_nav_state_.ba_ = v0_ba->estimate();
-		
-		current_nav_state_.R_ = v1_pose->estimate().so3();
-		current_nav_state_.p_ = v1_pose->estimate().translation();
-		current_nav_state_.v_ = v1_vel->estimate();
-		current_nav_state_.bg_ = v1_bg->estimate();
-		current_nav_state_.ba_ = v1_ba->estimate();
-		
-		/// Reset preintegration
-		
-		options_.preinteg_options_.init_bg_ = current_nav_state_.bg_;
-		options_.preinteg_options_.init_ba_ = current_nav_state_.ba_;
-		preinteg_ = std::make_shared<IMUPreintegration>(options_.preinteg_options_);
-		
-		// Compute prior for current frame
-		// Build Hessian
-		// 15x2, order: v0_pose, v0_vel, v0_bg, v0_ba, v1_pose, v1_vel, v1_bg, v1_ba
-		//            0       6        9     12     15        21      24     27
-		Eigen::Matrix<double, 30, 30> H;
-		H.setZero();
-		
-		H.block<24, 24>(0, 0) += edge_inertial->GetHessian();
-		
-		Eigen::Matrix<double, 6, 6> Hgr = edge_gyro_rw->GetHessian();
-		H.block<3, 3>(9, 9) += Hgr.block<3, 3>(0, 0);
-		H.block<3, 3>(9, 24) += Hgr.block<3, 3>(0, 3);
-		H.block<3, 3>(24, 9) += Hgr.block<3, 3>(3, 0);
-		H.block<3, 3>(24, 24) += Hgr.block<3, 3>(3, 3);
-		
-		Eigen::Matrix<double, 6, 6> Har = edge_acc_rw->GetHessian();
-		H.block<3, 3>(12, 12) += Har.block<3, 3>(0, 0);
-		H.block<3, 3>(12, 27) += Har.block<3, 3>(0, 3);
-		H.block<3, 3>(27, 12) += Har.block<3, 3>(3, 0);
-		H.block<3, 3>(27, 27) += Har.block<3, 3>(3, 3);
-		
-		H.block<15, 15>(0, 0) += edge_prior->GetHessian();
-		H.block<6, 6>(15, 15) += edge_ndt->GetHessian();
-		
-		H = math::Marginalize(H, 0, 14);
-		prior_info_ = H.block<15, 15>(15, 15);
-		
-		if (options_.verbose_) {
-			LOG(INFO) << "info trace: " << prior_info_.trace();
-			LOG(INFO) << "optimization done.";
-		}
-		
-		NormalizeVelocity();
-		last_nav_state_ = current_nav_state_;
-	}
+	NormalizeVelocity();
+	last_nav_state_ = current_nav_state_;
+}
 \end{lstlisting}
 
 Most of the code here is dedicated to constructing the graph optimization structure, which corresponds to Figure~\ref{fig:preinteg-graph}. In our implementation, the graph optimization problem for two keyframes consists of 8 vertices, 1 preintegration edge, 2 random walk edges, 1 NDT posterior pose observation, and 1 prior constraint. We didn't directly formulate the NDT observation in graph optimization form because NDT requires updating nearest neighbors during iteration, which isn't directly supported by g2o. After each optimization, we marginalize the previous frame's state. Since g2o doesn't directly support marginalization, we manually assemble the complete Hessian matrix using each edge's Jacobian matrices, which are computed during linearization.
 
 \begin{lstlisting}[language=c++,caption=src/common/g2o_types.h]
-	class EdgePriorPoseNavState : public g2o::BaseMultiEdge<15, Vec15d> {
-		public:
-		void computeError();
-		virtual void linearizeOplus();
-		
-		Eigen::Matrix<double, 15, 15> GetHessian() {
-			linearizeOplus();
-			Eigen::Matrix<double, 15, 15> J;
-			J.block<15, 6>(0, 0) = _jacobianOplus[0];
-			J.block<15, 3>(0, 6) = _jacobianOplus[1];
-			J.block<15, 3>(0, 9) = _jacobianOplus[2];
-			J.block<15, 3>(0, 12) = _jacobianOplus[3];
-			return J.transpose() * information() * J;
-		}
-		
-		NavStated state_;
-	};
+class EdgePriorPoseNavState : public g2o::BaseMultiEdge<15, Vec15d> {
+	public:
+	void computeError();
+	virtual void linearizeOplus();
+	
+	Eigen::Matrix<double, 15, 15> GetHessian() {
+		linearizeOplus();
+		Eigen::Matrix<double, 15, 15> J;
+		J.block<15, 6>(0, 0) = _jacobianOplus[0];
+		J.block<15, 3>(0, 6) = _jacobianOplus[1];
+		J.block<15, 3>(0, 9) = _jacobianOplus[2];
+		J.block<15, 3>(0, 12) = _jacobianOplus[3];
+		return J.transpose() * information() * J;
+	}
+	
+	NavStated state_;
+};
 \end{lstlisting}
 
 Finally, we process the $\mathbf{H}$ matrix with the math::Marginalize function to marginalize rows 0-14, obtaining the information matrix (15×15 dimension) for the next frame's state. This matrix is then used as prior information in the next optimization problem. Running the test\_lio\_preinteg program displays the LIO's real-time point cloud, as shown in Figure~\ref{fig:lio-preinteg}.

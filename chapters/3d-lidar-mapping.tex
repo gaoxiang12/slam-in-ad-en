@@ -5,7 +5,7 @@
 
 This chapter introduces the principles of mapping and localization using 3D LiDAR. Compared to 2D LiDAR, 3D LiDAR provides richer information, is less susceptible to occlusion, and can better reconstruct the three-dimensional structure of the environment. We can either directly register the 3D point clouds or extract geometric features before registration. Both approaches are widely used in autonomous driving applications. In this chapter, we will manually implement the core algorithms and assemble them into a LiDAR odometry system.
 
-\includepdf{art/ch7.pdf}
+\includepdf[width=\textwidth]{art/ch7.pdf}
 
 \section{Working Principles of Multi-beam LiDAR}
 \subsection{Mechanical LiDAR}
@@ -100,146 +100,146 @@ with right-multiplication for $\mathbf{R}$ updates, the Jacobians w.r.t. rotatio
 The core ICP algorithm is straightforward. Omitting peripheral I/O code, we present a concurrent implementation that significantly outperforms PCL's built-in ICP:
 
 \begin{lstlisting}[language=c++,caption=ch7/icp\_3d.cc]
-	bool Icp3d::AlignP2P(SE3& init_pose) {
-		LOG(INFO) << "aligning with point to point";
-		assert(target_ != nullptr && source_ != nullptr);
-		
-		SE3 pose = init_pose;
-		pose.translation() = target_center_ - source_center_;  // Initialize translation
-		LOG(INFO) << "init trans set to " << pose.translation().transpose();
-		
-		// Pre-generate point indices
-		std::vector<int> index(source_->points.size());
-		std::iota(index.begin(), index.end(), 0);
-		
-		// Concurrent computation buffers
-		std::vector<bool> effect_pts(index.size(), false);
-		std::vector<Eigen::Matrix<double, 3, 6>> jacobians(index.size());
-		std::vector<Vec3d> errors(index.size());
-		
-		for (int iter = 0; iter < options_.max_iteration_; ++iter) {
-			// Parallel nearest neighbor search
-			std::for_each(std::execution::par_unseq, index.begin(), index.end(), [&](int idx) {
-				auto q = ToVec3d(source_->points[idx]);
-				Vec3d qs = pose * q;  // Transformed point
-				std::vector<int> nn;
-				kdtree_->GetClosestPoint(ToPointType(qs), nn, 1);
+bool Icp3d::AlignP2P(SE3& init_pose) {
+	LOG(INFO) << "aligning with point to point";
+	assert(target_ != nullptr && source_ != nullptr);
+	
+	SE3 pose = init_pose;
+	pose.translation() = target_center_ - source_center_;  // Initialize translation
+	LOG(INFO) << "init trans set to " << pose.translation().transpose();
+	
+	// Pre-generate point indices
+	std::vector<int> index(source_->points.size());
+	std::iota(index.begin(), index.end(), 0);
+	
+	// Concurrent computation buffers
+	std::vector<bool> effect_pts(index.size(), false);
+	std::vector<Eigen::Matrix<double, 3, 6>> jacobians(index.size());
+	std::vector<Vec3d> errors(index.size());
+	
+	for (int iter = 0; iter < options_.max_iteration_; ++iter) {
+		// Parallel nearest neighbor search
+		std::for_each(std::execution::par_unseq, index.begin(), index.end(), [&](int idx) {
+			auto q = ToVec3d(source_->points[idx]);
+			Vec3d qs = pose * q;  // Transformed point
+			std::vector<int> nn;
+			kdtree_->GetClosestPoint(ToPointType(qs), nn, 1);
+			
+			if (!nn.empty()) {
+				Vec3d p = ToVec3d(target_->points[nn[0]]);
+				double dis = (p - qs).norm();
+				if (dis > options_.max_nn_distance_) return;  // Reject outliers
 				
-				if (!nn.empty()) {
-					Vec3d p = ToVec3d(target_->points[nn[0]]);
-					double dis = (p - qs).norm();
-					if (dis > options_.max_nn_distance_) return;  // Reject outliers
-					
-					effect_pts[idx] = true;
-					
-					// Build residual and Jacobian
-					Vec3d e = p - qs;
-					Eigen::Matrix<double, 3, 6> J;
-					J.block<3, 3>(0, 0) = pose.so3().matrix() * SO3::hat(q);
-					J.block<3, 3>(0, 3) = -Mat3d::Identity();
-					
-					jacobians[idx] = J;
-					errors[idx] = e;
-				}
-			});
-			
-			// Accumulate Hessian and error
-			double total_res = 0;
-			int effective_num = 0;
-			auto H_and_err = std::accumulate(
-			index.begin(), index.end(), 
-			std::pair<Mat6d, Vec6d>(Mat6d::Zero(), Vec6d::Zero()),
-			[&](const auto& pre, int idx) {
-				if (!effect_pts[idx]) return pre;
-				total_res += errors[idx].squaredNorm();
-				effective_num++;
-				return std::pair<Mat6d, Vec6d>(
-				pre.first + jacobians[idx].transpose() * jacobians[idx],
-				pre.second - jacobians[idx].transpose() * errors[idx]
-				);
-			});
-			
-			if (effective_num < options_.min_effective_pts_) {
-				LOG(WARNING) << "Insufficient correspondences: " << effective_num;
-				return false;
+				effect_pts[idx] = true;
+				
+				// Build residual and Jacobian
+				Vec3d e = p - qs;
+				Eigen::Matrix<double, 3, 6> J;
+				J.block<3, 3>(0, 0) = pose.so3().matrix() * SO3::hat(q);
+				J.block<3, 3>(0, 3) = -Mat3d::Identity();
+				
+				jacobians[idx] = J;
+				errors[idx] = e;
 			}
-			
-			// Solve and update
-			Vec6d dx = H_and_err.first.ldlt().solve(H_and_err.second);
-			pose.so3() = pose.so3() * SO3::exp(dx.head<3>());
-			pose.translation() += dx.tail<3>();
-			
-			LOG(INFO) << "iter " << iter << " | res: " << total_res 
-			<< " | eff: " << effective_num
-			<< " | avg res: " << total_res/effective_num
-			<< " | dx: " << dx.norm();
-			
-			if (dx.norm() < options_.eps_) {
-				LOG(INFO) << "Converged with dx = " << dx.transpose();
-				break;
-			}
+		});
+		
+		// Accumulate Hessian and error
+		double total_res = 0;
+		int effective_num = 0;
+		auto H_and_err = std::accumulate(
+		index.begin(), index.end(), 
+		std::pair<Mat6d, Vec6d>(Mat6d::Zero(), Vec6d::Zero()),
+		[&](const auto& pre, int idx) {
+			if (!effect_pts[idx]) return pre;
+			total_res += errors[idx].squaredNorm();
+			effective_num++;
+			return std::pair<Mat6d, Vec6d>(
+			pre.first + jacobians[idx].transpose() * jacobians[idx],
+			pre.second - jacobians[idx].transpose() * errors[idx]
+			);
+		});
+		
+		if (effective_num < options_.min_effective_pts_) {
+			LOG(WARNING) << "Insufficient correspondences: " << effective_num;
+			return false;
 		}
 		
-		init_pose = pose;
-		return true;
+		// Solve and update
+		Vec6d dx = H_and_err.first.ldlt().solve(H_and_err.second);
+		pose.so3() = pose.so3() * SO3::exp(dx.head<3>());
+		pose.translation() += dx.tail<3>();
+		
+		LOG(INFO) << "iter " << iter << " | res: " << total_res 
+		<< " | eff: " << effective_num
+		<< " | avg res: " << total_res/effective_num
+		<< " | dx: " << dx.norm();
+		
+		if (dx.norm() < options_.eps_) {
+			LOG(INFO) << "Converged with dx = " << dx.transpose();
+			break;
+		}
 	}
+	
+	init_pose = pose;
+	return true;
+}
 \end{lstlisting}
 
 The implementation leverages the KD-tree from Chapter 5 for nearest neighbor search. A test program is provided in test\_icp.cc for evaluating registration performance:
 
 \begin{lstlisting}[language=c++,caption=src/ch7/test/test_icp.cc]
-	sad::CloudPtr source(new sad::PointCloudType), target(new sad::PointCloudType);
-	pcl::io::loadPCDFile(fLS::FLAGS_source, *source);
-	pcl::io::loadPCDFile(fLS::FLAGS_target, *target);
+sad::CloudPtr source(new sad::PointCloudType), target(new sad::PointCloudType);
+pcl::io::loadPCDFile(fLS::FLAGS_source, *source);
+pcl::io::loadPCDFile(fLS::FLAGS_target, *target);
+
+bool success;
+
+sad::evaluate_and_call([&]() {
+	sad::Icp3d icp;
+	icp.SetSource(source);
+	icp.SetTarget(target);
+	icp.SetGroundTruth(gt_pose);
 	
-	bool success;
+	SE3 pose;
+	success = icp.AlignP2P(pose);
 	
-	sad::evaluate_and_call([&]() {
-		sad::Icp3d icp;
-		icp.SetSource(source);
-		icp.SetTarget(target);
-		icp.SetGroundTruth(gt_pose);
+	if (success) {
+		LOG(INFO) << "ICP success. Rotation (quat): " 
+		<< pose.so3().unit_quaternion().coeffs().transpose()
+		<< " | Translation: " << pose.translation().transpose();
 		
-		SE3 pose;
-		success = icp.AlignP2P(pose);
-		
-		if (success) {
-			LOG(INFO) << "ICP success. Rotation (quat): " 
-			<< pose.so3().unit_quaternion().coeffs().transpose()
-			<< " | Translation: " << pose.translation().transpose();
-			
-			sad::CloudPtr aligned(new sad::PointCloudType);
-			pcl::transformPointCloud(*source, *aligned, pose.matrix().cast<float>());
-			pcl::io::savePCDFileBinaryCompressed("./data/ch7/aligned.pcd", *aligned);
-		} else {
-			LOG(ERROR) << "Alignment failed";
-		}
-	}, "ICP P2P", 1);
+		sad::CloudPtr aligned(new sad::PointCloudType);
+		pcl::transformPointCloud(*source, *aligned, pose.matrix().cast<float>());
+		pcl::io::savePCDFileBinaryCompressed("./data/ch7/aligned.pcd", *aligned);
+	} else {
+		LOG(ERROR) << "Alignment failed";
+	}
+}, "ICP P2P", 1);
 \end{lstlisting}
 
 \section{Experimental Evaluation}
-To facilitate algorithm benchmarking, we provide simulated datasets derived from the EPFL Statues Dataset\footnote{EPFL Statues Dataset: \url{https://lgg.epfl.ch/statues_dataset.php}}, which contains high-accuracy reconstructed point clouds as shown in Fig.~\ref{fig:icp-align-results}. We generate test cases by applying random transformations to these models followed by sampling, producing target and source point clouds (available in \texttt{data/ch7/EPFL/}). The dataset includes two models (\texttt{kneeling\_lady} and \texttt{aquarius}) with ground truth poses for quantitative evaluation. All registration algorithms in this chapter report per-iteration pose errors against ground truth to assess convergence.
+To facilitate algorithm benchmarking, we provide simulated datasets derived from the EPFL Statues Dataset\footnote{EPFL Statues Dataset: \url{https://lgg.epfl.ch/statues_dataset.php}}, which contains high-accuracy reconstructed point clouds as shown in Fig.~\ref{fig:icp-align-results}. We generate test cases by applying random transformations to these models followed by sampling, producing target and source point clouds (available in \textbf{data/ch7/EPFL/}). The dataset includes two models (\textbf{kneeling\_lady} and \textbf{aquarius}) with ground truth poses for quantitative evaluation. All registration algorithms in this chapter report per-iteration pose errors against ground truth to assess convergence.
 
 Below demonstrates ICP testing (subsequent algorithms share the same evaluation framework):
 
 \begin{lstlisting}[language=sh,caption=Terminal output]
-	I0130 16:46:40.795749 84155 icp_3d.cc:13] Aligning with point-to-point ICP
-	I0130 16:46:40.805476 84155 icp_3d.cc:96] Iter 0 | Res: 11.523 | Eff: 44455 | Avg: 0.000259 | dx: 0.027
-	I0130 16:46:40.805512 84155 icp_3d.cc:101] Pose error: 0.0689234
-	[...]
-	I0130 16:46:40.828277 84155 icp_3d.cc:105] Converged, dx = [0.0054, -0.0021, -0.0035, -0.0009, 0.0018, -0.0023]
-	I0130 16:46:40.828301 84155 test_icp.cc:54] ICP success. Pose: [0.0265, -0.0107, -0.0235, 0.9993], [-0.0689, -0.1033, 0.0050]
-	I0130 16:46:40.878885 84155 sys_utils.h:32] ICP P2P avg time: 163.421ms (1 runs)
-	[...] 
-	I0130 16:46:42.158504 84155 test_icp.cc:140] PCL ICP pose: [0.0292, -0.0092, -0.0195, 0.9993], [-0.0636, -0.0567, 0.0027]
-	I0130 16:46:42.161834 84155 test_icp.cc:146] PCL ICP error: 0.262063
-	I0130 16:46:42.162148 84155 sys_utils.h:32] PCL ICP avg time: 895.009ms (1 runs)
+I0130 16:46:40.795749 84155 icp_3d.cc:13] Aligning with point-to-point ICP
+I0130 16:46:40.805476 84155 icp_3d.cc:96] Iter 0 | Res: 11.523 | Eff: 44455 | Avg: 0.000259 | dx: 0.027
+I0130 16:46:40.805512 84155 icp_3d.cc:101] Pose error: 0.0689234
+[...]
+I0130 16:46:40.828277 84155 icp_3d.cc:105] Converged, dx = [0.0054, -0.0021, -0.0035, -0.0009, 0.0018, -0.0023]
+I0130 16:46:40.828301 84155 test_icp.cc:54] ICP success. Pose: [0.0265, -0.0107, -0.0235, 0.9993], [-0.0689, -0.1033, 0.0050]
+I0130 16:46:40.878885 84155 sys_utils.h:32] ICP P2P avg time: 163.421ms (1 runs)
+[...] 
+I0130 16:46:42.158504 84155 test_icp.cc:140] PCL ICP pose: [0.0292, -0.0092, -0.0195, 0.9993], [-0.0636, -0.0567, 0.0027]
+I0130 16:46:42.161834 84155 test_icp.cc:146] PCL ICP error: 0.262063
+I0130 16:46:42.162148 84155 sys_utils.h:32] PCL ICP avg time: 895.009ms (1 runs)
 \end{lstlisting}
 
 Our concurrent implementation demonstrates 5.5× speedup over PCL's ICP with superior accuracy (0.015 vs 0.262 pose error). The decreasing residuals and pose errors confirm stable convergence. Fig.~\ref{fig:icp-align-results} visualizes the alignment results\footnote{Note: Point cloud colors may vary across PCL viewers due to random color assignment.}. While PCL's result shows visible misalignment (black edges), our implementation achieves sub-centimeter precision. Readers can inspect the results using:
 
 \begin{lstlisting}
-	pcl_viewer ./data/ch7/icp_trans.pcd ./data/ch7/EPFL/kneeling_lady_target.pcd
+pcl_viewer ./data/ch7/icp_trans.pcd ./data/ch7/EPFL/kneeling_lady_target.pcd
 \end{lstlisting}
 
 \begin{figure}
@@ -854,61 +854,61 @@ This basic odometry continuously aligns incoming scans against a local map using
 The test program for this section is shown below, where gflags can specify whether to use PCL's NDT implementation and the number of nearest neighbors for our NDT:
 
 \begin{lstlisting}[language=c++,caption=src/ch7/test/test_ndt_lo.cc]
-	/// This program demonstrates NDT-based LiDAR Odometry using ULHK dataset
-	/// When using PCL NDT, it rebuilds the NDT tree
-	DEFINE_string(bag_path, "./dataset/sad/ulhk/test2.bag", "path to rosbag");
-	DEFINE_string(dataset_type, "ULHK", "NCLT/ULHK/KITTI/WXB_3D");  // Dataset type
-	DEFINE_bool(use_pcl_ndt, false, "use pcl ndt to align?");
-	DEFINE_bool(use_ndt_nearby_6, false, "use ndt nearby 6?");
-	DEFINE_bool(display_map, true, "display map?");
+/// This program demonstrates NDT-based LiDAR Odometry using ULHK dataset
+/// When using PCL NDT, it rebuilds the NDT tree
+DEFINE_string(bag_path, "./dataset/sad/ulhk/test2.bag", "path to rosbag");
+DEFINE_string(dataset_type, "ULHK", "NCLT/ULHK/KITTI/WXB_3D");  // Dataset type
+DEFINE_bool(use_pcl_ndt, false, "use pcl ndt to align?");
+DEFINE_bool(use_ndt_nearby_6, false, "use ndt nearby 6?");
+DEFINE_bool(display_map, true, "display map?");
+
+int main(int argc, char** argv) {
+	sad::RosbagIO rosbag_io(fLS::FLAGS_bag_path, sad::Str2DatasetType(FLAGS_dataset_type));
 	
-	int main(int argc, char** argv) {
-		sad::RosbagIO rosbag_io(fLS::FLAGS_bag_path, sad::Str2DatasetType(FLAGS_dataset_type));
-		
-		sad::DirectNDTLO::Options options;
-		options.use_pcl_ndt_ = fLB::FLAGS_use_pcl_ndt;
-		options.ndt3d_options_.nearby_type_ =
-		FLAGS_use_ndt_nearby_6 ? sad::Ndt3d::NearbyType::NEARBY6 : sad::Ndt3d::NearbyType::CENTER;
-		options.display_realtime_cloud_ = FLAGS_display_map;
-		sad::DirectNDTLO ndt_lo(options);
-		
-		rosbag_io
-		.AddAutoPointCloudHandle([&ndt_lo](sensor_msgs::PointCloud2::Ptr msg) -> bool {
-			sad::common::Timer::Evaluate(
-			[&]() {
-				SE3 pose;
-				ndt_lo.AddCloud(sad::VoxelCloud(sad::PointCloud2ToCloudPtr(msg)), pose);
-			},
-			"NDT registration");
-			return true;
-		})
-		.Go();
-		
-		if (FLAGS_display_map) {
-			// Save the generated map
-			ndt_lo.SaveMap("./data/ch7/map.pcd");
-		}
-		
-		sad::common::Timer::PrintAll();
-		LOG(INFO) << "done.";
-		
-		return 0;
+	sad::DirectNDTLO::Options options;
+	options.use_pcl_ndt_ = fLB::FLAGS_use_pcl_ndt;
+	options.ndt3d_options_.nearby_type_ =
+	FLAGS_use_ndt_nearby_6 ? sad::Ndt3d::NearbyType::NEARBY6 : sad::Ndt3d::NearbyType::CENTER;
+	options.display_realtime_cloud_ = FLAGS_display_map;
+	sad::DirectNDTLO ndt_lo(options);
+	
+	rosbag_io
+	.AddAutoPointCloudHandle([&ndt_lo](sensor_msgs::PointCloud2::Ptr msg) -> bool {
+		sad::common::Timer::Evaluate(
+		[&]() {
+			SE3 pose;
+			ndt_lo.AddCloud(sad::VoxelCloud(sad::PointCloud2ToCloudPtr(msg)), pose);
+		},
+		"NDT registration");
+		return true;
+	})
+	.Go();
+	
+	if (FLAGS_display_map) {
+		// Save the generated map
+		ndt_lo.SaveMap("./data/ch7/map.pcd");
 	}
+	
+	sad::common::Timer::PrintAll();
+	LOG(INFO) << "done.";
+	
+	return 0;
+}
 \end{lstlisting}
 
 To run this program, readers need to download two test datasets from ULHK, with paths configurable via gflags. Compile and run with:
 
 \begin{lstlisting}[language=sh,caption=Terminal command:]
-	bin/test_ndt_lo 
+bin/test_ndt_lo 
 \end{lstlisting}
 
 You should see results similar to Fig.~\ref{fig:lo-map} (colors may vary - book illustrations typically use white background for printing). Upon completion, the Timer class prints algorithm efficiency:
 
 \begin{lstlisting}[language=sh,caption=Terminal output:]
-	I0131 10:51:49.840482 102707 timer.cc:16] >>> ===== Printing run time =====
-	I0131 10:51:49.840484 102707 timer.cc:18] > [ NDT registration ] average time usage: 36.349 ms , called times: 3178
-	I0131 10:51:49.840495 102707 timer.cc:23] >>> ===== Printing run time end =====
-	I0131 10:51:49.840497 102707 test_ndt_lo.cc:56] done.
+I0131 10:51:49.840482 102707 timer.cc:16] >>> ===== Printing run time =====
+I0131 10:51:49.840484 102707 timer.cc:18] > [ NDT registration ] average time usage: 36.349 ms , called times: 3178
+I0131 10:51:49.840495 102707 timer.cc:23] >>> ===== Printing run time end =====
+I0131 10:51:49.840497 102707 test_ndt_lo.cc:56] done.
 \end{lstlisting}
 
 With visualization disabled, our NDT odometry processes each frame in about 15ms (18ms when using 6 nearest neighbors), while PCL's NDT takes about 85ms. Readers can benchmark both implementations on their own machines. The number of nearest neighbors affects registration efficiency, but isn't the dominant factor in the full odometry pipeline - merging local maps and constructing voxels/KD-trees for these maps consume most computational resources.
@@ -982,136 +982,136 @@ Beyond updating Gaussian distributions within voxels, the voxel structure itself
 The implementation follows:
 
 \begin{lstlisting}[language=c++,caption=src/ch7/ndt_inc.h]
-	class IncNdt3d {
-		public:
-		enum class NearbyType {
-			CENTER,   // Center voxel only
-			NEARBY6,  // 6 adjacent voxels
-		};
-		
-		using KeyType = Eigen::Matrix<int, 3, 1>;  // Voxel index
-		
-		/// Voxel data structure
-		struct VoxelData {
-			VoxelData() {}
-			VoxelData(const Vec3d& pt) {
-				pts_.emplace_back(pt);
-				num_pts_ = 1;
-			}
-			
-			void AddPoint(const Vec3d& pt) {
-				pts_.emplace_back(pt);
-				if (!ndt_estimated_) {
-					num_pts_++;
-				}
-			}
-			
-			std::vector<Vec3d> pts_;       // Buffered points
-			Vec3d mu_ = Vec3d::Zero();     // Mean
-			Mat3d sigma_ = Mat3d::Zero();  // Covariance
-			Mat3d info_ = Mat3d::Zero();   // Inverse covariance
-			
-			bool ndt_estimated_ = false;  // Whether Gaussian parameters are estimated
-			int num_pts_ = 0;            // Total accumulated points
-		};
-		
-		/// Add point cloud to voxels
-		void AddCloud(CloudPtr cloud_world);
-		
-		/// NDT alignment using Gauss-Newton
-		bool AlignNdt(SE3& init_pose);
-		
-		private:
-		/// Update voxel statistics
-		void UpdateVoxel(VoxelData& v);
-		
-		CloudPtr source_ = nullptr;
-		Options options_;
-		
-		using KeyAndData = std::pair<KeyType, VoxelData>;
-		std::list<KeyAndData> data_;  // LRU cache with actual data
-		std::unordered_map<KeyType, std::list<KeyAndData>::iterator, hash_vec<3>> grids_;  // Hashmap for fast lookup
-		std::vector<KeyType> nearby_grids_;  // Nearby voxel offsets
+class IncNdt3d {
+	public:
+	enum class NearbyType {
+		CENTER,   // Center voxel only
+		NEARBY6,  // 6 adjacent voxels
 	};
+	
+	using KeyType = Eigen::Matrix<int, 3, 1>;  // Voxel index
+	
+	/// Voxel data structure
+	struct VoxelData {
+		VoxelData() {}
+		VoxelData(const Vec3d& pt) {
+			pts_.emplace_back(pt);
+			num_pts_ = 1;
+		}
+		
+		void AddPoint(const Vec3d& pt) {
+			pts_.emplace_back(pt);
+			if (!ndt_estimated_) {
+				num_pts_++;
+			}
+		}
+		
+		std::vector<Vec3d> pts_;       // Buffered points
+		Vec3d mu_ = Vec3d::Zero();     // Mean
+		Mat3d sigma_ = Mat3d::Zero();  // Covariance
+		Mat3d info_ = Mat3d::Zero();   // Inverse covariance
+		
+		bool ndt_estimated_ = false;  // Whether Gaussian parameters are estimated
+		int num_pts_ = 0;            // Total accumulated points
+	};
+	
+	/// Add point cloud to voxels
+	void AddCloud(CloudPtr cloud_world);
+	
+	/// NDT alignment using Gauss-Newton
+	bool AlignNdt(SE3& init_pose);
+	
+	private:
+	/// Update voxel statistics
+	void UpdateVoxel(VoxelData& v);
+	
+	CloudPtr source_ = nullptr;
+	Options options_;
+	
+	using KeyAndData = std::pair<KeyType, VoxelData>;
+	std::list<KeyAndData> data_;  // LRU cache with actual data
+	std::unordered_map<KeyType, std::list<KeyAndData>::iterator, hash_vec<3>> grids_;  // Hashmap for fast lookup
+	std::vector<KeyType> nearby_grids_;  // Nearby voxel offsets
+};
 \end{lstlisting}
 
 The IncNdt3d class maintains voxel data in a doubly-linked list (for LRU management) while using a hashmap for O(1) access. When new points are added, we update voxel statistics and maintain the cache:
 
 \begin{lstlisting}[language=c++,caption=src/ch7/ndt\_inc.cc]
-	void IncNdt3d::AddCloud(CloudPtr cloud_world) {
-		std::set<KeyType, less_vec<3>> active_voxels;  // Track updated voxels
-		for (const auto& p : cloud_world->points) {
-			auto pt = ToVec3d(p);
-			auto key = (pt * options_.inv_voxel_size_).cast<int>();
-			auto iter = grids_.find(key);
+void IncNdt3d::AddCloud(CloudPtr cloud_world) {
+	std::set<KeyType, less_vec<3>> active_voxels;  // Track updated voxels
+	for (const auto& p : cloud_world->points) {
+		auto pt = ToVec3d(p);
+		auto key = (pt * options_.inv_voxel_size_).cast<int>();
+		auto iter = grids_.find(key);
+		
+		if (iter == grids_.end()) {
+			// New voxel
+			data_.push_front({key, {pt}});
+			grids_.insert({key, data_.begin()});
 			
-			if (iter == grids_.end()) {
-				// New voxel
-				data_.push_front({key, {pt}});
-				grids_.insert({key, data_.begin()});
-				
-				if (data_.size() >= options_.capacity_) {
-					// Remove oldest voxel
-					grids_.erase(data_.back().first);
-					data_.pop_back();
-				}
-			} else {
-				// Existing voxel - add point and update LRU
-				iter->second->second.AddPoint(pt);
-				data_.splice(data_.begin(), data_, iter->second);
-				iter->second = data_.begin();
+			if (data_.size() >= options_.capacity_) {
+				// Remove oldest voxel
+				grids_.erase(data_.back().first);
+				data_.pop_back();
 			}
-			
-			active_voxels.emplace(key);
+		} else {
+			// Existing voxel - add point and update LRU
+			iter->second->second.AddPoint(pt);
+			data_.splice(data_.begin(), data_, iter->second);
+			iter->second = data_.begin();
 		}
 		
-		// Parallel voxel updates
-		std::for_each(std::execution::par_unseq, active_voxels.begin(), active_voxels.end(),
-		[this](const auto& key) { UpdateVoxel(grids_[key]->second); });
+		active_voxels.emplace(key);
 	}
 	
-	void IncNdt3d::UpdateVoxel(VoxelData& v) {
-		if (v.ndt_estimated_ && v.num_pts_ > options_.max_pts_in_voxel_) {
-			return;  // Skip if already well-estimated
-		}
-		
-		if (!v.ndt_estimated_ && v.pts_.size() > options_.min_pts_in_voxel_) {
-			// Initial estimation for new voxel
-			math::ComputeMeanAndCov(v.pts_, v.mu_, v.sigma_, [](const Vec3d& p) { return p; });
-			v.info_ = (v.sigma_ + Mat3d::Identity() * 1e-3).inverse();
-			v.ndt_estimated_ = true;
-			v.pts_.clear();
-		} 
-		else if (v.ndt_estimated_ && v.pts_.size() > options_.min_pts_in_voxel_) {
-			// Incremental update for existing voxel
-			Vec3d cur_mu, new_mu;
-			Mat3d cur_var, new_var;
-			math::ComputeMeanAndCov(v.pts_, cur_mu, cur_var, [](const Vec3d& p) { return p; });
-			math::UpdateMeanAndCov(v.num_pts_, v.pts_.size(), v.mu_, v.sigma_, 
-			cur_mu, cur_var, new_mu, new_var);
-			
-			v.mu_ = new_mu;
-			v.sigma_ = new_var;
-			v.num_pts_ += v.pts_.size();
-			v.pts_.clear();
-			
-			// Regularize covariance
-			Eigen::JacobiSVD svd(v.sigma_, Eigen::ComputeFullU | Eigen::ComputeFullV);
-			Vec3d lambda = svd.singularValues();
-			if (lambda[1] < lambda[0] * 1e-3) lambda[1] = lambda[0] * 1e-3;
-			if (lambda[2] < lambda[0] * 1e-3) lambda[2] = lambda[0] * 1e-3;
-			
-			Mat3d inv_lambda = Vec3d(1.0/lambda[0], 1.0/lambda[1], 1.0/lambda[2]).asDiagonal();
-			v.info_ = svd.matrixV() * inv_lambda * svd.matrixU().transpose();
-		}
+	// Parallel voxel updates
+	std::for_each(std::execution::par_unseq, active_voxels.begin(), active_voxels.end(),
+	[this](const auto& key) { UpdateVoxel(grids_[key]->second); });
+}
+
+void IncNdt3d::UpdateVoxel(VoxelData& v) {
+	if (v.ndt_estimated_ && v.num_pts_ > options_.max_pts_in_voxel_) {
+		return;  // Skip if already well-estimated
 	}
+	
+	if (!v.ndt_estimated_ && v.pts_.size() > options_.min_pts_in_voxel_) {
+		// Initial estimation for new voxel
+		math::ComputeMeanAndCov(v.pts_, v.mu_, v.sigma_, [](const Vec3d& p) { return p; });
+		v.info_ = (v.sigma_ + Mat3d::Identity() * 1e-3).inverse();
+		v.ndt_estimated_ = true;
+		v.pts_.clear();
+	} 
+	else if (v.ndt_estimated_ && v.pts_.size() > options_.min_pts_in_voxel_) {
+		// Incremental update for existing voxel
+		Vec3d cur_mu, new_mu;
+		Mat3d cur_var, new_var;
+		math::ComputeMeanAndCov(v.pts_, cur_mu, cur_var, [](const Vec3d& p) { return p; });
+		math::UpdateMeanAndCov(v.num_pts_, v.pts_.size(), v.mu_, v.sigma_, 
+		cur_mu, cur_var, new_mu, new_var);
+		
+		v.mu_ = new_mu;
+		v.sigma_ = new_var;
+		v.num_pts_ += v.pts_.size();
+		v.pts_.clear();
+		
+		// Regularize covariance
+		Eigen::JacobiSVD svd(v.sigma_, Eigen::ComputeFullU | Eigen::ComputeFullV);
+		Vec3d lambda = svd.singularValues();
+		if (lambda[1] < lambda[0] * 1e-3) lambda[1] = lambda[0] * 1e-3;
+		if (lambda[2] < lambda[0] * 1e-3) lambda[2] = lambda[0] * 1e-3;
+		
+		Mat3d inv_lambda = Vec3d(1.0/lambda[0], 1.0/lambda[1], 1.0/lambda[2]).asDiagonal();
+		v.info_ = svd.matrixV() * inv_lambda * svd.matrixU().transpose();
+	}
+}
 \end{lstlisting}
 
 Key features:
 \begin{itemize}
 	\item Each voxel tracks whether its Gaussian parameters have been estimated
-	\item Points are buffered until reaching \texttt{min\_pts\_in\_voxel} threshold
-	\item Well-estimated voxels (with \texttt{max\_pts\_in\_voxel}) skip updates
+	\item Points are buffered until reaching \textbf{min\_pts\_in\_voxel} threshold
+	\item Well-estimated voxels (with \textbf{max\_pts\_in\_voxel}) skip updates
 	\item Voxel updates are fully parallelizable
 	\item Covariance regularization ensures numerical stability
 \end{itemize}
@@ -1119,16 +1119,15 @@ Key features:
 The Gaussian update computation corresponds to the formulas presented earlier, with a straightforward implementation:
 
 \begin{lstlisting}[language=c++,caption=src/common/math\_utils.h]
-	template <typename S, int D>
-	void UpdateMeanAndCov(int hist_m, int curr_n, const Eigen::Matrix<S, D, 1>& hist_mean,
-	const Eigen::Matrix<S, D, D>& hist_var, const Eigen::Matrix<S, D, 1>& curr_mean,
-	const Eigen::Matrix<S, D, D>& curr_var, Eigen::Matrix<S, D, 1>& new_mean,
+template <typename S, int D>
+void UpdateMeanAndCov(int hist_m, int curr_n, const Eigen::Matrix<S, D, 1>& hist_mean,
+const Eigen::Matrix<S, D, D>& hist_var, const Eigen::Matrix<S, D, 1>& curr_mean,
+const Eigen::Matrix<S, D, D>& curr_var, Eigen::Matrix<S, D, 1>& new_mean,
 	Eigen::Matrix<S, D, D>& new_var) {
-		new_mean = (hist_m * hist_mean + curr_n * curr_mean) / (hist_m + curr_n);
+	new_mean = (hist_m * hist_mean + curr_n * curr_mean) / (hist_m + curr_n);
 		new_var = (hist_m * (hist_var + (hist_mean - new_mean) * (hist_mean - new_mean).transpose()) 
-		+ curr_n * (curr_var + (curr_mean - new_mean) * (curr_mean - new_mean).transpose()))
-		/ (hist_m + curr_n);
-	}
+		+ curr_n * (curr_var + (curr_mean - new_mean) * (curr_mean - new_mean).transpose()))	/ (hist_m + curr_n);
+}
 \end{lstlisting}
 
 The LiDAR odometry algorithm (src/ch7/incremental\_ndt\_lo.cc) is simpler than previous implementations, as it only needs to process keyframes by continuously adding them to the internal NDT structure and calling the alignment function. The local map is now maintained within NDT, eliminating the need for explicit point cloud concatenation.
@@ -1279,129 +1278,129 @@ The feature extraction algorithm consists of the following steps:
 Note that most feature extraction methods lack rigorous theoretical justification and are instead derived from empirical engineering practices. Readers are encouraged to modify the feature extraction pipeline as needed, adding or removing steps as appropriate. Below is the code implementation:  
 
 \begin{lstlisting}[language=c++,caption=src/ch7/loam\_like/feature\_extraction.cc]  
-	void FeatureExtraction::Extract(FullCloudPtr pc_in, CloudPtr pc_out_edge, CloudPtr pc_out_surf) {  
-		int num_scans = 16;  
-		std::vector<CloudPtr> scans_in_each_line;  // Point clouds grouped by beam  
-		for (int i = 0; i < num_scans; i++) {  
-			scans_in_each_line.emplace_back(new PointCloudType);  
+void FeatureExtraction::Extract(FullCloudPtr pc_in, CloudPtr pc_out_edge, CloudPtr pc_out_surf) {  
+	int num_scans = 16;  
+	std::vector<CloudPtr> scans_in_each_line;  // Point clouds grouped by beam  
+	for (int i = 0; i < num_scans; i++) {  
+		scans_in_each_line.emplace_back(new PointCloudType);  
+	}  
+	
+	for (auto &pt : pc_in->points) {  
+		assert(pt.ring >= 0 && pt.ring < num_scans);  
+		PointType p;  
+		p.x = pt.x;  
+		p.y = pt.y;  
+		p.z = pt.z;  
+		p.intensity = pt.intensity;  
+		
+		scans_in_each_line[pt.ring]->emplace_back(p);  
+	}  
+	
+	// Compute curvature  
+	for (int i = 0; i < num_scans; i++) {  
+		if (scans_in_each_line[i]->points.size() < 131) {  
+			continue;  
 		}  
 		
-		for (auto &pt : pc_in->points) {  
-			assert(pt.ring >= 0 && pt.ring < num_scans);  
-			PointType p;  
-			p.x = pt.x;  
-			p.y = pt.y;  
-			p.z = pt.z;  
-			p.intensity = pt.intensity;  
-			
-			scans_in_each_line[pt.ring]->emplace_back(p);  
+		std::vector<IdAndValue> cloud_curvature;  // Curvature for each beam  
+		int total_points = scans_in_each_line[i]->points.size() - 10;  
+		for (int j = 5; j < (int)scans_in_each_line[i]->points.size() - 5; j++) {  
+			// Leave a margin at both ends, sampling 10 neighboring points for averaging  
+			double diffX = scans_in_each_line[i]->points[j - 5].x + scans_in_each_line[i]->points[j - 4].x +  
+			scans_in_each_line[i]->points[j - 3].x + scans_in_each_line[i]->points[j - 2].x +  
+			scans_in_each_line[i]->points[j - 1].x - 10 * scans_in_each_line[i]->points[j].x +  
+			scans_in_each_line[i]->points[j + 1].x + scans_in_each_line[i]->points[j + 2].x +  
+			scans_in_each_line[i]->points[j + 3].x + scans_in_each_line[i]->points[j + 4].x +  
+			scans_in_each_line[i]->points[j + 5].x;  
+			double diffY = scans_in_each_line[i]->points[j - 5].y + scans_in_each_line[i]->points[j - 4].y +  
+			scans_in_each_line[i]->points[j - 3].y + scans_in_each_line[i]->points[j - 2].y +  
+			scans_in_each_line[i]->points[j - 1].y - 10 * scans_in_each_line[i]->points[j].y +  
+			scans_in_each_line[i]->points[j + 1].y + scans_in_each_line[i]->points[j + 2].y +  
+			scans_in_each_line[i]->points[j + 3].y + scans_in_each_line[i]->points[j + 4].y +  
+			scans_in_each_line[i]->points[j + 5].y;  
+			double diffZ = scans_in_each_line[i]->points[j - 5].z + scans_in_each_line[i]->points[j - 4].z +  
+			scans_in_each_line[i]->points[j - 3].z + scans_in_each_line[i]->points[j - 2].z +  
+			scans_in_each_line[i]->points[j - 1].z - 10 * scans_in_each_line[i]->points[j].z +  
+			scans_in_each_line[i]->points[j + 1].z + scans_in_each_line[i]->points[j + 2].z +  
+			scans_in_each_line[i]->points[j + 3].z + scans_in_each_line[i]->points[j + 4].z +  
+			scans_in_each_line[i]->points[j + 5].z;  
+			IdAndValue distance(j, diffX * diffX + diffY * diffY + diffZ * diffZ);  
+			cloud_curvature.push_back(distance);  
 		}  
 		
-		// Compute curvature  
-		for (int i = 0; i < num_scans; i++) {  
-			if (scans_in_each_line[i]->points.size() < 131) {  
-				continue;  
+		// Select features per sector (360° divided into 6 sectors)  
+		for (int j = 0; j < 6; j++) {  
+			int sector_length = (int)(total_points / 6);  
+			int sector_start = sector_length * j;  
+			int sector_end = sector_length * (j + 1) - 1;  
+			if (j == 5) {  
+				sector_end = total_points - 1;  
 			}  
 			
-			std::vector<IdAndValue> cloud_curvature;  // Curvature for each beam  
-			int total_points = scans_in_each_line[i]->points.size() - 10;  
-			for (int j = 5; j < (int)scans_in_each_line[i]->points.size() - 5; j++) {  
-				// Leave a margin at both ends, sampling 10 neighboring points for averaging  
-				double diffX = scans_in_each_line[i]->points[j - 5].x + scans_in_each_line[i]->points[j - 4].x +  
-				scans_in_each_line[i]->points[j - 3].x + scans_in_each_line[i]->points[j - 2].x +  
-				scans_in_each_line[i]->points[j - 1].x - 10 * scans_in_each_line[i]->points[j].x +  
-				scans_in_each_line[i]->points[j + 1].x + scans_in_each_line[i]->points[j + 2].x +  
-				scans_in_each_line[i]->points[j + 3].x + scans_in_each_line[i]->points[j + 4].x +  
-				scans_in_each_line[i]->points[j + 5].x;  
-				double diffY = scans_in_each_line[i]->points[j - 5].y + scans_in_each_line[i]->points[j - 4].y +  
-				scans_in_each_line[i]->points[j - 3].y + scans_in_each_line[i]->points[j - 2].y +  
-				scans_in_each_line[i]->points[j - 1].y - 10 * scans_in_each_line[i]->points[j].y +  
-				scans_in_each_line[i]->points[j + 1].y + scans_in_each_line[i]->points[j + 2].y +  
-				scans_in_each_line[i]->points[j + 3].y + scans_in_each_line[i]->points[j + 4].y +  
-				scans_in_each_line[i]->points[j + 5].y;  
-				double diffZ = scans_in_each_line[i]->points[j - 5].z + scans_in_each_line[i]->points[j - 4].z +  
-				scans_in_each_line[i]->points[j - 3].z + scans_in_each_line[i]->points[j - 2].z +  
-				scans_in_each_line[i]->points[j - 1].z - 10 * scans_in_each_line[i]->points[j].z +  
-				scans_in_each_line[i]->points[j + 1].z + scans_in_each_line[i]->points[j + 2].z +  
-				scans_in_each_line[i]->points[j + 3].z + scans_in_each_line[i]->points[j + 4].z +  
-				scans_in_each_line[i]->points[j + 5].z;  
-				IdAndValue distance(j, diffX * diffX + diffY * diffY + diffZ * diffZ);  
-				cloud_curvature.push_back(distance);  
+			std::vector<IdAndValue> sub_cloud_curvature(cloud_curvature.begin() + sector_start,  
+			cloud_curvature.begin() + sector_end);  
+			
+			ExtractFromSector(scans_in_each_line[i], sub_cloud_curvature, pc_out_edge, pc_out_surf);  
+		}  
+	}  
+}  
+
+void FeatureExtraction::ExtractFromSector(const CloudPtr &pc_in, std::vector<IdAndValue> &cloud_curvature, CloudPtr &pc_out_edge, CloudPtr &pc_out_surf) {  
+	// Sort by curvature  
+	std::sort(cloud_curvature.begin(), cloud_curvature.end(),  
+	[](const IdAndValue &a, const IdAndValue &b) { return a.value_ < b.value_; });  
+	
+	int largest_picked_num = 0;  
+	int point_info_count = 0;  
+	
+	/// Select corner points with the highest curvature  
+	std::vector<int> picked_points;  // Mark selected corner points (neighboring points are excluded)  
+	for (int i = cloud_curvature.size() - 1; i >= 0; i--) {  
+		int ind = cloud_curvature[i].id_;  
+		if (std::find(picked_points.begin(), picked_points.end(), ind) == picked_points.end()) {  
+			if (cloud_curvature[i].value_ <= 0.1) {  
+				break;  
 			}  
 			
-			// Select features per sector (360° divided into 6 sectors)  
-			for (int j = 0; j < 6; j++) {  
-				int sector_length = (int)(total_points / 6);  
-				int sector_start = sector_length * j;  
-				int sector_end = sector_length * (j + 1) - 1;  
-				if (j == 5) {  
-					sector_end = total_points - 1;  
+			largest_picked_num++;  
+			picked_points.push_back(ind);  
+			
+			if (largest_picked_num <= 20) {  
+				pc_out_edge->push_back(pc_in->points[ind]);  
+				point_info_count++;  
+			} else {  
+				break;  
+			}  
+			
+			for (int k = 1; k <= 5; k++) {  
+				double diffX = pc_in->points[ind + k].x - pc_in->points[ind + k - 1].x;  
+				double diffY = pc_in->points[ind + k].y - pc_in->points[ind + k - 1].y;  
+				double diffZ = pc_in->points[ind + k].z - pc_in->points[ind + k - 1].z;  
+				if (diffX * diffX + diffY * diffY + diffZ * diffZ > 0.05) {  
+					break;  
 				}  
-				
-				std::vector<IdAndValue> sub_cloud_curvature(cloud_curvature.begin() + sector_start,  
-				cloud_curvature.begin() + sector_end);  
-				
-				ExtractFromSector(scans_in_each_line[i], sub_cloud_curvature, pc_out_edge, pc_out_surf);  
+				picked_points.push_back(ind + k);  
+			}  
+			for (int k = -1; k >= -5; k--) {  
+				double diffX = pc_in->points[ind + k].x - pc_in->points[ind + k + 1].x;  
+				double diffY = pc_in->points[ind + k].y - pc_in->points[ind + k + 1].y;  
+				double diffZ = pc_in->points[ind + k].z - pc_in->points[ind + k + 1].z;  
+				if (diffX * diffX + diffY * diffY + diffZ * diffZ > 0.05) {  
+					break;  
+				}  
+				picked_points.push_back(ind + k);  
 			}  
 		}  
 	}  
 	
-	void FeatureExtraction::ExtractFromSector(const CloudPtr &pc_in, std::vector<IdAndValue> &cloud_curvature, CloudPtr &pc_out_edge, CloudPtr &pc_out_surf) {  
-		// Sort by curvature  
-		std::sort(cloud_curvature.begin(), cloud_curvature.end(),  
-		[](const IdAndValue &a, const IdAndValue &b) { return a.value_ < b.value_; });  
-		
-		int largest_picked_num = 0;  
-		int point_info_count = 0;  
-		
-		/// Select corner points with the highest curvature  
-		std::vector<int> picked_points;  // Mark selected corner points (neighboring points are excluded)  
-		for (int i = cloud_curvature.size() - 1; i >= 0; i--) {  
-			int ind = cloud_curvature[i].id_;  
-			if (std::find(picked_points.begin(), picked_points.end(), ind) == picked_points.end()) {  
-				if (cloud_curvature[i].value_ <= 0.1) {  
-					break;  
-				}  
-				
-				largest_picked_num++;  
-				picked_points.push_back(ind);  
-				
-				if (largest_picked_num <= 20) {  
-					pc_out_edge->push_back(pc_in->points[ind]);  
-					point_info_count++;  
-				} else {  
-					break;  
-				}  
-				
-				for (int k = 1; k <= 5; k++) {  
-					double diffX = pc_in->points[ind + k].x - pc_in->points[ind + k - 1].x;  
-					double diffY = pc_in->points[ind + k].y - pc_in->points[ind + k - 1].y;  
-					double diffZ = pc_in->points[ind + k].z - pc_in->points[ind + k - 1].z;  
-					if (diffX * diffX + diffY * diffY + diffZ * diffZ > 0.05) {  
-						break;  
-					}  
-					picked_points.push_back(ind + k);  
-				}  
-				for (int k = -1; k >= -5; k--) {  
-					double diffX = pc_in->points[ind + k].x - pc_in->points[ind + k + 1].x;  
-					double diffY = pc_in->points[ind + k].y - pc_in->points[ind + k + 1].y;  
-					double diffZ = pc_in->points[ind + k].z - pc_in->points[ind + k + 1].z;  
-					if (diffX * diffX + diffY * diffY + diffZ * diffZ > 0.05) {  
-						break;  
-					}  
-					picked_points.push_back(ind + k);  
-				}  
-			}  
-		}  
-		
-		/// Select planar points with lower curvature  
-		for (int i = 0; i <= (int)cloud_curvature.size() - 1; i++) {  
-			int ind = cloud_curvature[i].id_;  
-			if (std::find(picked_points.begin(), picked_points.end(), ind) == picked_points.end()) {  
-				pc_out_surf->push_back(pc_in->points[ind]);  
-			}  
+	/// Select planar points with lower curvature  
+	for (int i = 0; i <= (int)cloud_curvature.size() - 1; i++) {  
+		int ind = cloud_curvature[i].id_;  
+		if (std::find(picked_points.begin(), picked_points.end(), ind) == picked_points.end()) {  
+			pc_out_surf->push_back(pc_in->points[ind]);  
 		}  
 	}  
+}  
 \end{lstlisting}  
 
 The entire process aligns with the description above. We use the `test_feature_extraction` program to evaluate the extraction results on a single point cloud. The program reads raw Velodyne packets and converts them into a point cloud while preserving beam information. The feature extraction algorithm then separates corner and planar points, storing them in two PCD files, as shown in Fig.~\ref{fig:corner-and-edge}. In structured indoor environments, corner and planar points are clearly distinguishable—corners lie on edges, while planar points lie on surfaces. In outdoor open areas, planar points perform well, but corner points are less reliable. Additionally, ground points are often distributed in circular patterns rather than straight lines, making curvature-based classification less effective. Some odometry algorithms opt to filter out ground points or model them separately. Similar approaches are used for ceilings in indoor environments.  
@@ -1425,310 +1424,310 @@ Feature extraction typically consumes significant computational resources, makin
 Now let's implement the feature-based LiDAR odometry. The overall computational flow is similar to the previous NDT-based approach. We construct two local maps for corner and planar points respectively, then incorporate both ICP results into a single optimization problem. The core registration code is as follows:
 
 \begin{lstlisting}[language=c++,caption=src/ch7/loam-like/loam\_like\_odom.cc]
-	class LoamLikeOdom {
-		public:
-		struct Options {
-			Options() {}
-			
-			int min_edge_pts_ = 20;               // Minimum edge points
-			int min_surf_pts_ = 20;               // Minimum planar points
-			double kf_distance_ = 1.0;            // Keyframe distance threshold
-			double kf_angle_deg_ = 15;            // Rotation angle threshold
-			int num_kfs_in_local_map_ = 30;       // Number of keyframes in local map
-			bool display_realtime_cloud_ = true;  // Whether to display real-time cloud
-			
-			// ICP parameters
-			int max_iteration_ = 5;             // Maximum iterations
-			double max_plane_distance_ = 0.05;  // Plane distance threshold
-			double max_line_distance_ = 0.5;    // Line distance threshold
-			int min_effective_pts_ = 10;        // Minimum effective points
-			double eps_ = 1e-3;                 // Convergence threshold
-			
-			bool use_edge_points_ = true;  // Whether to use edge points
-			bool use_surf_points_ = true;  // Whether to use planar points
-		};
+class LoamLikeOdom {
+	public:
+	struct Options {
+		Options() {}
 		
-		explicit LoamLikeOdom(Options options = Options());
+		int min_edge_pts_ = 20;               // Minimum edge points
+		int min_surf_pts_ = 20;               // Minimum planar points
+		double kf_distance_ = 1.0;            // Keyframe distance threshold
+		double kf_angle_deg_ = 15;            // Rotation angle threshold
+		int num_kfs_in_local_map_ = 30;       // Number of keyframes in local map
+		bool display_realtime_cloud_ = true;  // Whether to display real-time cloud
 		
-		/**
-		* Process a point cloud, which will be divided into edge and planar points
-		* @param pcd_edge
-		* @param pcd_surf
-		*/
-		void ProcessPointCloud(FullCloudPtr full_cloud);
+		// ICP parameters
+		int max_iteration_ = 5;             // Maximum iterations
+		double max_plane_distance_ = 0.05;  // Plane distance threshold
+		double max_line_distance_ = 0.5;    // Line distance threshold
+		int min_effective_pts_ = 10;        // Minimum effective points
+		double eps_ = 1e-3;                 // Convergence threshold
 		
-		private:
-		/// Align with local map
-		SE3 AlignWithLocalMap(CloudPtr edge, CloudPtr surf);
-		
-		/// Determine if current frame is keyframe
-		bool IsKeyframe(const SE3& current_pose);
-		
-		Options options_;
-		
-		int cnt_frame_ = 0;
-		int last_kf_id_ = 0;
-		
-		CloudPtr local_map_edge_ = nullptr, local_map_surf_ = nullptr;  // Local maps
-		std::vector<SE3> estimated_poses_;    // Estimated poses for trajectory
-		SE3 last_kf_pose_;                    // Last keyframe pose
-		std::deque<CloudPtr> edges_, surfs_;  // Cached edge and planar points
-		
-		CloudPtr global_map_ = nullptr;  // Global map for saving
-		
-		std::shared_ptr<FeatureExtraction> feature_extraction_ = nullptr;
-		
-		std::shared_ptr<PCLMapViewer> viewer_ = nullptr;
-		KdTree kdtree_edge_, kdtree_surf_;
+		bool use_edge_points_ = true;  // Whether to use edge points
+		bool use_surf_points_ = true;  // Whether to use planar points
 	};
 	
-	void LoamLikeOdom::ProcessPointCloud(FullCloudPtr cloud) {
-		LOG(INFO) << "processing frame " << cnt_frame_++;
-		// Step 1. Feature extraction
-		CloudPtr current_edge(new PointCloudType), current_surf(new PointCloudType);
-		feature_extraction_->Extract(cloud, current_edge, current_surf);
+	explicit LoamLikeOdom(Options options = Options());
+	
+	/**
+	* Process a point cloud, which will be divided into edge and planar points
+	* @param pcd_edge
+	* @param pcd_surf
+	*/
+	void ProcessPointCloud(FullCloudPtr full_cloud);
+	
+	private:
+	/// Align with local map
+	SE3 AlignWithLocalMap(CloudPtr edge, CloudPtr surf);
+	
+	/// Determine if current frame is keyframe
+	bool IsKeyframe(const SE3& current_pose);
+	
+	Options options_;
+	
+	int cnt_frame_ = 0;
+	int last_kf_id_ = 0;
+	
+	CloudPtr local_map_edge_ = nullptr, local_map_surf_ = nullptr;  // Local maps
+	std::vector<SE3> estimated_poses_;    // Estimated poses for trajectory
+	SE3 last_kf_pose_;                    // Last keyframe pose
+	std::deque<CloudPtr> edges_, surfs_;  // Cached edge and planar points
+	
+	CloudPtr global_map_ = nullptr;  // Global map for saving
+	
+	std::shared_ptr<FeatureExtraction> feature_extraction_ = nullptr;
+	
+	std::shared_ptr<PCLMapViewer> viewer_ = nullptr;
+	KdTree kdtree_edge_, kdtree_surf_;
+};
+
+void LoamLikeOdom::ProcessPointCloud(FullCloudPtr cloud) {
+	LOG(INFO) << "processing frame " << cnt_frame_++;
+	// Step 1. Feature extraction
+	CloudPtr current_edge(new PointCloudType), current_surf(new PointCloudType);
+	feature_extraction_->Extract(cloud, current_edge, current_surf);
+	
+	if (current_edge->size() < options_.min_edge_pts_ || current_surf->size() < options_.min_surf_pts_) {
+		LOG(ERROR) << "not enough edge/surf pts: " << current_edge->size() << "," << current_surf->size();
+		return;
+	}
+	
+	LOG(INFO) << "edge: " << current_edge->size() << ", surf: " << current_surf->size();
+	
+	if (local_map_edge_ == nullptr || local_map_surf_ == nullptr) {
+		// Special handling for first frame
+		local_map_edge_ = current_edge;
+		local_map_surf_ = current_surf;
 		
-		if (current_edge->size() < options_.min_edge_pts_ || current_surf->size() < options_.min_surf_pts_) {
-			LOG(ERROR) << "not enough edge/surf pts: " << current_edge->size() << "," << current_surf->size();
-			return;
+		kdtree_edge_.BuildTree(local_map_edge_);
+		kdtree_surf_.BuildTree(local_map_surf_);
+		
+		edges_.emplace_back(current_edge);
+		surfs_.emplace_back(current_surf);
+		return;
+	}
+	
+	/// Align with local map
+	SE3 pose = AlignWithLocalMap(current_edge, current_surf);
+	CloudPtr scan_world(new PointCloudType);
+	pcl::transformPointCloud(*ConvertToCloud<FullPointType>(cloud), *scan_world, pose.matrix());
+	
+	CloudPtr edge_world(new PointCloudType), surf_world(new PointCloudType);
+	pcl::transformPointCloud(*current_edge, *edge_world, pose.matrix());
+	pcl::transformPointCloud(*current_surf, *surf_world, pose.matrix());
+	
+	if (IsKeyframe(pose)) {
+		LOG(INFO) << "inserting keyframe";
+		last_kf_pose_ = pose;
+		last_kf_id_ = cnt_frame_;
+		
+		// Rebuild local map
+		edges_.emplace_back(edge_world);
+		surfs_.emplace_back(surf_world);
+		
+		if (edges_.size() > options_.num_kfs_in_local_map_) {
+			edges_.pop_front();
+		}
+		if (surfs_.size() > options_.num_kfs_in_local_map_) {
+			surfs_.pop_front();
 		}
 		
-		LOG(INFO) << "edge: " << current_edge->size() << ", surf: " << current_surf->size();
+		local_map_surf_.reset(new PointCloudType);
+		local_map_edge_.reset(new PointCloudType);
 		
-		if (local_map_edge_ == nullptr || local_map_surf_ == nullptr) {
-			// Special handling for first frame
-			local_map_edge_ = current_edge;
-			local_map_surf_ = current_surf;
-			
-			kdtree_edge_.BuildTree(local_map_edge_);
-			kdtree_surf_.BuildTree(local_map_surf_);
-			
-			edges_.emplace_back(current_edge);
-			surfs_.emplace_back(current_surf);
-			return;
+		for (auto& s : edges_) {
+			*local_map_edge_ += *s;
+		}
+		for (auto& s : surfs_) {
+			*local_map_surf_ += *s;
 		}
 		
-		/// Align with local map
-		SE3 pose = AlignWithLocalMap(current_edge, current_surf);
-		CloudPtr scan_world(new PointCloudType);
-		pcl::transformPointCloud(*ConvertToCloud<FullPointType>(cloud), *scan_world, pose.matrix());
+		local_map_surf_ = VoxelCloud(local_map_surf_, 1.0);
+		local_map_edge_ = VoxelCloud(local_map_edge_, 1.0);
 		
-		CloudPtr edge_world(new PointCloudType), surf_world(new PointCloudType);
-		pcl::transformPointCloud(*current_edge, *edge_world, pose.matrix());
-		pcl::transformPointCloud(*current_surf, *surf_world, pose.matrix());
+		LOG(INFO) << "insert keyframe, surf pts: " << local_map_surf_->size()
+		<< ", edge pts: " << local_map_edge_->size();
 		
-		if (IsKeyframe(pose)) {
-			LOG(INFO) << "inserting keyframe";
-			last_kf_pose_ = pose;
-			last_kf_id_ = cnt_frame_;
-			
-			// Rebuild local map
-			edges_.emplace_back(edge_world);
-			surfs_.emplace_back(surf_world);
-			
-			if (edges_.size() > options_.num_kfs_in_local_map_) {
-				edges_.pop_front();
-			}
-			if (surfs_.size() > options_.num_kfs_in_local_map_) {
-				surfs_.pop_front();
-			}
-			
-			local_map_surf_.reset(new PointCloudType);
-			local_map_edge_.reset(new PointCloudType);
-			
-			for (auto& s : edges_) {
-				*local_map_edge_ += *s;
-			}
-			for (auto& s : surfs_) {
-				*local_map_surf_ += *s;
-			}
-			
-			local_map_surf_ = VoxelCloud(local_map_surf_, 1.0);
-			local_map_edge_ = VoxelCloud(local_map_edge_, 1.0);
-			
-			LOG(INFO) << "insert keyframe, surf pts: " << local_map_surf_->size()
-			<< ", edge pts: " << local_map_edge_->size();
-			
-			kdtree_surf_.BuildTree(local_map_surf_);
-			kdtree_edge_.BuildTree(local_map_edge_);
-			
-			*global_map_ += *scan_world;
+		kdtree_surf_.BuildTree(local_map_surf_);
+		kdtree_edge_.BuildTree(local_map_edge_);
+		
+		*global_map_ += *scan_world;
+	}
+	
+	LOG(INFO) << "current pose: " << pose.translation().transpose() << ", "
+	<< pose.so3().unit_quaternion().coeffs().transpose();
+	
+	if (viewer_ != nullptr) {
+		viewer_->SetPoseAndCloud(pose, scan_world);
+	}
+}
+
+SE3 LoamLikeOdom::AlignWithLocalMap(CloudPtr edge, CloudPtr surf) {
+	// Custom ICP implementation needed here
+	SE3 pose;
+	if (estimated_poses_.size() >= 2) {
+		// Predict pose from last two poses
+		SE3 T1 = estimated_poses_[estimated_poses_.size() - 1];
+		SE3 T2 = estimated_poses_[estimated_poses_.size() - 2];
+		pose = T1 * (T2.inverse() * T1);
+	}
+	
+	int edge_size = edge->size();
+	int surf_size = surf->size();
+	
+	// Implement concurrent processing
+	for (int iter = 0; iter < options_.max_iteration_; ++iter) {
+		std::vector<bool> effect_surf(surf_size, false);
+		std::vector<Eigen::Matrix<double, 1, 6>> jacob_surf(surf_size);  // 1D residual for planes
+		std::vector<double> errors_surf(surf_size);
+		
+		std::vector<bool> effect_edge(edge_size, false);
+		std::vector<Eigen::Matrix<double, 3, 6>> jacob_edge(edge_size);  // 3D residual for edges
+		std::vector<Vec3d> errors_edge(edge_size);
+		
+		std::vector<int> index_surf(surf_size);
+		std::iota(index_surf.begin(), index_surf.end(), 0);
+		std::vector<int> index_edge(edge_size);
+		std::iota(index_edge.begin(), index_edge.end(), 0);
+		
+		// Gauss-Newton iteration
+		// Nearest neighbor search for edge points
+		if (options_.use_edge_points_) {
+			std::for_each(std::execution::par_unseq, index_edge.begin(), index_edge.end(), [&](int idx) {
+				Vec3d q = ToVec3d(edge->points[idx]);
+				Vec3d qs = pose * q;
+				
+				// Find nearest neighbors
+				std::vector<int> nn_indices;
+				
+				kdtree_edge_.GetClosestPoint(ToPointType(qs), nn_indices, 5);
+				effect_edge[idx] = false;
+				
+				if (nn_indices.size() >= 3) {
+					std::vector<Vec3d> nn_eigen;
+					for (auto& n : nn_indices) {
+						nn_eigen.emplace_back(ToVec3d(local_map_edge_->points[n]));
+					}
+					
+					// Point-to-line residual
+					Vec3d d, p0;
+					if (!math::FitLine(nn_eigen, p0, d, options_.max_line_distance_)) {
+						return;
+					}
+					
+					Vec3d err = SO3::hat(d) * (qs - p0);
+					if (err.norm() > options_.max_line_distance_) {
+						return;
+					}
+					
+					effect_edge[idx] = true;
+					
+					// Build residual
+					Eigen::Matrix<double, 3, 6> J;
+					J.block<3, 3>(0, 0) = -SO3::hat(d) * pose.so3().matrix() * SO3::hat(q);
+					J.block<3, 3>(0, 3) = SO3::hat(d);
+					
+					jacob_edge[idx] = J;
+					errors_edge[idx] = err;
+				}
+			});
 		}
 		
-		LOG(INFO) << "current pose: " << pose.translation().transpose() << ", "
-		<< pose.so3().unit_quaternion().coeffs().transpose();
+		/// Nearest neighbor search for planar points
+		if (options_.use_surf_points_) {
+			std::for_each(std::execution::par_unseq, index_surf.begin(), index_surf.end(), [&](int idx) {
+				Vec3d q = ToVec3d(surf->points[idx]);
+				Vec3d qs = pose * q;
+				
+				// Find nearest neighbors
+				std::vector<int> nn_indices;
+				
+				kdtree_surf_.GetClosestPoint(ToPointType(qs), nn_indices, 5);
+				effect_surf[idx] = false;
+				
+				if (nn_indices.size() == 5) {
+					std::vector<Vec3d> nn_eigen;
+					for (auto& n : nn_indices) {
+						nn_eigen.emplace_back(ToVec3d(local_map_surf_->points[n]));
+					}
+					
+					// Point-to-plane residual
+					Vec4d n;
+					if (!math::FitPlane(nn_eigen, n)) {
+						return;
+					}
+					
+					double dis = n.head<3>().dot(qs) + n[3];
+					if (fabs(dis) > options_.max_plane_distance_) {
+						return;
+					}
+					
+					effect_surf[idx] = true;
+					
+					// Build residual
+					Eigen::Matrix<double, 1, 6> J;
+					J.block<1, 3>(0, 0) = -n.head<3>().transpose() * pose.so3().matrix() * SO3::hat(q);
+					J.block<1, 3>(0, 3) = n.head<3>().transpose();
+					
+					jacob_surf[idx] = J;
+					errors_surf[idx] = dis;
+				}
+			});
+		}
 		
-		if (viewer_ != nullptr) {
-			viewer_->SetPoseAndCloud(pose, scan_world);
+		// Accumulate Hessian and error, compute dx
+		double total_res = 0;
+		int effective_num = 0;
+		
+		Mat6d H = Mat6d::Zero();
+		Vec6d err = Vec6d::Zero();
+		
+		for (const auto& idx : index_surf) {
+			if (effect_surf[idx]) {
+				H += jacob_surf[idx].transpose() * jacob_surf[idx];
+				err += -jacob_surf[idx].transpose() * errors_surf[idx];
+				effective_num++;
+				total_res += errors_surf[idx] * errors_surf[idx];
+			}
+		}
+		
+		for (const auto& idx : index_edge) {
+			if (effect_edge[idx]) {
+				H += jacob_edge[idx].transpose() * jacob_edge[idx];
+				err += -jacob_edge[idx].transpose() * errors_edge[idx];
+				effective_num++;
+				total_res += errors_edge[idx].norm();
+			}
+		}
+		
+		if (effective_num < options_.min_effective_pts_) {
+			LOG(WARNING) << "effective num too small: " << effective_num;
+			return pose;
+		}
+		
+		Vec6d dx = H.inverse() * err;
+		pose.so3() = pose.so3() * SO3::exp(dx.head<3>());
+		pose.translation() += dx.tail<3>();
+		
+		// Update
+		LOG(INFO) << "iter " << iter << " total res: " << total_res << ", eff: " << effective_num
+		<< ", mean res: " << total_res / effective_num << ", dxn: " << dx.norm();
+		
+		if (dx.norm() < options_.eps_) {
+			LOG(INFO) << "converged, dx = " << dx.transpose();
+			break;
 		}
 	}
 	
-	SE3 LoamLikeOdom::AlignWithLocalMap(CloudPtr edge, CloudPtr surf) {
-		// Custom ICP implementation needed here
-		SE3 pose;
-		if (estimated_poses_.size() >= 2) {
-			// Predict pose from last two poses
-			SE3 T1 = estimated_poses_[estimated_poses_.size() - 1];
-			SE3 T2 = estimated_poses_[estimated_poses_.size() - 2];
-			pose = T1 * (T2.inverse() * T1);
-		}
-		
-		int edge_size = edge->size();
-		int surf_size = surf->size();
-		
-		// Implement concurrent processing
-		for (int iter = 0; iter < options_.max_iteration_; ++iter) {
-			std::vector<bool> effect_surf(surf_size, false);
-			std::vector<Eigen::Matrix<double, 1, 6>> jacob_surf(surf_size);  // 1D residual for planes
-			std::vector<double> errors_surf(surf_size);
-			
-			std::vector<bool> effect_edge(edge_size, false);
-			std::vector<Eigen::Matrix<double, 3, 6>> jacob_edge(edge_size);  // 3D residual for edges
-			std::vector<Vec3d> errors_edge(edge_size);
-			
-			std::vector<int> index_surf(surf_size);
-			std::iota(index_surf.begin(), index_surf.end(), 0);
-			std::vector<int> index_edge(edge_size);
-			std::iota(index_edge.begin(), index_edge.end(), 0);
-			
-			// Gauss-Newton iteration
-			// Nearest neighbor search for edge points
-			if (options_.use_edge_points_) {
-				std::for_each(std::execution::par_unseq, index_edge.begin(), index_edge.end(), [&](int idx) {
-					Vec3d q = ToVec3d(edge->points[idx]);
-					Vec3d qs = pose * q;
-					
-					// Find nearest neighbors
-					std::vector<int> nn_indices;
-					
-					kdtree_edge_.GetClosestPoint(ToPointType(qs), nn_indices, 5);
-					effect_edge[idx] = false;
-					
-					if (nn_indices.size() >= 3) {
-						std::vector<Vec3d> nn_eigen;
-						for (auto& n : nn_indices) {
-							nn_eigen.emplace_back(ToVec3d(local_map_edge_->points[n]));
-						}
-						
-						// Point-to-line residual
-						Vec3d d, p0;
-						if (!math::FitLine(nn_eigen, p0, d, options_.max_line_distance_)) {
-							return;
-						}
-						
-						Vec3d err = SO3::hat(d) * (qs - p0);
-						if (err.norm() > options_.max_line_distance_) {
-							return;
-						}
-						
-						effect_edge[idx] = true;
-						
-						// Build residual
-						Eigen::Matrix<double, 3, 6> J;
-						J.block<3, 3>(0, 0) = -SO3::hat(d) * pose.so3().matrix() * SO3::hat(q);
-						J.block<3, 3>(0, 3) = SO3::hat(d);
-						
-						jacob_edge[idx] = J;
-						errors_edge[idx] = err;
-					}
-				});
-			}
-			
-			/// Nearest neighbor search for planar points
-			if (options_.use_surf_points_) {
-				std::for_each(std::execution::par_unseq, index_surf.begin(), index_surf.end(), [&](int idx) {
-					Vec3d q = ToVec3d(surf->points[idx]);
-					Vec3d qs = pose * q;
-					
-					// Find nearest neighbors
-					std::vector<int> nn_indices;
-					
-					kdtree_surf_.GetClosestPoint(ToPointType(qs), nn_indices, 5);
-					effect_surf[idx] = false;
-					
-					if (nn_indices.size() == 5) {
-						std::vector<Vec3d> nn_eigen;
-						for (auto& n : nn_indices) {
-							nn_eigen.emplace_back(ToVec3d(local_map_surf_->points[n]));
-						}
-						
-						// Point-to-plane residual
-						Vec4d n;
-						if (!math::FitPlane(nn_eigen, n)) {
-							return;
-						}
-						
-						double dis = n.head<3>().dot(qs) + n[3];
-						if (fabs(dis) > options_.max_plane_distance_) {
-							return;
-						}
-						
-						effect_surf[idx] = true;
-						
-						// Build residual
-						Eigen::Matrix<double, 1, 6> J;
-						J.block<1, 3>(0, 0) = -n.head<3>().transpose() * pose.so3().matrix() * SO3::hat(q);
-						J.block<1, 3>(0, 3) = n.head<3>().transpose();
-						
-						jacob_surf[idx] = J;
-						errors_surf[idx] = dis;
-					}
-				});
-			}
-			
-			// Accumulate Hessian and error, compute dx
-			double total_res = 0;
-			int effective_num = 0;
-			
-			Mat6d H = Mat6d::Zero();
-			Vec6d err = Vec6d::Zero();
-			
-			for (const auto& idx : index_surf) {
-				if (effect_surf[idx]) {
-					H += jacob_surf[idx].transpose() * jacob_surf[idx];
-					err += -jacob_surf[idx].transpose() * errors_surf[idx];
-					effective_num++;
-					total_res += errors_surf[idx] * errors_surf[idx];
-				}
-			}
-			
-			for (const auto& idx : index_edge) {
-				if (effect_edge[idx]) {
-					H += jacob_edge[idx].transpose() * jacob_edge[idx];
-					err += -jacob_edge[idx].transpose() * errors_edge[idx];
-					effective_num++;
-					total_res += errors_edge[idx].norm();
-				}
-			}
-			
-			if (effective_num < options_.min_effective_pts_) {
-				LOG(WARNING) << "effective num too small: " << effective_num;
-				return pose;
-			}
-			
-			Vec6d dx = H.inverse() * err;
-			pose.so3() = pose.so3() * SO3::exp(dx.head<3>());
-			pose.translation() += dx.tail<3>();
-			
-			// Update
-			LOG(INFO) << "iter " << iter << " total res: " << total_res << ", eff: " << effective_num
-			<< ", mean res: " << total_res / effective_num << ", dxn: " << dx.norm();
-			
-			if (dx.norm() < options_.eps_) {
-				LOG(INFO) << "converged, dx = " << dx.transpose();
-				break;
-			}
-		}
-		
-		estimated_poses_.emplace_back(pose);
-		return pose;
-	}
+	estimated_poses_.emplace_back(pose);
+	return pose;
+}
 \end{lstlisting}
 
 Since we need to handle both point-to-line and point-to-plane registration simultaneously, the code here will be somewhat lengthy. The workflow is identical to what we introduced in the ICP section, with the addition of local map maintenance procedures. Readers should compile and run the `test_loam_odom` program to execute this odometry:
 
 \begin{lstlisting}[language=c++,caption=Terminal input:]
-	bin/test_loam_odom 
+bin/test_loam_odom 
 \end{lstlisting}
 
 Figure~\ref{fig:loam-map} shows the mapping results from this section's odometry program, where readers can clearly observe the structural shapes of various objects.
@@ -1788,47 +1787,47 @@ The implementation of loosely coupled LIO consists of three main components: Fir
 The CloudConvert class in this section handles conversion of different point cloud formats to PCL format, with the following main interface:
 
 \begin{lstlisting}[language=c++,caption=src/ch7/loosly_coupled_lio/cloud_convert.h]
-	class CloudConvert {
-		public:
-		EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-		
-		enum class LidarType {
-			AVIA = 1,  // DJI solid-state LiDAR
-			VELO32,    // Velodyne 32-beam
-			OUST64,    // Ouster 64-beam
-		};
-		
-		CloudConvert() = default;
-		~CloudConvert() = default;
-		
-		/**
-		* Process Livox Avia point cloud
-		* @param msg
-		* @param pcl_out
-		*/
-		void Process(const livox_ros_driver::CustomMsg::ConstPtr &msg, FullCloudPtr &pcl_out);
-		
-		/**
-		* Process sensor_msgs::PointCloud2
-		* @param msg
-		* @param pcl_out
-		*/
-		void Process(const sensor_msgs::PointCloud2::ConstPtr &msg, FullCloudPtr &pcl_out);
-		
-		/// Load parameters from YAML
-		void LoadFromYAML(const std::string &yaml);
-		
-		private:
-		void AviaHandler(const livox_ros_driver::CustomMsg::ConstPtr &msg);
-		void Oust64Handler(const sensor_msgs::PointCloud2::ConstPtr &msg);
-		void VelodyneHandler(const sensor_msgs::PointCloud2::ConstPtr &msg);
-		
-		FullPointCloudType cloud_full_, cloud_out_;  // Output point cloud
-		LidarType lidar_type_ = LidarType::AVIA;     // LiDAR type
-		int point_filter_num_ = 1;                   // Point decimation ratio
-		int num_scans_ = 6;                          // Number of scan beams
-		float time_scale_ = 1e-3;                    // Time field scaling factor
+class CloudConvert {
+	public:
+	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+	
+	enum class LidarType {
+		AVIA = 1,  // DJI solid-state LiDAR
+		VELO32,    // Velodyne 32-beam
+		OUST64,    // Ouster 64-beam
 	};
+	
+	CloudConvert() = default;
+	~CloudConvert() = default;
+	
+	/**
+	* Process Livox Avia point cloud
+	* @param msg
+	* @param pcl_out
+	*/
+	void Process(const livox_ros_driver::CustomMsg::ConstPtr &msg, FullCloudPtr &pcl_out);
+	
+	/**
+	* Process sensor_msgs::PointCloud2
+	* @param msg
+	* @param pcl_out
+	*/
+	void Process(const sensor_msgs::PointCloud2::ConstPtr &msg, FullCloudPtr &pcl_out);
+	
+	/// Load parameters from YAML
+	void LoadFromYAML(const std::string &yaml);
+	
+	private:
+	void AviaHandler(const livox_ros_driver::CustomMsg::ConstPtr &msg);
+	void Oust64Handler(const sensor_msgs::PointCloud2::ConstPtr &msg);
+	void VelodyneHandler(const sensor_msgs::PointCloud2::ConstPtr &msg);
+	
+	FullPointCloudType cloud_full_, cloud_out_;  // Output point cloud
+	LidarType lidar_type_ = LidarType::AVIA;     // LiDAR type
+	int point_filter_num_ = 1;                   // Point decimation ratio
+	int num_scans_ = 6;                          // Number of scan beams
+	float time_scale_ = 1e-3;                    // Time field scaling factor
+};
 \end{lstlisting}
 
 The implementation mainly standardizes point cloud interfaces. After processing by this class, subsequent modules only need to handle FullCloudPtr input. The class manages per-point timestamps, decimation ratios, etc., typically producing much smaller point clouds than raw sensor output. We omit the detailed implementation as it's relatively trivial.
@@ -1836,96 +1835,96 @@ The implementation mainly standardizes point cloud interfaces. After processing 
 Next, we synchronize IMU and point cloud data using the MessageSync class:
 
 \begin{lstlisting}[language=c++,caption=src/ch7/loosly_coupled_lio/measure_sync.h]
-	/// IMU and LiDAR synchronization
-	struct MeasureGroup {
-		MeasureGroup() { this->lidar_.reset(new FullPointCloudType()); };
-		
-		double lidar_begin_time_ = 0;   // LiDAR packet start time
-		double lidar_end_time_ = 0;     // LiDAR packet end time
-		FullCloudPtr lidar_ = nullptr;  // LiDAR point cloud
-		std::deque<IMUPtr> imu_;        // IMU measurements between frames
-	};
+/// IMU and LiDAR synchronization
+struct MeasureGroup {
+	MeasureGroup() { this->lidar_.reset(new FullPointCloudType()); };
+	
+	double lidar_begin_time_ = 0;   // LiDAR packet start time
+	double lidar_end_time_ = 0;     // LiDAR packet end time
+	FullCloudPtr lidar_ = nullptr;  // LiDAR point cloud
+	std::deque<IMUPtr> imu_;        // IMU measurements between frames
+};
+
+/**
+* Synchronize LiDAR and IMU data
+*/
+class MessageSync {
+	public:
+	using Callback = std::function<void(const MeasureGroup &)>;
+	
+	MessageSync(Callback cb) : callback_(cb), conv_(new CloudConvert) {}
+	
+	/// Initialization
+	void Init(const std::string &yaml);
+	
+	/// Process IMU data
+	void ProcessIMU(IMUPtr imu);
 	
 	/**
-	* Synchronize LiDAR and IMU data
+	* Process sensor_msgs::PointCloud2
+	* @param msg
 	*/
-	class MessageSync {
-		public:
-		using Callback = std::function<void(const MeasureGroup &)>;
-		
-		MessageSync(Callback cb) : callback_(cb), conv_(new CloudConvert) {}
-		
-		/// Initialization
-		void Init(const std::string &yaml);
-		
-		/// Process IMU data
-		void ProcessIMU(IMUPtr imu);
-		
-		/**
-		* Process sensor_msgs::PointCloud2
-		* @param msg
-		*/
-		void ProcessCloud(const sensor_msgs::PointCloud2::ConstPtr &msg);
-		
-		void ProcessCloud(const livox_ros_driver::CustomMsg::ConstPtr &msg);
-		
-		private:
-		/// Attempt synchronization, returns true if successful
-		bool Sync();
-		
-		Callback callback_;                             // Callback after synchronization
-		std::shared_ptr<CloudConvert> conv_ = nullptr;  // Point cloud converter
-		std::deque<FullCloudPtr> lidar_buffer_;         // LiDAR data buffer
-		std::deque<IMUPtr> imu_buffer_;                 // IMU data buffer
-		double last_timestamp_imu_ = -1.0;              // Latest IMU timestamp
-		double last_timestamp_lidar_ = 0;               // Latest LiDAR timestamp
-		std::deque<double> time_buffer_;
-		bool lidar_pushed_ = false;
-		MeasureGroup measures_;
-		double lidar_end_time_ = 0;
-	};
+	void ProcessCloud(const sensor_msgs::PointCloud2::ConstPtr &msg);
 	
-	bool MessageSync::Sync() {
-		if (lidar_buffer_.empty() || imu_buffer_.empty()) {
-			return false;
-		}
-		
-		if (!lidar_pushed_) {
-			measures_.lidar_ = lidar_buffer_.front();
-			measures_.lidar_begin_time_ = time_buffer_.front();
-			
-			lidar_end_time_ = measures_.lidar_begin_time_ + 
-			measures_.lidar_->points.back().time / double(1000);
-			
-			measures_.lidar_end_time_ = lidar_end_time_;
-			lidar_pushed_ = true;
-		}
-		
-		if (last_timestamp_imu_ < lidar_end_time_) {
-			return false;
-		}
-		
-		double imu_time = imu_buffer_.front()->timestamp_;
-		measures_.imu_.clear();
-		while ((!imu_buffer_.empty()) && (imu_time < lidar_end_time_)) {
-			imu_time = imu_buffer_.front()->timestamp_;
-			if (imu_time > lidar_end_time_) {
-				break;
-			}
-			measures_.imu_.push_back(imu_buffer_.front());
-			imu_buffer_.pop_front();
-		}
-		
-		lidar_buffer_.pop_front();
-		time_buffer_.pop_front();
-		lidar_pushed_ = false;
-		
-		if (callback_) {
-			callback_(measures_);
-		}
-		
-		return true;
+	void ProcessCloud(const livox_ros_driver::CustomMsg::ConstPtr &msg);
+	
+	private:
+	/// Attempt synchronization, returns true if successful
+	bool Sync();
+	
+	Callback callback_;                             // Callback after synchronization
+	std::shared_ptr<CloudConvert> conv_ = nullptr;  // Point cloud converter
+	std::deque<FullCloudPtr> lidar_buffer_;         // LiDAR data buffer
+	std::deque<IMUPtr> imu_buffer_;                 // IMU data buffer
+	double last_timestamp_imu_ = -1.0;              // Latest IMU timestamp
+	double last_timestamp_lidar_ = 0;               // Latest LiDAR timestamp
+	std::deque<double> time_buffer_;
+	bool lidar_pushed_ = false;
+	MeasureGroup measures_;
+	double lidar_end_time_ = 0;
+};
+
+bool MessageSync::Sync() {
+	if (lidar_buffer_.empty() || imu_buffer_.empty()) {
+		return false;
 	}
+	
+	if (!lidar_pushed_) {
+		measures_.lidar_ = lidar_buffer_.front();
+		measures_.lidar_begin_time_ = time_buffer_.front();
+		
+		lidar_end_time_ = measures_.lidar_begin_time_ + 
+		measures_.lidar_->points.back().time / double(1000);
+		
+		measures_.lidar_end_time_ = lidar_end_time_;
+		lidar_pushed_ = true;
+	}
+	
+	if (last_timestamp_imu_ < lidar_end_time_) {
+		return false;
+	}
+	
+	double imu_time = imu_buffer_.front()->timestamp_;
+	measures_.imu_.clear();
+	while ((!imu_buffer_.empty()) && (imu_time < lidar_end_time_)) {
+		imu_time = imu_buffer_.front()->timestamp_;
+		if (imu_time > lidar_end_time_) {
+			break;
+		}
+		measures_.imu_.push_back(imu_buffer_.front());
+		imu_buffer_.pop_front();
+	}
+	
+	lidar_buffer_.pop_front();
+	time_buffer_.pop_front();
+	lidar_pushed_ = false;
+	
+	if (callback_) {
+		callback_(measures_);
+	}
+	
+	return true;
+}
 \end{lstlisting}
 
 This class receives raw IMU and LiDAR messages from ROS packages, assembles them into a MeasureGroup through the Sync() function, and passes it to the callback function. Our subsequent loosely/tightly coupled algorithms only need to handle MeasureGroup objects without worrying about data preparation and synchronization implementation details.
@@ -1934,97 +1933,97 @@ This class receives raw IMU and LiDAR messages from ROS packages, assembles them
 The main implementation of the loosely coupled system is shown below. It maintains an ESKF object and a MessageSync object to process synchronized point clouds and IMU data.
 
 \begin{lstlisting}[language=c++,caption=src/ch7/loosely_coupled_lio/loosly_lio.h]
-	class LooselyLIO {
-		public:
-		EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
-		struct Options {
-			Options() {}
-			bool save_motion_undistortion_pcd_ = false;  // Whether to save point clouds before/after motion undistortion
-			bool with_ui_ = true;                        // Whether to enable UI
-		};
-		
-		LooselyLIO(Options options);
-		~LooselyLIO() = default;
-		
-		/// Initialize from config file
-		bool Init(const std::string &config_yaml);
-		
-		/// Point cloud callback
-		void PCLCallBack(const sensor_msgs::PointCloud2::ConstPtr &msg);
-		void LivoxPCLCallBack(const livox_ros_driver::CustomMsg::ConstPtr &msg);
-		
-		/// IMU callback
-		void IMUCallBack(IMUPtr msg_in);
-		
-		/// Terminate program and exit UI
-		void Finish();
-		
-		private:
-		/// Process synchronized IMU and LiDAR data
-		void ProcessMeasurements(const MeasureGroup &meas);
-		
-		/// Attempt IMU initialization
-		void TryInitIMU();
-		
-		/// Predict states using IMU
-		/// Predicted states during this period will be stored in imu_states_
-		void Predict();
-		
-		/// Motion undistortion for point cloud in measures_
-		void Undistort();
-		
-		/// Perform registration and observation
-		void Align();
-		
-		private:
-		/// modules
-		std::shared_ptr<MessageSync> sync_ = nullptr;  // Message synchronizer
-		StaticIMUInit imu_init_;                       // IMU static initialization
-		std::shared_ptr<sad::IncrementalNDTLO> inc_ndt_lo_ = nullptr;
-		
-		/// point clouds data
-		FullCloudPtr scan_undistort_{new FullPointCloudType()};  // scan after undistortion
-		SE3 pose_of_lo_;
-		
-		Options options_;
-		
-		// flags
-		bool imu_need_init_ = true;   // Whether IMU bias needs initialization
-		bool flg_first_scan_ = true;  // Whether first LiDAR scan
-		int frame_num_ = 0;           // Frame counter
-		
-		// EKF data
-		MeasureGroup measures_;              // Synchronized IMU and point cloud
-		std::vector<NavStated> imu_states_;  // States during ESKF prediction
-		ESKFD eskf_;                         // ESKF
-		SE3 TIL_;                            // Extrinsic between LiDAR and IMU
-		
-		std::shared_ptr<ui::PangolinWindow> ui_ = nullptr;
+class LooselyLIO {
+	public:
+	EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+	struct Options {
+		Options() {}
+		bool save_motion_undistortion_pcd_ = false;  // Whether to save point clouds before/after motion undistortion
+		bool with_ui_ = true;                        // Whether to enable UI
 	};
+	
+	LooselyLIO(Options options);
+	~LooselyLIO() = default;
+	
+	/// Initialize from config file
+	bool Init(const std::string &config_yaml);
+	
+	/// Point cloud callback
+	void PCLCallBack(const sensor_msgs::PointCloud2::ConstPtr &msg);
+	void LivoxPCLCallBack(const livox_ros_driver::CustomMsg::ConstPtr &msg);
+	
+	/// IMU callback
+	void IMUCallBack(IMUPtr msg_in);
+	
+	/// Terminate program and exit UI
+	void Finish();
+	
+	private:
+	/// Process synchronized IMU and LiDAR data
+	void ProcessMeasurements(const MeasureGroup &meas);
+	
+	/// Attempt IMU initialization
+	void TryInitIMU();
+	
+	/// Predict states using IMU
+	/// Predicted states during this period will be stored in imu_states_
+	void Predict();
+	
+	/// Motion undistortion for point cloud in measures_
+	void Undistort();
+	
+	/// Perform registration and observation
+	void Align();
+	
+	private:
+	/// modules
+	std::shared_ptr<MessageSync> sync_ = nullptr;  // Message synchronizer
+	StaticIMUInit imu_init_;                       // IMU static initialization
+	std::shared_ptr<sad::IncrementalNDTLO> inc_ndt_lo_ = nullptr;
+	
+	/// point clouds data
+	FullCloudPtr scan_undistort_{new FullPointCloudType()};  // scan after undistortion
+	SE3 pose_of_lo_;
+	
+	Options options_;
+	
+	// flags
+	bool imu_need_init_ = true;   // Whether IMU bias needs initialization
+	bool flg_first_scan_ = true;  // Whether first LiDAR scan
+	int frame_num_ = 0;           // Frame counter
+	
+	// EKF data
+	MeasureGroup measures_;              // Synchronized IMU and point cloud
+	std::vector<NavStated> imu_states_;  // States during ESKF prediction
+	ESKFD eskf_;                         // ESKF
+	SE3 TIL_;                            // Extrinsic between LiDAR and IMU
+	
+	std::shared_ptr<ui::PangolinWindow> ui_ = nullptr;
+};
 \end{lstlisting}
 
 The core processing logic resides in the ProcessMeasurements function, which includes the following steps:
 
 \begin{lstlisting}[language=c++,caption=src/ch7/loosely_coupled_lio/loosly_lio.cc]
-	void LooselyLIO::ProcessMeasurements(const MeasureGroup &meas) {
-		LOG(INFO) << "call meas, imu: " << meas.imu_.size() << ", lidar pts: " << meas.lidar_->size();
-		measures_ = meas;
-		
-		if (imu_need_init_) {
-			// Initialize IMU system
-			TryInitIMU();
-			return;
-		}
-		
-		// State prediction using IMU data
-		Predict();
-		
-		// Motion undistortion for point cloud
-		Undistort();
-		
-		// Registration
-		Align();
+void LooselyLIO::ProcessMeasurements(const MeasureGroup &meas) {
+	LOG(INFO) << "call meas, imu: " << meas.imu_.size() << ", lidar pts: " << meas.lidar_->size();
+	measures_ = meas;
+	
+	if (imu_need_init_) {
+		// Initialize IMU system
+		TryInitIMU();
+		return;
 	}
+	
+	// State prediction using IMU data
+	Predict();
+	
+	// Motion undistortion for point cloud
+	Undistort();
+	
+	// Registration
+	Align();
+}
 \end{lstlisting}
 
 The workflow is straightforward: When IMU is uninitialized, it uses the static initialization method from Chapter 3 to estimate IMU biases. After initialization, it first performs prediction using IMU data, then applies motion undistortion to the point cloud using predicted states, and finally registers the undistorted point cloud. The static initialization part was introduced earlier. Now let's examine the implementations of these three functions:
@@ -2032,16 +2031,16 @@ The workflow is straightforward: When IMU is uninitialized, it uses the static i
 The prediction part is simple - it directly feeds IMU data to the filter and records the nominal states:
 
 \begin{lstlisting}[language=c++,caption=src/ch7/loosely_coupled_lio/loosly_lio.cc]
-	void LooselyLIO::Predict() {
-		imu_states_.clear();
+void LooselyLIO::Predict() {
+	imu_states_.clear();
+	imu_states_.emplace_back(eskf_.GetNominalState());
+	
+	/// Predict IMU states
+	for (auto &imu : measures_.imu_) {
+		eskf_.Predict(*imu);
 		imu_states_.emplace_back(eskf_.GetNominalState());
-		
-		/// Predict IMU states
-		for (auto &imu : measures_.imu_) {
-			eskf_.Predict(*imu);
-			imu_states_.emplace_back(eskf_.GetNominalState());
-		}
 	}
+}
 \end{lstlisting}
 
 Regarding motion undistortion, let's first examine its underlying principle.
@@ -2064,29 +2063,29 @@ Reading right-to-left, this naturally yields coordinates in the end-time LiDAR f
 In implementation, we obtain scan-start/end poses through various means. For LIO systems, a natural approach uses relative poses from EKF prediction between scans. The Predict function already stores IMU-predicted poses between scans, enabling the following undistortion code:
 
 \begin{lstlisting}[language=c++,caption=src/ch7/loosely_coupled_lio/loosly_lio.cc]
-	void LooselyLIO::Undistort() {
-		auto cloud = measures_.lidar_;
-		auto imu_state = eskf_.GetNominalState();  // Final state
-		SE3 T_end = SE3(imu_state.R_, imu_state.p_);
+void LooselyLIO::Undistort() {
+	auto cloud = measures_.lidar_;
+	auto imu_state = eskf_.GetNominalState();  // Final state
+	SE3 T_end = SE3(imu_state.R_, imu_state.p_);
+	
+	/// Transform all points to end-time pose
+	std::for_each(std::execution::par_unseq, cloud->points.begin(), cloud->points.end(), [&](auto &pt) {
+		SE3 Ti = T_end;
+		NavStated match;
 		
-		/// Transform all points to end-time pose
-		std::for_each(std::execution::par_unseq, cloud->points.begin(), cloud->points.end(), [&](auto &pt) {
-			SE3 Ti = T_end;
-			NavStated match;
-			
-			// pt.time is milliseconds relative to scan start
-			math::PoseInterp<NavStated>(
-			measures_.lidar_begin_time_ + pt.time * 1e-3, imu_states_, [](const NavStated &s) { return s.timestamp_; }, [](const NavStated &s) { return s.GetSE3(); }, Ti, match);
-			
-			Vec3d pi = ToVec3d(pt);
-			Vec3d p_compensate = TIL_.inverse() * T_end.inverse() * Ti * TIL_ * pi;
-			
-			pt.x = p_compensate(0);
-			pt.y = p_compensate(1);
-			pt.z = p_compensate(2);
-		});
-		scan_undistort_ = cloud;
-	}
+		// pt.time is milliseconds relative to scan start
+		math::PoseInterp<NavStated>(
+		measures_.lidar_begin_time_ + pt.time * 1e-3, imu_states_, [](const NavStated &s) { return s.timestamp_; }, [](const NavStated &s) { return s.GetSE3(); }, Ti, match);
+		
+		Vec3d pi = ToVec3d(pt);
+		Vec3d p_compensate = TIL_.inverse() * T_end.inverse() * Ti * TIL_ * pi;
+		
+		pt.x = p_compensate(0);
+		pt.y = p_compensate(1);
+		pt.z = p_compensate(2);
+	});
+	scan_undistort_ = cloud;
+}
 \end{lstlisting}
 
 Figure~\ref{fig:cloud-undist} shows the undistortion effect. Right-side points (near scan end) require smaller corrections, while left-side points (near scan start) need larger adjustments. Note this method assumes the filter works properly - if the filter fails or poses diverge, the undistortion will likewise diverge.
@@ -2102,53 +2101,53 @@ Figure~\ref{fig:cloud-undist} shows the undistortion effect. Right-side points (
 Finally, we present the registration module code of the loosely coupled LIO system. Since the undistorted point cloud has already been obtained in previous steps, we only need to pass it to the NDT odometry, compute the pose, and then feed it back to the Kalman filter:
 
 \begin{lstlisting}[language=c++,caption=src/ch7/loosely_coupled_lio/loosly_lio.cc]
-	void LooselyLIO::Align() {
-		FullCloudPtr scan_undistort_trans(new FullPointCloudType);
-		pcl::transformPointCloud(*scan_undistort_, *scan_undistort_trans, TIL_.matrix());
-		scan_undistort_ = scan_undistort_trans;
-		
-		auto current_scan = ConvertToCloud<FullPointType>(scan_undistort_);
-		
-		// Voxel filtering
-		pcl::VoxelGrid<PointType> voxel;
-		voxel.setLeafSize(0.5, 0.5, 0.5);
-		voxel.setInputCloud(current_scan);
-		
-		CloudPtr current_scan_filter(new PointCloudType);
-		voxel.filter(*current_scan_filter);
-		
-		/// Process first frame of LiDAR data
-		if (flg_first_scan_) {
-			SE3 pose;
-			inc_ndt_lo_->AddCloud(current_scan_filter, pose);
-			flg_first_scan_ = false;
-			return;
-		}
-		
-		/// Get predicted pose from EKF, feed to LO, obtain LO pose, and finally integrate into EKF
-		SE3 pose_predict = eskf_.GetNominalSE3();
-		inc_ndt_lo_->AddCloud(current_scan_filter, pose_predict, true);
-		pose_of_lo_ = pose_predict;
-		eskf_.ObserveSE3(pose_of_lo_, 1e-2, 1e-2);
-		
-		if (options_.with_ui_) {
-			// Send to UI
-			ui_->UpdateScan(current_scan, eskf_.GetNominalSE3());  // Convert to Lidar Pose for UI
-			ui_->UpdateNavState(eskf_.GetNominalState());
-		}
-		frame_num_++;
+void LooselyLIO::Align() {
+	FullCloudPtr scan_undistort_trans(new FullPointCloudType);
+	pcl::transformPointCloud(*scan_undistort_, *scan_undistort_trans, TIL_.matrix());
+	scan_undistort_ = scan_undistort_trans;
+	
+	auto current_scan = ConvertToCloud<FullPointType>(scan_undistort_);
+	
+	// Voxel filtering
+	pcl::VoxelGrid<PointType> voxel;
+	voxel.setLeafSize(0.5, 0.5, 0.5);
+	voxel.setInputCloud(current_scan);
+	
+	CloudPtr current_scan_filter(new PointCloudType);
+	voxel.filter(*current_scan_filter);
+	
+	/// Process first frame of LiDAR data
+	if (flg_first_scan_) {
+		SE3 pose;
+		inc_ndt_lo_->AddCloud(current_scan_filter, pose);
+		flg_first_scan_ = false;
+		return;
 	}
+	
+	/// Get predicted pose from EKF, feed to LO, obtain LO pose, and finally integrate into EKF
+	SE3 pose_predict = eskf_.GetNominalSE3();
+	inc_ndt_lo_->AddCloud(current_scan_filter, pose_predict, true);
+	pose_of_lo_ = pose_predict;
+	eskf_.ObserveSE3(pose_of_lo_, 1e-2, 1e-2);
+	
+	if (options_.with_ui_) {
+		// Send to UI
+		ui_->UpdateScan(current_scan, eskf_.GetNominalSE3());  // Convert to Lidar Pose for UI
+		ui_->UpdateNavState(eskf_.GetNominalState());
+	}
+	frame_num_++;
+}
 \end{lstlisting}
 
 Now please run the test\_loosely\_lio program to evaluate the performance of this chapter's implementation. The program supports running on three datasets: ULHK, KITTI, and NCLT. You can specify which dataset to use through gflags, for example:
 \begin{lstlisting}
-	./bin/test_loosely_lio --bag_path ./dataset/sad/nclt/20120429.bag --dataset_type NCLT --config ./config/velodyne_nclt.yaml
+./bin/test_loosely_lio --bag_path ./dataset/sad/nclt/20120429.bag --dataset_type NCLT --config ./config/velodyne_nclt.yaml
 \end{lstlisting}
 
 This will run on a specified NCLT data bag. The NCLT data should appear as shown in Figure~\ref{fig:nclt-loosely-lio}. This example program can also run on solid-state LiDAR datasets, such as the AVIA dataset:
 
 \begin{lstlisting}
-	bin/test_loosely_lio --bag_path ./dataset/sad/avia/HKU_MB_2020-09-20-13-34-51.bag --config ./config/avia.yaml --dataset_type=AVIA
+bin/test_loosely_lio --bag_path ./dataset/sad/avia/HKU_MB_2020-09-20-13-34-51.bag --config ./config/avia.yaml --dataset_type=AVIA
 \end{lstlisting}
 
 The AVIA dataset uses DJI's solid-state LiDAR, where you can observe its field of view is significantly narrower than 360-degree mechanical LiDARs (Figure~\ref{fig:avia-loosely-lio}).
