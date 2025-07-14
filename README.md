@@ -12,3 +12,4 @@ The translation is still ongoing and should be done at the end of July 2025. Thi
 - 6.19 Chapter 3 finished.
 - 6.29 Chapter 5 finished.
 - 7.7 Chapter 7 finished.
+- 7.14 Basically finished. Figures and citations are corrected. 
